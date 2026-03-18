@@ -26,9 +26,9 @@
     },
     {
       "id": "hero",
-      "description": "Beautiful home interior",
-      "imageUrl": "https://picsum.photos/seed/hero/1200/800",
-      "imageHint": "home interior"
+      "description": "Cozy modern living room",
+      "imageUrl": "https://picsum.photos/seed/living/1200/800",
+      "imageHint": "modern living room"
     }
   ]
 }

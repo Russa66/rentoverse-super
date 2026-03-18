@@ -7,8 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Search, MapPin, Sparkles, Home as HomeIcon } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 export default function HomePage() {
+  const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -16,19 +19,19 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="relative h-[500px] flex items-center justify-center overflow-hidden">
         <Image 
-          src="https://picsum.photos/seed/hero/1200/800" 
-          alt="Home interior" 
+          src={heroImage?.imageUrl || "https://picsum.photos/seed/hero/1200/800"} 
+          alt={heroImage?.description || "Home interior"} 
           fill 
           className="object-cover brightness-50"
           priority
-          data-ai-hint="home interior"
+          data-ai-hint={heroImage?.imageHint || "home interior"}
         />
         <div className="container relative z-10 px-4 text-center text-white">
           <h1 className="text-4xl md:text-6xl font-headline font-bold mb-6 tracking-tight">
-            Find your next <span className="text-secondary italic">perfect</span> room.
+            Find a space that <span className="text-secondary italic">feels</span> like home.
           </h1>
           <p className="text-lg md:text-xl mb-8 max-w-2xl mx-auto font-body opacity-90">
-            Rentipedia makes finding and listing rooms effortless with intuitive search and AI-powered sharing tools.
+            Rentipedia is your trusted partner for discovering safe, verified, and affordable room rentals in your city.
           </p>
           
           <div className="bg-white p-2 rounded-2xl shadow-2xl max-w-3xl mx-auto flex flex-col md:flex-row gap-2">
