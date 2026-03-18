@@ -26,9 +26,9 @@
     },
     {
       "id": "hero",
-      "description": "Cozy modern living room",
-      "imageUrl": "https://picsum.photos/seed/living/1200/800",
-      "imageHint": "modern living room"
+      "description": "Paris city view with Eiffel Tower",
+      "imageUrl": "https://picsum.photos/seed/paris/1200/800",
+      "imageHint": "city view"
     }
   ]
 }
