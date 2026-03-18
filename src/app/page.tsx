@@ -1,4 +1,3 @@
-
 import Navbar from "@/components/Navbar";
 import RoomCard from "@/components/RoomCard";
 import { MOCK_ROOMS } from "@/lib/mock-data";
@@ -31,7 +30,7 @@ export default function HomePage() {
             Find a space that <span className="text-secondary italic">feels</span> like home.
           </h1>
           <p className="text-lg md:text-xl mb-8 max-w-2xl mx-auto font-body opacity-90">
-            Rentipedia is your trusted partner for discovering safe, verified, and affordable room rentals in your city.
+            Rentpedia is your trusted partner for discovering safe, verified, and affordable room rentals in your city.
           </p>
           
           <div className="bg-white p-2 rounded-2xl shadow-2xl max-w-3xl mx-auto flex flex-col md:flex-row gap-2">
@@ -107,9 +106,9 @@ export default function HomePage() {
             <div className="bg-primary p-1 rounded">
               <HomeIcon className="h-5 w-5 text-white" />
             </div>
-            <span className="font-headline font-bold text-xl">Rentipedia</span>
+            <span className="font-headline font-bold text-xl">Rentpedia</span>
           </div>
-          <p className="text-muted-foreground text-sm">© 2024 Rentipedia. Your trustworthy room rental companion.</p>
+          <p className="text-muted-foreground text-sm">© 2024 Rentpedia. Your trustworthy room rental companion.</p>
         </div>
       </footer>
     </div>

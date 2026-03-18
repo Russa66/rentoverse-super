@@ -1,10 +1,9 @@
-
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: 'Rentipedia | Find Your Perfect Room',
+  title: 'Rentpedia | Find Your Perfect Room',
   description: 'Intuitive room search and listing platform with AI-powered social sharing.',
 };
 
