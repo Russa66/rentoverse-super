@@ -1,0 +1,183 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * Rentipedia Security Rules Documentation
+     * 
+     * Core Philosophy:
+     * This ruleset implements a robust, owner-centric security model designed for the Rentipedia 
+     * platform. It balances the need for public visibility of room listings with the strict 
+     * privacy requirements of user profiles, search requests, and private communications (inquiries).
+     * 
+     * Data Structure:
+     * - /users/{userId}: Private user profiles.
+     * - /users/{userId}/listings: Private workspace for landlords to manage drafts/listings.
+     * - /published_room_listings: Public-facing marketplace for all users.
+     * - /inquiries & /legal_agreements: Shared access paths for specific landlords and renters.
+     * - /users/{userId}/notifications: Private, user-specific system alerts.
+     * 
+     * Key Security Decisions:
+     * 1. Authorization Independence: We rely on denormalized fields (like landlordId, renterId) 
+     *    stored directly on documents to make fast, single-document authorization decisions 
+     *    without expensive cross-collection lookups (get() calls).
+     * 2. Structural Segregation: Room listings are separated into private subcollections (for 
+     *    management) and a top-level public collection (for discovery), ensuring secure 
+     *    and performant listing queries.
+     * 3. Identity Verification: All write operations and private read operations require 
+     *    a verified Firebase Auth UID that matches the internal document state.
+     * 4. Relational Integrity: On document creation, the rules enforce that internal 
+     *    linkage fields (e.g., ownerId) match the authenticated user's ID and the document path.
+     */
+
+    // --- GLOBAL HELPER FUNCTIONS ---
+
+    /** Checks if the request is from an authenticated user. */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** Checks if the authenticated user's UID matches the provided userId. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** Checks ownership for updates and deletes, ensuring the resource exists. */
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
+    }
+
+    /** Checks if the authenticated user is one of two specific participants (e.g., landlord or renter). */
+    function isParticipant(id1, id2) {
+      return isSignedIn() && (request.auth.uid == id1 || request.auth.uid == id2);
+    }
+
+    // --- COLLECTION RULES ---
+
+    /**
+     * @description Access to user profile data.
+     * @path /users/{userId}
+     * @allow Authenticated user can read/write their own profile (get/list/create/update/delete).
+     * @deny User 'A' cannot access profile for User 'B'.
+     * @principle Ownership and Self-Creation. Enforces that internal ID matches path on creation.
+     */
+    match /users/{userId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Landlord's private workspace for managing room listings.
+     * @path /users/{landlordId}/listings/{listingId}
+     * @allow Landlord 'L' can manage their own private listing '123'.
+     * @deny Renter 'R' or Landlord 'M' cannot access Landlord 'L's private listings.
+     * @principle Hierarchical ownership. Relies on path-based security for list operations.
+     */
+    match /users/{landlordId}/listings/{listingId} {
+      allow get, list: if isOwner(landlordId);
+      allow create: if isOwner(landlordId) && request.resource.data.landlordId == landlordId;
+      allow update: if isExistingOwner(landlordId) && request.resource.data.landlordId == resource.data.landlordId;
+      allow delete: if isExistingOwner(landlordId);
+    }
+
+    /**
+     * @description Publicly viewable listings that have been published by landlords.
+     * @path /published_room_listings/{listingId}
+     * @allow Any user (signed in or not) can read; Landlord 'L' can update/delete their own public listing.
+     * @deny User 'X' cannot update a listing created by Landlord 'L'.
+     * @principle Public Read with Owner-Only Writes. Requires 'landlordId' on the document.
+     */
+    match /published_room_listings/{listingId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.landlordId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.landlordId) && request.resource.data.landlordId == resource.data.landlordId;
+      allow delete: if isExistingOwner(resource.data.landlordId);
+    }
+
+    /**
+     * @description Private search criteria saved by renters.
+     * @path /users/{renterId}/saved_search_requests/{requestId}
+     * @allow Renter 'R' can manage their own search request 'REQ_1'.
+     * @deny Landlord 'L' cannot view Renter 'R's saved searches.
+     * @principle Scoped ownership. Enforces that the renterId in the document matches the path.
+     */
+    match /users/{renterId}/saved_search_requests/{requestId} {
+      allow get, list: if isOwner(renterId);
+      allow create: if isOwner(renterId) && request.resource.data.renterId == renterId;
+      allow update: if isExistingOwner(renterId) && request.resource.data.renterId == resource.data.renterId;
+      allow delete: if isExistingOwner(renterId);
+    }
+
+    /**
+     * @description Private messaging between a landlord and a renter regarding a listing.
+     * @path /inquiries/{inquiryId}
+     * @allow Landlord 'L' or Renter 'R' can read/update an inquiry where they are participants.
+     * @deny User 'Z' (not part of the chat) cannot read the inquiry.
+     * @principle Shared Access (Closed Collaborators). Uses denormalized IDs for authorization.
+     */
+    match /inquiries/{inquiryId} {
+      allow get, list: if isParticipant(resource.data.landlordId, resource.data.renterId);
+      allow create: if isSignedIn() && request.resource.data.renterId == request.auth.uid;
+      allow update: if isParticipant(resource.data.landlordId, resource.data.renterId) && request.resource.data.renterId == resource.data.renterId;
+      allow delete: if isParticipant(resource.data.landlordId, resource.data.renterId);
+    }
+
+    /**
+     * @description AI-generated social media content.
+     * @path /social_posts/{postId}
+     * @allow Author 'A' can manage their own social post document.
+     * @deny Another user cannot modify the status or content of Author 'A's post.
+     * @principle Ownership based on an internal 'authorId' field.
+     */
+    match /social_posts/{postId} {
+      allow get, list: if isSignedIn() && (resource == null || resource.data.authorId == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.authorId) && request.resource.data.authorId == resource.data.authorId;
+      allow delete: if isExistingOwner(resource.data.authorId);
+    }
+
+    /**
+     * @description Personal configuration for social media channel automation.
+     * @path /users/{userId}/social_channel_configurations/{configId}
+     * @allow User 'U' can manage their own Facebook/WhatsApp connection settings.
+     * @deny Public access is blocked; only the owner can configure these integrations.
+     * @principle Strict path-based ownership.
+     */
+    match /users/{userId}/social_channel_configurations/{configId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Legal documents shared between landlords and renters.
+     * @path /legal_agreements/{agreementId}
+     * @allow Both the landlord and the renter named in the document can access it.
+     * @deny Unrelated users cannot view or sign the agreement.
+     * @principle Shared Access. Enforces immutability of the primary participants' IDs.
+     */
+    match /legal_agreements/{agreementId} {
+      allow get, list: if isParticipant(resource.data.landlordId, resource.data.renterId);
+      allow create: if isSignedIn() && (request.resource.data.landlordId == request.auth.uid || request.resource.data.renterId == request.auth.uid);
+      allow update: if isParticipant(resource.data.landlordId, resource.data.renterId) && request.resource.data.landlordId == resource.data.landlordId && request.resource.data.renterId == resource.data.renterId;
+      allow delete: if isParticipant(resource.data.landlordId, resource.data.renterId);
+    }
+
+    /**
+     * @description User-specific notifications for matches and inquiries.
+     * @path /users/{recipientId}/notifications/{notificationId}
+     * @allow The recipient 'R' can read and manage (e.g., mark as read) their own notifications.
+     * @deny User 'X' cannot read notifications intended for User 'R'.
+     * @principle Private notification queue.
+     */
+    match /users/{recipientId}/notifications/{notificationId} {
+      allow get, list: if isOwner(recipientId);
+      allow create: if isSignedIn(); // System or participants can trigger notifications for the recipient
+      allow update: if isExistingOwner(recipientId) && request.resource.data.recipientId == resource.data.recipientId;
+      allow delete: if isExistingOwner(recipientId);
+    }
+  }
+}
