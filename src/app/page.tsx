@@ -4,11 +4,11 @@ import RoomCard from "@/components/RoomCard";
 import { MOCK_ROOMS } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, MapPin, Sparkles } from "lucide-react";
+import { Search, MapPin, Sparkles, Home as HomeIcon } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
-export default function Home() {
+export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -21,6 +21,7 @@ export default function Home() {
           fill 
           className="object-cover brightness-50"
           priority
+          data-ai-hint="home interior"
         />
         <div className="container relative z-10 px-4 text-center text-white">
           <h1 className="text-4xl md:text-6xl font-headline font-bold mb-6 tracking-tight">
@@ -101,7 +102,7 @@ export default function Home() {
         <div className="container px-4 mx-auto text-center">
           <div className="flex items-center justify-center gap-2 mb-6">
             <div className="bg-primary p-1 rounded">
-              <Home className="h-5 w-5 text-white" />
+              <HomeIcon className="h-5 w-5 text-white" />
             </div>
             <span className="font-headline font-bold text-xl">Rentipedia</span>
           </div>
