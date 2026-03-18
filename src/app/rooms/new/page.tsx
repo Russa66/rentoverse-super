@@ -134,7 +134,7 @@ export default function NewListing() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="water">Water Supply Condition Details</Label>
-                  <Input id="water" placeholder="e.g. Municipal water with overhead tank" />
+                  <Input id="water" placeholder="e.g. Municipal water with overhead tank" required />
                 </div>
               </div>
 
@@ -151,7 +151,7 @@ export default function NewListing() {
                    </div>
                    <div className="space-y-2">
                     <Label htmlFor="description">Short Description</Label>
-                    <Textarea id="description" placeholder="Describe the room, sunlight, neighbors..." className="min-h-[100px]" />
+                    <Textarea id="description" placeholder="Describe the room, sunlight, neighbors..." className="min-h-[100px]" required />
                   </div>
                 </div>
               </div>
