@@ -1,4 +1,3 @@
-
 "use client";
 
 import { use } from "react";
@@ -8,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { MapPin, Wifi, Zap, Wind, Droplets, Train, MessageCircle, Phone, Share2, ShieldCheck } from "lucide-react";
+import { MapPin, Wifi, Zap, Wind, Droplets, Train, MessageCircle, Phone, Users, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import SocialPostDialog from "@/components/SocialPostDialog";
 import Link from "next/link";
@@ -26,7 +25,7 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
       <Navbar />
       
       <div className="container px-4 mx-auto py-8">
-        {/* Agoda-style Gallery */}
+        {/* Gallery */}
         <div className="grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-3 h-[300px] md:h-[500px] mb-8 rounded-2xl overflow-hidden shadow-lg">
           <div className="md:col-span-2 md:row-span-2 relative">
             <Image src={room.photos[0]} alt={room.title} fill className="object-cover" />
@@ -52,7 +51,9 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
               <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
                 <h1 className="text-3xl md:text-4xl font-headline font-bold tracking-tight">{room.title}</h1>
                 <div className="flex items-center gap-2">
-                   <Badge className="bg-primary hover:bg-primary font-bold px-3 py-1">Top Choice</Badge>
+                   <Badge className="bg-primary hover:bg-primary font-bold px-3 py-1 flex items-center gap-1">
+                     <Users className="h-3 w-3" /> Ideal for {room.idealFor}
+                   </Badge>
                    <Badge variant="outline" className="border-secondary text-secondary-foreground font-bold px-3 py-1">New</Badge>
                 </div>
               </div>

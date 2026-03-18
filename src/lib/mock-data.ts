@@ -1,4 +1,3 @@
-
 export interface RoomListing {
   id: string;
   title: string;
@@ -10,6 +9,7 @@ export interface RoomListing {
   waterSupplyCondition: string;
   monthlyRent: string;
   description: string;
+  idealFor: 'Family' | 'Single Tenant' | 'Commercial';
   photos: string[];
   landlord: {
     name: string;
@@ -27,7 +27,8 @@ export const MOCK_ROOMS: RoomListing[] = [
     inverterAvailable: true,
     acAvailable: true,
     waterSupplyCondition: '24/7 Water Supply',
-    monthlyRent: '$850',
+    monthlyRent: '₹25,000',
+    idealFor: 'Single Tenant',
     description: 'A beautiful modern studio perfect for professionals.',
     photos: ['https://picsum.photos/seed/room1/800/600', 'https://picsum.photos/seed/room2/800/600'],
     landlord: { name: 'John Doe', whatsapp: '+1234567890' }
@@ -41,22 +42,24 @@ export const MOCK_ROOMS: RoomListing[] = [
     inverterAvailable: false,
     acAvailable: false,
     waterSupplyCondition: 'Morning/Evening Supply',
-    monthlyRent: '$500',
+    monthlyRent: '₹12,000',
+    idealFor: 'Single Tenant',
     description: 'Perfect for students, quiet neighborhood.',
     photos: ['https://picsum.photos/seed/room3/800/600'],
     landlord: { name: 'Jane Smith', whatsapp: '+0987654321' }
   },
   {
     id: '3',
-    title: 'Luxury 1BHK with Garden View',
+    title: 'Luxury 3BHK Apartment',
     location: '78 Green Valley, Suburbs',
     nearestCommunication: '10-min drive to Rail Station',
     wifiAvailable: true,
     inverterAvailable: true,
     acAvailable: true,
     waterSupplyCondition: '24/7 Filtered Water',
-    monthlyRent: '$1200',
-    description: 'Experience luxury living in a green environment.',
+    monthlyRent: '₹45,000',
+    idealFor: 'Family',
+    description: 'Experience luxury living in a green environment, ideal for large families.',
     photos: ['https://picsum.photos/seed/room4/800/600', 'https://picsum.photos/seed/room1/800/600'],
     landlord: { name: 'Robert Brown', whatsapp: '+1122334455' }
   }

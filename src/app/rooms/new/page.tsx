@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -9,7 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { MapPin, Train, Wifi, Zap, Wind, Droplets, Camera, Check } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MapPin, Train, Wifi, Zap, Wind, Droplets, Camera, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 
@@ -63,8 +63,24 @@ export default function NewListing() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="rent">Monthly Rent</Label>
-                    <Input id="rent" placeholder="e.g. $500" required />
+                    <Label htmlFor="rent">Monthly Rent (INR)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-3 text-muted-foreground text-sm font-bold">₹</span>
+                      <Input id="rent" className="pl-7" placeholder="e.g. 15000" required />
+                    </div>
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="idealFor">Room Ideal For</Label>
+                    <Select required>
+                      <SelectTrigger id="idealFor" className="w-full">
+                        <SelectValue placeholder="Select who this room is best for" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Single Tenant">Single Tenant</SelectItem>
+                        <SelectItem value="Family">Family</SelectItem>
+                        <SelectItem value="Commercial">Commercial</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>

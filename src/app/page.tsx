@@ -54,7 +54,7 @@ export default function HomePage() {
       <section className="py-12 bg-white">
         <div className="container px-4 mx-auto">
           <div className="flex flex-wrap justify-center gap-4">
-             {['Near Metro', 'WiFi Included', 'Under $500', 'With AC', 'Landlord Direct'].map((tag) => (
+             {['Near Metro', 'WiFi Included', 'Under ₹10,000', 'With AC', 'Landlord Direct'].map((tag) => (
                <Button key={tag} variant="outline" className="rounded-full border-gray-200 hover:border-primary hover:text-primary text-sm px-6 h-10">
                  {tag}
                </Button>

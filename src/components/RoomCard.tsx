@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin, Wifi, Wind, Train } from "lucide-react";
+import { MapPin, Wifi, Wind, Train, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { RoomListing } from "@/lib/mock-data";
@@ -19,15 +19,15 @@ export default function RoomCard({ room }: { room: RoomListing }) {
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
-          <div className="absolute top-3 left-3 flex gap-2">
+          <div className="absolute top-3 left-3 flex flex-wrap gap-2">
+            {room.idealFor && (
+              <Badge className="bg-white text-primary border-primary flex items-center gap-1 font-bold shadow-sm">
+                <Users className="h-3 w-3" /> {room.idealFor}
+              </Badge>
+            )}
             {room.acAvailable && (
               <Badge className="bg-secondary text-secondary-foreground flex items-center gap-1 border-none font-bold">
                 AC
-              </Badge>
-            )}
-            {room.wifiAvailable && (
-              <Badge className="bg-primary text-primary-foreground flex items-center gap-1 border-none font-bold">
-                WiFi
               </Badge>
             )}
           </div>
