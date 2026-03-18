@@ -1,3 +1,34 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "room1",
+      "description": "Modern studio apartment",
+      "imageUrl": "https://picsum.photos/seed/room1/800/600",
+      "imageHint": "modern studio"
+    },
+    {
+      "id": "room2",
+      "description": "Cozy bedroom in shared house",
+      "imageUrl": "https://picsum.photos/seed/room2/800/600",
+      "imageHint": "cozy bedroom"
+    },
+    {
+      "id": "room3",
+      "description": "Luxury apartment with balcony",
+      "imageUrl": "https://picsum.photos/seed/room3/800/600",
+      "imageHint": "luxury apartment"
+    },
+    {
+      "id": "room4",
+      "description": "Simple clean room near station",
+      "imageUrl": "https://picsum.photos/seed/room4/800/600",
+      "imageHint": "clean room"
+    },
+    {
+      "id": "hero",
+      "description": "Beautiful home interior",
+      "imageUrl": "https://picsum.photos/seed/hero/1200/800",
+      "imageHint": "home interior"
+    }
+  ]
 }
