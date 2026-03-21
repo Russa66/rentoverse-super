@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Search, PlusCircle, User, Home, FileText, Send } from "lucide-react";
+import { Search, PlusCircle, User, Home, FileText, Send, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function Navbar() {
@@ -21,6 +21,9 @@ export default function Navbar() {
           </Link>
           <Link href="/search-requests/new" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1">
             <Send className="h-4 w-4" /> Post Requirement
+          </Link>
+          <Link href="/admin" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1">
+            <LayoutDashboard className="h-4 w-4" /> Admin
           </Link>
           <Link href="/legal-form" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1">
             <FileText className="h-4 w-4" /> Legal
