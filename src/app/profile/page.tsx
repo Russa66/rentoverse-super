@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -9,12 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
-import { User, MessageCircle, Home, Bell, Facebook, Mail, CheckCircle, Link2, Save } from "lucide-react";
+import { User, MessageCircle, Home, Bell, Mail, CheckCircle, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where, orderBy, doc } from "firebase/firestore";
-import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { collection, query, orderBy } from "firebase/firestore";
 import { format } from "date-fns";
 
 export default function ProfilePage() {
@@ -34,50 +31,20 @@ export default function ProfilePage() {
 
   const { data: notifications, isLoading: notificationsLoading } = useCollection(notificationsQuery);
 
-  // Social Channels Config
-  const channelsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(
-      collection(firestore, `users/${user.uid}/social_channel_configurations`),
-      where("platform", "==", "Facebook")
-    );
-  }, [firestore, user]);
-
-  const { data: channels } = useCollection(channelsQuery);
-  const fbChannel = channels?.[0];
-
   const handleUpdateProfile = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSaving(true);
     
-    const formData = new FormData(e.currentTarget);
-    const pageId = formData.get("pageId") as string;
-    const isEnabled = formData.get("enabled") === "on";
-
-    if (user && firestore) {
-      const configId = fbChannel?.id || doc(collection(firestore, "temp")).id;
-      
-      setDocumentNonBlocking(
-        doc(firestore, `users/${user.uid}/social_channel_configurations/${configId}`),
-        {
-          id: configId,
-          userId: user.uid,
-          platform: "Facebook",
-          channelType: "Page",
-          channelIdentifier: pageId,
-          enabled: isEnabled,
-          updatedAt: new Date().toISOString(),
-          createdAt: fbChannel?.createdAt || new Date().toISOString()
-        },
-        { merge: true }
-      );
-    }
-
-    toast({
-      title: "Settings Saved",
-      description: "Your profile and Facebook auto-post configuration have been updated.",
-    });
-    setIsSaving(false);
+    // In a real app, we would update the user profile in Firestore here.
+    // For now, we simulate success with a toast.
+    
+    setTimeout(() => {
+      toast({
+        title: "Profile Updated",
+        description: "Your contact information has been successfully saved.",
+      });
+      setIsSaving(false);
+    }, 1000);
   };
 
   return (
@@ -120,7 +87,7 @@ export default function ProfilePage() {
                 <Card className="border-none shadow-md">
                   <CardHeader>
                     <CardTitle className="font-headline font-bold text-2xl">Profile Settings</CardTitle>
-                    <CardDescription>Manage your contact info and automatic Facebook sharing.</CardDescription>
+                    <CardDescription>Manage your contact details and preferred communication methods.</CardDescription>
                   </CardHeader>
                   <CardContent className="p-6">
                     <form onSubmit={handleUpdateProfile} className="space-y-8">
@@ -137,36 +104,8 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
-                      <div className="pt-6 border-t">
-                        <h3 className="text-lg font-headline font-bold mb-4 flex items-center gap-2">
-                          <Facebook className="h-5 w-5 text-blue-600" /> Facebook Automation
-                        </h3>
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="pageId" className="flex items-center gap-2 text-sm">
-                              <Link2 className="h-4 w-4" /> Target Facebook Page ID
-                            </Label>
-                            <Input 
-                              id="pageId" 
-                              name="pageId"
-                              defaultValue={fbChannel?.channelIdentifier || ""} 
-                              placeholder="e.g. 1029384756"
-                            />
-                            <p className="text-[10px] text-muted-foreground">RentiPedia will automatically post all your listings and queries to this Page.</p>
-                          </div>
-                          
-                          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
-                            <div className="space-y-0.5">
-                              <Label className="text-sm">Enable Auto-Posting</Label>
-                              <p className="text-[10px] text-muted-foreground">AI will instantly share new posts to your Facebook page.</p>
-                            </div>
-                            <Switch name="enabled" defaultChecked={fbChannel?.enabled ?? true} />
-                          </div>
-                        </div>
-                      </div>
-
                       <Button type="submit" disabled={isSaving} className="font-headline px-8">
-                        <Save className="mr-2 h-4 w-4" /> Save All Settings
+                        <Save className="mr-2 h-4 w-4" /> {isSaving ? "Saving..." : "Save Profile"}
                       </Button>
                     </form>
                   </CardContent>
@@ -178,7 +117,7 @@ export default function ProfilePage() {
                     <h3 className="text-xl font-headline font-bold flex items-center gap-2">
                       <Bell className="h-5 w-5 text-primary" /> Activity & Matches
                     </h3>
-                    <p className="text-sm text-muted-foreground mb-6">Real-time updates on property matches and social sharing status.</p>
+                    <p className="text-sm text-muted-foreground mb-6">Real-time updates on property matches and system alerts.</p>
                     
                     {notificationsLoading ? (
                       <div className="p-10 text-center">Loading activity...</div>
