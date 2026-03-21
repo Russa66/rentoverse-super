@@ -1,3 +1,4 @@
+
 "use client";
 
 import Navbar from "@/components/Navbar";
@@ -10,9 +11,22 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Search, SlidersHorizontal, MapPin } from "lucide-react";
 import { useState } from "react";
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, orderBy } from "firebase/firestore";
 
 export default function SearchPage() {
   const [priceRange, setPriceRange] = useState([5000, 50000]);
+  const { firestore } = useFirestore();
+
+  const listingsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "published_room_listings"), orderBy("createdAt", "desc"));
+  }, [firestore]);
+
+  const { data: listings, isLoading } = useCollection(listingsQuery);
+
+  // Fallback to mock data if Firestore is empty for demonstration
+  const displayListings = listings && listings.length > 0 ? listings : MOCK_ROOMS;
 
   return (
     <div className="min-h-screen bg-muted/20 flex flex-col">
@@ -91,7 +105,7 @@ export default function SearchPage() {
         {/* Results Grid */}
         <main className="flex-1">
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-headline font-bold">Showing <span className="text-primary">{MOCK_ROOMS.length}</span> results in Metropolis</h1>
+            <h1 className="text-2xl font-headline font-bold">Showing <span className="text-primary">{displayListings.length}</span> results</h1>
             <select className="bg-transparent text-sm font-medium border-none focus:ring-0 cursor-pointer">
               <option>Sort by: Recommended</option>
               <option>Price: Low to High</option>
@@ -100,15 +114,19 @@ export default function SearchPage() {
             </select>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {MOCK_ROOMS.map((room) => (
-              <RoomCard key={room.id} room={room} />
-            ))}
-            {/* Repeat for visual fill if needed */}
-            {MOCK_ROOMS.slice(0, 3).map((room) => (
-              <RoomCard key={`${room.id}-dup`} room={room} />
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="h-80 bg-muted animate-pulse rounded-2xl" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {displayListings.map((room: any) => (
+                <RoomCard key={room.id} room={room} />
+              ))}
+            </div>
+          )}
         </main>
       </div>
     </div>

@@ -1,3 +1,6 @@
+
+"use client";
+
 import Navbar from "@/components/Navbar";
 import RoomCard from "@/components/RoomCard";
 import { MOCK_ROOMS } from "@/lib/mock-data";
@@ -7,9 +10,26 @@ import { Search, MapPin, Sparkles, Home as HomeIcon } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, limit, orderBy } from "firebase/firestore";
 
 export default function HomePage() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
+  const { firestore } = useFirestore();
+
+  const featuredQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(
+      collection(firestore, "published_room_listings"),
+      orderBy("createdAt", "desc"),
+      limit(6)
+    );
+  }, [firestore]);
+
+  const { data: listings, isLoading } = useCollection(featuredQuery);
+
+  // Combine mock data with firestore data for a full-looking landing page
+  const displayListings = listings && listings.length > 0 ? listings : MOCK_ROOMS;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -19,7 +39,7 @@ export default function HomePage() {
       <section className="relative h-[600px] flex items-center justify-center overflow-hidden">
         <Image 
           src={heroImage?.imageUrl || "https://picsum.photos/seed/paris/1200/800"} 
-          alt={heroImage?.description || "Paris city view"} 
+          alt={heroImage?.description || "City view"} 
           fill 
           className="object-cover brightness-[0.4]"
           priority
@@ -27,10 +47,10 @@ export default function HomePage() {
         />
         <div className="container relative z-10 px-4 text-center text-white">
           <h1 className="text-5xl md:text-7xl font-headline font-bold mb-6 tracking-tight">
-            Find your <span className="text-secondary italic">perfect</span> room or property.
+            Find your <span className="text-secondary italic">perfect</span> room and property.
           </h1>
           <p className="text-lg md:text-xl mb-10 max-w-3xl mx-auto font-body opacity-90 leading-relaxed">
-            RentiPedia makes finding, listing, and sharing your next room or property effortless with intuitive search and AI-powered tools.
+            RentiPedia makes finding, listing, and sharing your next property effortless with intuitive search and AI-powered tools.
           </p>
           
           <div className="bg-white p-2 rounded-full shadow-2xl max-w-3xl mx-auto flex flex-col md:flex-row gap-2">
@@ -69,18 +89,26 @@ export default function HomePage() {
         <div className="flex items-end justify-between mb-10">
           <div>
             <h2 className="text-3xl font-headline font-bold mb-2">Popular Nearby Rooms</h2>
-            <p className="text-muted-foreground">Handpicked rooms with the best amenities in your city.</p>
+            <p className="text-muted-foreground">Handpicked properties with the best amenities in your city.</p>
           </div>
           <Link href="/search" className="text-primary font-bold hover:underline flex items-center gap-1">
-            View all rooms <span className="text-xl">&rarr;</span>
+            View all properties <span className="text-xl">&rarr;</span>
           </Link>
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {MOCK_ROOMS.map((room) => (
-            <RoomCard key={room.id} room={room} />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-80 bg-muted animate-pulse rounded-2xl" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {displayListings.map((room: any) => (
+              <RoomCard key={room.id} room={room} />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Landlord CTA Section */}
@@ -109,7 +137,7 @@ export default function HomePage() {
             </div>
             <span className="font-headline font-bold text-2xl tracking-tighter text-primary">RentiPedia</span>
           </div>
-          <p className="text-muted-foreground text-sm">© 2024 RentiPedia. Your trustworthy room rental companion.</p>
+          <p className="text-muted-foreground text-sm">© 2024 RentiPedia. Your trustworthy property companion.</p>
         </div>
       </footer>
     </div>
