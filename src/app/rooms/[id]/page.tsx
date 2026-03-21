@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { MapPin, Wifi, Zap, Wind, Droplets, Train, MessageCircle, Phone, Users, ShieldCheck } from "lucide-react";
+import { MapPin, Wifi, Zap, Wind, Droplets, Train, MessageCircle, Phone, Users, ShieldCheck, Lock } from "lucide-react";
 import Image from "next/image";
 import SocialPostDialog from "@/components/SocialPostDialog";
 import Link from "next/link";
@@ -57,7 +57,7 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
   }
 
   // Handle differences between mock data and firestore schema
-  const photos = room.photos || room.photoUrls || ["https://picsum.photos/seed/room/800/600"];
+  const photos = room.photoUrls || room.photos || ["https://picsum.photos/seed/room/800/600"];
   const amenities = room.amenities || [];
   const hasWifi = amenities.includes("WiFi") || !!room.wifiAvailable;
   const hasAc = amenities.includes("AC") || !!room.acAvailable;
@@ -65,6 +65,9 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
   const rentDisplay = typeof room.monthlyRent === 'number' ? `₹${room.monthlyRent}` : room.monthlyRent;
   const whatsapp = room.landlord?.whatsapp || "";
   const landlordName = room.landlord?.name || "Verified Landlord";
+
+  // Hide exact location, show general locality
+  const publicLocation = room.locality || "Contact owner for exact address";
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/20 pb-20">
@@ -105,7 +108,12 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
               </div>
               <div className="flex items-center gap-2 text-muted-foreground mb-6">
                 <MapPin className="h-5 w-5 text-destructive shrink-0" />
-                <span className="text-lg">{room.location}</span>
+                <div className="flex flex-col">
+                  <span className="text-lg font-bold text-primary">{publicLocation}</span>
+                  <span className="text-xs flex items-center gap-1 text-muted-foreground mt-0.5">
+                    <Lock className="h-3 w-3" /> Precise address hidden for privacy
+                  </span>
+                </div>
               </div>
 
               <Separator className="my-6" />
@@ -136,13 +144,13 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
                  {room.description}
                </p>
                
-               {room.nearestCommunicationOptions?.length > 0 && (
+               {(room.nearestCommunicationOptions?.length > 0 || room.nearestCommunication) && (
                  <>
                    <h3 className="text-xl font-headline font-bold mb-4 flex items-center gap-2">
                      <Train className="h-5 w-5 text-primary" /> Transportation
                    </h3>
                    <p className="text-muted-foreground mb-6">
-                     Nearby transport: {room.nearestCommunicationOptions.join(", ")}
+                     Nearby transport: {room.nearestCommunicationOptions?.join(", ") || room.nearestCommunication}
                    </p>
                  </>
                )}

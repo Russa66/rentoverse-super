@@ -1,21 +1,26 @@
 
 "use client";
 
-import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase";
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc, updateDocumentNonBlocking } from "@/firebase";
 import Navbar from "@/components/Navbar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
-import { Home, Users, Search, Share2, Activity, MessageCircle, ShieldAlert, Lock } from "lucide-react";
+import { Home, Users, Search, Share2, Activity, MessageCircle, ShieldAlert, Lock, MapPin, CheckCircle } from "lucide-react";
 import { collection, doc } from 'firebase/firestore';
 import Link from "next/link";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminDashboard() {
   const { firestore } = useFirestore();
   const { user, isUserLoading } = useUser();
+  const { toast } = useToast();
+  const [editingLocality, setEditingLocality] = useState<{ id: string, value: string } | null>(null);
 
   // Fetch the current user's profile to check for admin status
   const userProfileRef = useMemoFirebase(() => {
@@ -45,6 +50,23 @@ export default function AdminDashboard() {
     return collection(firestore, "social_posts");
   }, [firestore, profile]);
   const { data: posts, isLoading: postsLoading } = useCollection(postsQuery);
+
+  const handleUpdateLocality = (listingId: string) => {
+    if (!firestore || !editingLocality) return;
+
+    const listingRef = doc(firestore, "published_room_listings", listingId);
+    updateDocumentNonBlocking(listingRef, { locality: editingLocality.value });
+    
+    // Also update the private copy
+    const listing = listings?.find(l => l.id === listingId);
+    if (listing && listing.landlordId) {
+      const privateRef = doc(firestore, `users/${listing.landlordId}/listings`, listingId);
+      updateDocumentNonBlocking(privateRef, { locality: editingLocality.value });
+    }
+
+    setEditingLocality(null);
+    toast({ title: "Locality Updated", description: "The public-facing location has been updated." });
+  };
 
   if (isUserLoading || profileLoading) {
     return (
@@ -101,11 +123,11 @@ export default function AdminDashboard() {
             </div>
             <div>
               <h1 className="text-3xl font-headline font-bold tracking-tight">Admin Dashboard</h1>
-              <p className="text-muted-foreground text-sm">Real-time platform monitoring for RentiPedia administrators.</p>
+              <p className="text-muted-foreground text-sm">Real-time platform monitoring and property moderation.</p>
             </div>
           </div>
           <Badge variant="secondary" className="gap-1 px-3 py-1 font-bold">
-            <ShieldAlert className="h-3 w-3" /> Secure Session
+            <ShieldAlert className="h-3 w-3" /> Secure Admin Session
           </Badge>
         </div>
 
@@ -129,7 +151,7 @@ export default function AdminDashboard() {
         <Tabs defaultValue="listings" className="space-y-6">
           <TabsList className="bg-white p-1 rounded-xl shadow-sm border h-12 inline-flex">
             <TabsTrigger value="listings" className="font-headline gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-              <Home className="h-4 w-4" /> Listings
+              <Home className="h-4 w-4" /> Listings Moderation
             </TabsTrigger>
             <TabsTrigger value="requests" className="font-headline gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Search className="h-4 w-4" /> Requirements
@@ -142,35 +164,62 @@ export default function AdminDashboard() {
           <TabsContent value="listings">
             <Card className="border-none shadow-sm">
               <CardHeader>
-                <CardTitle className="font-headline">Global Listings Feed</CardTitle>
-                <CardDescription>All properties currently published and live on the platform.</CardDescription>
+                <CardTitle className="font-headline">Property Moderation</CardTitle>
+                <CardDescription>Review exact addresses and update public locality for listings.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50">
-                      <TableHead className="font-bold">Property Title</TableHead>
-                      <TableHead className="font-bold">Location</TableHead>
+                      <TableHead className="font-bold">Property / Exact Address</TableHead>
+                      <TableHead className="font-bold">Public Locality</TableHead>
                       <TableHead className="font-bold">Rent</TableHead>
-                      <TableHead className="font-bold">Status</TableHead>
-                      <TableHead className="font-bold">Posted At</TableHead>
+                      <TableHead className="font-bold">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {listingsLoading ? (
-                      <TableRow><TableCell colSpan={5} className="text-center py-12">Loading platform listings...</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={4} className="text-center py-12">Loading listings...</TableCell></TableRow>
                     ) : listings?.length === 0 ? (
-                      <TableRow><TableCell colSpan={5} className="text-center py-12 text-muted-foreground">No active listings found.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={4} className="text-center py-12 text-muted-foreground">No active listings found.</TableCell></TableRow>
                     ) : listings?.map((listing: any) => (
                       <TableRow key={listing.id} className="hover:bg-muted/30">
-                        <TableCell className="font-medium">{listing.title}</TableCell>
-                        <TableCell>{listing.location}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-bold">{listing.title}</span>
+                            <span className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                              <MapPin className="h-3 w-3 text-destructive" /> {listing.location}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {editingLocality?.id === listing.id ? (
+                            <Input 
+                              value={editingLocality.value} 
+                              onChange={(e) => setEditingLocality({ ...editingLocality, value: e.target.value })}
+                              className="h-8 text-xs max-w-[200px]"
+                              placeholder="Enter Locality (e.g. Koramangala)"
+                            />
+                          ) : (
+                            <Badge variant={listing.locality ? "default" : "outline"} className={listing.locality ? "bg-primary/10 text-primary border-primary/20" : "text-muted-foreground"}>
+                              {listing.locality || "Not Set"}
+                            </Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="text-primary font-bold">₹{listing.monthlyRent}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Live</Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-xs">
-                          {listing.createdAt ? format(new Date(listing.createdAt), 'MMM d, yyyy') : 'N/A'}
+                          {editingLocality?.id === listing.id ? (
+                            <div className="flex items-center gap-2">
+                              <Button size="sm" onClick={() => handleUpdateLocality(listing.id)} className="h-7 px-2">
+                                <CheckCircle className="h-3 w-3 mr-1" /> Save
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => setEditingLocality(null)} className="h-7 px-2">Cancel</Button>
+                            </div>
+                          ) : (
+                            <Button size="sm" variant="outline" onClick={() => setEditingLocality({ id: listing.id, value: listing.locality || "" })} className="h-7 text-xs">
+                              Edit Locality
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

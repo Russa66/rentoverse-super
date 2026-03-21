@@ -1,3 +1,4 @@
+
 "use client";
 
 import Image from "next/image";
@@ -8,13 +9,16 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { RoomListing } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 
-export default function RoomCard({ room }: { room: RoomListing }) {
+export default function RoomCard({ room }: { room: any }) {
+  // Use locality for public display, fallback to a neighborhood extraction if locality is missing
+  const publicLocation = room.locality || (room.location ? room.location.split(',')[1]?.trim() || room.location.split(',')[0] : "Location hidden");
+
   return (
     <Link href={`/rooms/${room.id}`}>
       <Card className="group overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 h-full flex flex-col bg-card rounded-2xl">
         <div className="relative aspect-[16/10] overflow-hidden">
           <Image
-            src={room.photos[0]}
+            src={(room.photoUrls && room.photoUrls[0]) || (room.photos && room.photos[0]) || "https://picsum.photos/seed/room/800/600"}
             alt={room.title}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -39,21 +43,18 @@ export default function RoomCard({ room }: { room: RoomListing }) {
           <div className="space-y-2">
             <div className="flex items-center text-muted-foreground text-sm gap-2">
               <MapPin className="h-4 w-4 shrink-0 text-destructive" />
-              <span className="truncate">{room.location}</span>
+              <span className="truncate font-medium">{publicLocation}</span>
             </div>
             <div className="flex items-center text-muted-foreground text-sm gap-2">
               <Train className="h-4 w-4 shrink-0 text-primary" />
-              <span className="truncate">{room.nearestCommunication}</span>
-            </div>
-            <div className="flex items-center text-muted-foreground text-sm gap-2">
-              <span className="font-semibold text-primary">24/7 Water Supply</span>
+              <span className="truncate">{room.nearestCommunicationOptions?.[0] || room.nearestCommunication}</span>
             </div>
           </div>
         </CardContent>
         <CardFooter className="p-5 pt-0 flex items-center justify-between border-t border-gray-50 mt-auto bg-gray-50/30">
           <div className="flex flex-col">
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Monthly Rent</span>
-            <span className="text-2xl font-bold text-primary font-headline">{room.monthlyRent}</span>
+            <span className="text-2xl font-bold text-primary font-headline">₹{room.monthlyRent}</span>
           </div>
           <Button variant="outline" className="rounded-full border-primary/20 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors font-bold h-9">
             View Details

@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -30,6 +31,10 @@
           "items": {
             "type": "string"
           }
+        },
+        "isAdmin": {
+          "type": "boolean",
+          "description": "Flag indicating if the user has administrative privileges."
         },
         "createdAt": {
           "type": "string",
@@ -74,7 +79,11 @@
         },
         "location": {
           "type": "string",
-          "description": "The precise physical location or address of the room, e.g., 'Apartment 4B, Green Towers, Koramangala, Bangalore'."
+          "description": "The precise physical location or address of the room (Private)."
+        },
+        "locality": {
+          "type": "string",
+          "description": "The public-facing general area or neighborhood of the room."
         },
         "latitude": {
           "type": "number",
