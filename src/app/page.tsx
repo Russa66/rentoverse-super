@@ -50,7 +50,7 @@ export default function HomePage() {
             Find your <span className="text-secondary italic">perfect</span> room and property.
           </h1>
           <p className="text-lg md:text-xl mb-10 max-w-3xl mx-auto font-body opacity-90 leading-relaxed">
-            RentiPedia makes finding, listing, and sharing your next property effortless with intuitive search and AI-powered tools.
+            RentoVerse makes finding, listing, and sharing your next property effortless with intuitive search and AI-powered tools.
           </p>
           
           <div className="bg-white p-2 rounded-full shadow-2xl max-w-3xl mx-auto flex flex-col md:flex-row gap-2">
@@ -135,9 +135,9 @@ export default function HomePage() {
             <div className="bg-primary p-1.5 rounded-lg">
               <HomeIcon className="h-6 w-6 text-white" />
             </div>
-            <span className="font-headline font-bold text-2xl tracking-tighter text-primary">RentiPedia</span>
+            <span className="font-headline font-bold text-2xl tracking-tighter text-primary">RentoVerse</span>
           </div>
-          <p className="text-muted-foreground text-sm">© 2024 RentiPedia. Your trustworthy property companion.</p>
+          <p className="text-muted-foreground text-sm">© 2024 RentoVerse. Your trustworthy property companion.</p>
         </div>
       </footer>
     </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -7,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { useRouter } from "next/navigation";
+import { useRouter } from "navigation";
 import { useFirestore, useUser, useAuth } from "@/firebase";
 import { collection, doc, query, getDocs, where } from "firebase/firestore";
 import { addDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
@@ -120,7 +121,7 @@ export default function PostRequirement() {
               <Search className="h-8 w-8 text-primary" />
             </div>
             <CardTitle className="text-3xl font-headline font-bold text-primary">Post Your Requirement</CardTitle>
-            <CardDescription>Can't find a room? Let RentiPedia find landlords for you.</CardDescription>
+            <CardDescription>Can't find a room? Let RentoVerse find landlords for you.</CardDescription>
           </CardHeader>
           <CardContent className="p-8">
             {loadingStep ? (
@@ -145,7 +146,7 @@ export default function PostRequirement() {
                 <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex items-start gap-3">
                    <Sparkles className="h-5 w-5 text-primary mt-0.5 shrink-0" />
                    <p className="text-[10px] text-muted-foreground leading-relaxed">
-                     RentiPedia will automatically post this requirement to relevant social groups and alert matching property owners via WhatsApp/Email.
+                     RentoVerse will automatically post this requirement to relevant social groups and alert matching property owners via WhatsApp/Email.
                    </p>
                 </div>
 

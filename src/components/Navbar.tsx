@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -12,7 +13,7 @@ export default function Navbar() {
           <div className="bg-primary p-1.5 rounded-lg">
             <Home className="h-6 w-6 text-primary-foreground" />
           </div>
-          <span className="text-xl font-headline font-bold text-primary tracking-tighter">RentiPedia</span>
+          <span className="text-xl font-headline font-bold text-primary tracking-tighter">RentoVerse</span>
         </Link>
         
         <div className="hidden md:flex items-center gap-6">

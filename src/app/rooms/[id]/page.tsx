@@ -159,7 +159,7 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
                  <ShieldCheck className="h-6 w-6 text-primary shrink-0" />
                  <div>
                    <p className="font-bold text-sm">Verified Property</p>
-                   <p className="text-xs text-muted-foreground">This property has been published via RentiPedia's secure platform.</p>
+                   <p className="text-xs text-muted-foreground">This property has been published via RentoVerse's secure platform.</p>
                  </div>
                </div>
             </div>

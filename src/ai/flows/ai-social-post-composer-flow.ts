@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI-powered tool to automatically draft engaging and relevant social media posts
@@ -33,7 +34,7 @@ const composeSocialPostPrompt = ai.definePrompt({
   name: 'composeSocialPostPrompt',
   input: { schema: ComposeSocialPostInputSchema },
   output: { schema: ComposeSocialPostOutputSchema },
-  prompt: `You are an AI social media content creator for RentiPedia.
+  prompt: `You are an AI social media content creator for RentoVerse.
 Your task is to generate a compelling social media post for {{socialMediaType}}.
 
 {{#if (eq type "listing")}}

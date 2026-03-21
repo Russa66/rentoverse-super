@@ -1,3 +1,4 @@
+
 "use client";
 
 import Navbar from "@/components/Navbar";
@@ -27,9 +28,9 @@ export default function LegalFormPage() {
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-2">
                 <FileText className="h-6 w-6 text-primary" />
-                <span className="font-headline font-bold text-xl uppercase tracking-tighter">RentiPedia Legal</span>
+                <span className="font-headline font-bold text-xl uppercase tracking-tighter">RentoVerse Legal</span>
               </div>
-              <div className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Standard Form #RP-2024-V1</div>
+              <div className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Standard Form #RV-2024-V1</div>
             </div>
             <CardTitle className="text-3xl font-headline mb-2 underline decoration-primary decoration-4 underline-offset-8">Room Rental Agreement</CardTitle>
           </CardHeader>

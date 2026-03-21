@@ -70,7 +70,7 @@ export default function ProfilePage() {
                   <AvatarImage src={`https://picsum.photos/seed/${user?.uid || 'user'}/200`} />
                   <AvatarFallback><User /></AvatarFallback>
                 </Avatar>
-                <h2 className="text-xl font-headline font-bold">{user?.displayName || (user?.isAnonymous ? "Guest User" : "RentiPedia User")}</h2>
+                <h2 className="text-xl font-headline font-bold">{user?.displayName || (user?.isAnonymous ? "Guest User" : "RentoVerse User")}</h2>
                 
                 <div className={`flex items-center gap-1.5 mt-1 mb-6 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${isVerified ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
                   {isVerified ? (

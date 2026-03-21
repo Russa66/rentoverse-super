@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -138,7 +139,7 @@ export default function NewListing() {
         <Card className="border-none shadow-lg">
           <CardHeader className="text-center bg-primary/5 rounded-t-xl py-10">
             <CardTitle className="text-3xl font-headline font-bold text-primary">List Your Room</CardTitle>
-            <CardDescription>Share your property with thousands of verified renters on RentiPedia.</CardDescription>
+            <CardDescription>Share your property with thousands of verified renters on RentoVerse.</CardDescription>
           </CardHeader>
           <CardContent className="p-8">
             {loadingStep ? (
@@ -149,7 +150,7 @@ export default function NewListing() {
                  </div>
                  <div className="text-center">
                    <p className="text-xl font-headline font-bold text-primary">{loadingStep}</p>
-                   <p className="text-sm text-muted-foreground mt-2">Hang tight, RentiPedia's AI is working for you.</p>
+                   <p className="text-sm text-muted-foreground mt-2">Hang tight, RentoVerse's AI is working for you.</p>
                  </div>
               </div>
             ) : (
@@ -197,7 +198,7 @@ export default function NewListing() {
                 <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex items-start gap-3">
                    <Sparkles className="h-5 w-5 text-primary mt-1 shrink-0" />
                    <p className="text-xs text-muted-foreground leading-relaxed">
-                     By publishing, RentiPedia's AI will automatically draft and post an optimized listing to social groups and notify matching tenants via WhatsApp and Email.
+                     By publishing, RentoVerse's AI will automatically draft and post an optimized listing to social groups and notify matching tenants via WhatsApp and Email.
                    </p>
                 </div>
 
