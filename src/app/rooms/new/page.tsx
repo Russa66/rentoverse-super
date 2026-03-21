@@ -38,7 +38,7 @@ export default function NewListing() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
+    if (!user || !firestore) {
       toast({ title: "Authentication Required", description: "Please sign in to list a room.", variant: "destructive" });
       return;
     }
@@ -66,8 +66,12 @@ export default function NewListing() {
       setDocumentNonBlocking(doc(firestore, `users/${user.uid}/listings/${listingId}`), listingData, { merge: true });
       setDocumentNonBlocking(doc(firestore, `published_room_listings/${listingId}`), listingData, { merge: true });
 
-      // 2. AI Social Post
-      setLoadingStep("AI is Sharing to Facebook...");
+      // 2. AI Social Post Configuration Check
+      setLoadingStep("AI is Formatting for Facebook Page...");
+      const channelQuery = query(collection(firestore, `users/${user.uid}/social_channel_configurations`), where("platform", "==", "Facebook"), where("enabled", "==", true));
+      const channelSnapshot = await getDocs(channelQuery);
+      const configuredChannel = channelSnapshot.docs[0]?.data();
+
       const aiPost = await composeSocialPost({
         type: "listing",
         location: formData.location,
@@ -75,10 +79,12 @@ export default function NewListing() {
         monthlyRent: `₹${formData.rent}`,
         socialMediaType: "facebook"
       });
+
       addDocumentNonBlocking(collection(firestore, "social_posts"), {
         authorId: user.uid,
         listingId,
         platform: "facebook",
+        channelIdentifier: configuredChannel?.channelIdentifier || null,
         postContent: aiPost.postContent,
         status: "POSTED",
         createdAt: new Date().toISOString()
@@ -106,7 +112,7 @@ export default function NewListing() {
         });
       });
 
-      toast({ title: "Success!", description: "Listing is live, shared to Facebook, and matching tenants notified!" });
+      toast({ title: "Success!", description: `Listing live ${configuredChannel ? 'and posted to your FB Page!' : 'and shared to FB Groups!'}` });
       router.push(`/rooms/${listingId}`);
     } catch (error) {
       toast({ title: "Error", description: "Failed to publish listing.", variant: "destructive" });
@@ -186,7 +192,7 @@ export default function NewListing() {
                 <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex items-start gap-3">
                    <Sparkles className="h-5 w-5 text-primary mt-1 shrink-0" />
                    <p className="text-xs text-muted-foreground leading-relaxed">
-                     By publishing, RentiPedia's AI will automatically draft and post an optimized listing to our Facebook groups and notify matching tenants via WhatsApp and Email.
+                     By publishing, RentiPedia's AI will automatically draft and post an optimized listing to your configured Facebook page or groups and notify matching tenants via WhatsApp and Email.
                    </p>
                 </div>
 

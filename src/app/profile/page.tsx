@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -8,16 +9,19 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, MessageCircle, Settings, Home, Bell, Sparkles, Facebook, Mail, CheckCircle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { User, MessageCircle, Settings, Home, Bell, Sparkles, Facebook, Mail, CheckCircle, Link2, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where, orderBy } from "firebase/firestore";
+import { collection, query, where, orderBy, doc } from "firebase/firestore";
+import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { format } from "date-fns";
 
 export default function ProfilePage() {
   const { toast } = useToast();
   const { firestore } = useFirestore();
   const { user } = useUser();
+  const [isSavingChannel, setIsSavingChannel] = useState(false);
 
   // Social Posts Feed
   const socialPostsQuery = useMemoFirebase(() => {
@@ -42,12 +46,57 @@ export default function ProfilePage() {
 
   const { data: notifications, isLoading: notificationsLoading } = useCollection(notificationsQuery);
 
+  // Social Channels
+  const channelsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(
+      collection(firestore, `users/${user.uid}/social_channel_configurations`),
+      where("platform", "==", "Facebook")
+    );
+  }, [firestore, user]);
+
+  const { data: channels } = useCollection(channelsQuery);
+  const fbChannel = channels?.[0];
+
   const handleUpdate = (e: React.FormEvent) => {
     e.preventDefault();
     toast({
       title: "Profile Updated",
       description: "Your changes have been saved successfully.",
     });
+  };
+
+  const handleSaveChannel = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!user || !firestore) return;
+    
+    setIsSavingChannel(true);
+    const formData = new FormData(e.currentTarget);
+    const pageId = formData.get("pageId") as string;
+    const isEnabled = formData.get("enabled") === "on";
+
+    const configId = fbChannel?.id || doc(collection(firestore, "temp")).id;
+    
+    setDocumentNonBlocking(
+      doc(firestore, `users/${user.uid}/social_channel_configurations/${configId}`),
+      {
+        id: configId,
+        userId: user.uid,
+        platform: "Facebook",
+        channelType: "Page",
+        channelIdentifier: pageId,
+        enabled: isEnabled,
+        updatedAt: new Date().toISOString(),
+        createdAt: fbChannel?.createdAt || new Date().toISOString()
+      },
+      { merge: true }
+    );
+
+    toast({
+      title: "Social Channel Configured",
+      description: "Your Facebook Page ID has been linked for auto-posting.",
+    });
+    setIsSavingChannel(false);
   };
 
   return (
@@ -86,6 +135,7 @@ export default function ProfilePage() {
             <Tabs defaultValue="account" className="w-full">
               <TabsList className="bg-white border-b border-none shadow-sm mb-6 w-full justify-start h-12 p-1 gap-2">
                 <TabsTrigger value="account" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg font-headline">Account Details</TabsTrigger>
+                <TabsTrigger value="channels" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg font-headline">Social Channels</TabsTrigger>
                 <TabsTrigger value="social" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg font-headline">Social Feed</TabsTrigger>
                 <TabsTrigger value="notifications" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg font-headline">Notifications</TabsTrigger>
               </TabsList>
@@ -120,6 +170,47 @@ export default function ProfilePage() {
                 </Card>
               </TabsContent>
 
+              <TabsContent value="channels">
+                <Card className="border-none shadow-md">
+                  <CardHeader>
+                    <CardTitle className="font-headline font-bold text-2xl flex items-center gap-2">
+                      <Facebook className="h-6 w-6 text-blue-600" /> Facebook Auto-Post Configuration
+                    </CardTitle>
+                    <CardDescription>Configure where RentiPedia's AI should automatically post your listings and queries.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <form onSubmit={handleSaveChannel} className="space-y-6">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="pageId" className="flex items-center gap-2">
+                            <Link2 className="h-4 w-4" /> Facebook Page ID
+                          </Label>
+                          <Input 
+                            id="pageId" 
+                            name="pageId"
+                            defaultValue={fbChannel?.channelIdentifier || ""} 
+                            placeholder="e.g. 1029384756"
+                            required
+                          />
+                          <p className="text-[10px] text-muted-foreground">This ID allows our AI to target your specific page for auto-posting.</p>
+                        </div>
+                        
+                        <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
+                          <div className="space-y-0.5">
+                            <Label className="text-base">Enable Auto-Posting</Label>
+                            <p className="text-xs text-muted-foreground">Automatically post new listings and requirements to this page.</p>
+                          </div>
+                          <Switch name="enabled" defaultChecked={fbChannel?.enabled ?? true} />
+                        </div>
+                      </div>
+                      <Button type="submit" disabled={isSavingChannel} className="font-headline px-8">
+                        <Save className="mr-2 h-4 w-4" /> Save Channel Config
+                      </Button>
+                    </form>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
               <TabsContent value="social">
                  <div className="space-y-4">
                     <h3 className="text-xl font-headline font-bold flex items-center gap-2">
@@ -139,7 +230,7 @@ export default function ProfilePage() {
                         <Card key={post.id} className="border-none shadow-sm overflow-hidden">
                            <div className="bg-blue-50 px-4 py-2 border-b flex items-center justify-between">
                               <div className="flex items-center gap-2 text-blue-600 font-bold text-xs">
-                                 <Facebook className="h-3 w-3" /> Shared to Facebook Groups
+                                 <Facebook className="h-3 w-3" /> Shared to Facebook {post.channelIdentifier ? `(Page: ${post.channelIdentifier})` : 'Groups'}
                               </div>
                               <span className="text-[10px] text-muted-foreground">
                                 {post.createdAt && format(new Date(post.createdAt), 'MMM d, h:mm a')}

@@ -29,7 +29,7 @@ export default function PostRequirement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
+    if (!user || !firestore) {
       toast({ title: "Authentication Required", description: "Please sign in to post a requirement.", variant: "destructive" });
       return;
     }
@@ -51,18 +51,24 @@ export default function PostRequirement() {
       setDocumentNonBlocking(doc(firestore, `users/${user.uid}/saved_search_requests/${requestId}`), requestData, { merge: true });
       setDocumentNonBlocking(doc(firestore, `saved_search_requests/${requestId}`), requestData, { merge: true });
 
-      // 2. AI Social Post
-      setLoadingStep("AI is Sharing to Facebook Groups...");
+      // 2. AI Social Post Configuration Check
+      setLoadingStep("AI is Formatting for Facebook Page...");
+      const channelQuery = query(collection(firestore, `users/${user.uid}/social_channel_configurations`), where("platform", "==", "Facebook"), where("enabled", "==", true));
+      const channelSnapshot = await getDocs(channelQuery);
+      const configuredChannel = channelSnapshot.docs[0]?.data();
+
       const aiPost = await composeSocialPost({
         type: "requirement",
         location: formData.location,
         monthlyRent: `₹${formData.budget}`,
         socialMediaType: "facebook"
       });
+
       addDocumentNonBlocking(collection(firestore, "social_posts"), {
         authorId: user.uid,
         savedSearchRequestId: requestId,
         platform: "facebook",
+        channelIdentifier: configuredChannel?.channelIdentifier || null,
         postContent: aiPost.postContent,
         status: "POSTED",
         createdAt: new Date().toISOString()
@@ -90,7 +96,7 @@ export default function PostRequirement() {
         });
       });
 
-      toast({ title: "Requirement Posted!", description: "AI shared to Facebook and notified matching landlords via WhatsApp/Email." });
+      toast({ title: "Requirement Posted!", description: `AI shared to ${configuredChannel ? 'your FB Page' : 'FB Groups'} and notified matching landlords.` });
       router.push("/profile");
     } catch (error) {
       toast({ title: "Error", description: "Failed to post requirement.", variant: "destructive" });
@@ -134,7 +140,7 @@ export default function PostRequirement() {
                 <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex items-start gap-3">
                    <Sparkles className="h-5 w-5 text-primary mt-0.5 shrink-0" />
                    <p className="text-[10px] text-muted-foreground leading-relaxed">
-                     RentiPedia will automatically post this requirement to relevant Facebook groups and alert matching property owners via WhatsApp/Email.
+                     RentiPedia will automatically post this requirement to your configured Facebook page or relevant groups and alert matching property owners via WhatsApp/Email.
                    </p>
                 </div>
 
