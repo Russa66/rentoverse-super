@@ -27,10 +27,10 @@ export default function HomePage() {
         />
         <div className="container relative z-10 px-4 text-center text-white">
           <h1 className="text-5xl md:text-7xl font-headline font-bold mb-6 tracking-tight">
-            Find your <span className="text-secondary italic">perfect</span> room.
+            Find your <span className="text-secondary italic">perfect</span> room or property.
           </h1>
           <p className="text-lg md:text-xl mb-10 max-w-3xl mx-auto font-body opacity-90 leading-relaxed">
-            Rentpedia makes finding and listing rooms effortless with intuitive search and AI-powered sharing tools.
+            Rentpedia makes finding, listing, and sharing your next room or property effortless with intuitive search and AI-powered tools.
           </p>
           
           <div className="bg-white p-2 rounded-full shadow-2xl max-w-3xl mx-auto flex flex-col md:flex-row gap-2">
