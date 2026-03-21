@@ -8,17 +8,19 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, MessageCircle, Home, Bell, Mail, CheckCircle, Save } from "lucide-react";
+import { User, MessageCircle, Home, Bell, Mail, CheckCircle, Save, Sparkles, MapPin, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, orderBy } from "firebase/firestore";
 import { format } from "date-fns";
+import SocialPostDialog from "@/components/SocialPostDialog";
 
 export default function ProfilePage() {
   const { toast } = useToast();
   const { firestore } = useFirestore();
   const { user } = useUser();
   const [isSaving, setIsSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState("account");
 
   // Notifications / Activity
   const notificationsQuery = useMemoFirebase(() => {
@@ -31,12 +33,17 @@ export default function ProfilePage() {
 
   const { data: notifications, isLoading: notificationsLoading } = useCollection(notificationsQuery);
 
+  // User Listings
+  const listingsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return collection(firestore, `users/${user.uid}/listings`);
+  }, [firestore, user]);
+
+  const { data: listings, isLoading: listingsLoading } = useCollection(listingsQuery);
+
   const handleUpdateProfile = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSaving(true);
-    
-    // In a real app, we would update the user profile in Firestore here.
-    // For now, we simulate success with a toast.
     
     setTimeout(() => {
       toast({
@@ -64,10 +71,18 @@ export default function ProfilePage() {
                 <p className="text-sm text-muted-foreground mb-6">Verified Member</p>
                 
                 <div className="w-full space-y-1">
-                  <Button variant="secondary" className="w-full justify-start font-headline text-primary">
+                  <Button 
+                    variant={activeTab === "account" ? "secondary" : "ghost"} 
+                    className={`w-full justify-start font-headline ${activeTab === "account" ? "text-primary" : ""}`}
+                    onClick={() => setActiveTab("account")}
+                  >
                     <User className="mr-2 h-4 w-4" /> My Profile
                   </Button>
-                  <Button variant="ghost" className="w-full justify-start font-headline">
+                  <Button 
+                    variant={activeTab === "listings" ? "secondary" : "ghost"} 
+                    className={`w-full justify-start font-headline ${activeTab === "listings" ? "text-primary" : ""}`}
+                    onClick={() => setActiveTab("listings")}
+                  >
                     <Home className="mr-2 h-4 w-4" /> My Listings
                   </Button>
                 </div>
@@ -77,9 +92,10 @@ export default function ProfilePage() {
 
           {/* Main Content */}
           <div className="lg:col-span-3 space-y-8">
-            <Tabs defaultValue="account" className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="bg-white border-b border-none shadow-sm mb-6 w-full justify-start h-12 p-1 gap-2">
                 <TabsTrigger value="account" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg font-headline">Account & Settings</TabsTrigger>
+                <TabsTrigger value="listings" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg font-headline">My Listings</TabsTrigger>
                 <TabsTrigger value="activity" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg font-headline">Activity Log</TabsTrigger>
               </TabsList>
               
@@ -110,6 +126,76 @@ export default function ProfilePage() {
                     </form>
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              <TabsContent value="listings">
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-headline font-bold">Your Posted Rooms</h3>
+                      <p className="text-sm text-muted-foreground">Manage and share your properties to increase visibility.</p>
+                    </div>
+                  </div>
+
+                  {listingsLoading ? (
+                    <div className="p-10 text-center">Loading your listings...</div>
+                  ) : !listings || listings.length === 0 ? (
+                    <Card className="border-none py-12 text-center bg-white">
+                      <Home className="h-10 w-10 text-muted mx-auto mb-4" />
+                      <p className="text-muted-foreground">You haven't posted any rooms yet.</p>
+                      <Button className="mt-4" onClick={() => window.location.href = '/rooms/new'}>List a Room Now</Button>
+                    </Card>
+                  ) : (
+                    <div className="grid gap-4">
+                      {listings.map((listing: any) => (
+                        <Card key={listing.id} className="border-none shadow-sm bg-white overflow-hidden">
+                          <div className="flex flex-col md:flex-row">
+                            <div className="flex-1 p-6">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <h4 className="text-lg font-bold font-headline mb-1">{listing.title}</h4>
+                                  <div className="flex items-center text-sm text-muted-foreground gap-1 mb-3">
+                                    <MapPin className="h-3 w-3 text-destructive" /> {listing.location}
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-xl font-bold text-primary font-headline">₹{listing.monthlyRent}</p>
+                                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Per Month</p>
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap gap-2 mb-4">
+                                {listing.amenities?.map((amenity: string) => (
+                                  <span key={amenity} className="text-[10px] bg-primary/5 text-primary px-2 py-0.5 rounded-full font-bold">{amenity}</span>
+                                ))}
+                              </div>
+                              <div className="flex items-center justify-end gap-2 pt-4 border-t">
+                                <Button variant="outline" size="sm" onClick={() => window.location.href = `/rooms/${listing.id}`}>
+                                  View Details
+                                </Button>
+                                <SocialPostDialog 
+                                  room={{
+                                    ...listing,
+                                    monthlyRent: `₹${listing.monthlyRent}`,
+                                    nearestCommunication: listing.nearestCommunicationOptions?.[0] || "",
+                                    wifiAvailable: listing.amenities?.includes("WiFi"),
+                                    acAvailable: listing.amenities?.includes("AC"),
+                                    inverterAvailable: listing.amenities?.includes("Inverter"),
+                                    landlord: { name: user?.displayName || "Landlord", whatsapp: "" }
+                                  }} 
+                                  trigger={
+                                    <Button size="sm" className="bg-secondary text-secondary-foreground hover:bg-secondary/90">
+                                      <Sparkles className="mr-2 h-4 w-4" /> AI Share Listing
+                                    </Button>
+                                  }
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </TabsContent>
 
               <TabsContent value="activity">

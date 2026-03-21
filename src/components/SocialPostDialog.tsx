@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -19,7 +18,12 @@ import { useToast } from "@/hooks/use-toast";
 import { composeSocialPost } from "@/ai/flows/ai-social-post-composer-flow";
 import { RoomListing } from "@/lib/mock-data";
 
-export default function SocialPostDialog({ room }: { room: RoomListing }) {
+interface SocialPostDialogProps {
+  room: Partial<RoomListing>;
+  trigger?: React.ReactNode;
+}
+
+export default function SocialPostDialog({ room, trigger }: SocialPostDialogProps) {
   const [loading, setLoading] = useState(false);
   const [postContent, setPostContent] = useState("");
   const [platform, setPlatform] = useState<"facebook" | "whatsapp">("facebook");
@@ -31,13 +35,13 @@ export default function SocialPostDialog({ room }: { room: RoomListing }) {
     setPlatform(target);
     try {
       const result = await composeSocialPost({
-        location: room.location,
-        nearestCommunication: room.nearestCommunication,
+        location: room.location || "",
+        nearestCommunication: room.nearestCommunication || "",
         wifiAvailable: room.wifiAvailable,
         inverterAvailable: room.inverterAvailable,
         acAvailable: room.acAvailable,
         waterSupplyCondition: room.waterSupplyCondition,
-        monthlyRent: room.monthlyRent,
+        monthlyRent: room.monthlyRent || "",
         socialMediaType: target,
       });
       setPostContent(result.postContent);
@@ -66,9 +70,11 @@ export default function SocialPostDialog({ room }: { room: RoomListing }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90 font-headline">
-          <Sparkles className="mr-2 h-4 w-4" /> AI Share Post
-        </Button>
+        {trigger || (
+          <Button className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90 font-headline">
+            <Sparkles className="mr-2 h-4 w-4" /> AI Share Post
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
