@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -168,52 +169,58 @@ export default function ProfilePage() {
                     </Card>
                   ) : (
                     <div className="grid gap-4">
-                      {listings.map((listing: any) => (
-                        <Card key={listing.id} className="border-none shadow-sm bg-white overflow-hidden">
-                          <div className="flex flex-col md:flex-row">
-                            <div className="flex-1 p-6">
-                              <div className="flex items-start justify-between">
-                                <div>
-                                  <h4 className="text-lg font-bold font-headline mb-1">{listing.title}</h4>
-                                  <div className="flex items-center text-sm text-muted-foreground gap-1 mb-3">
-                                    <MapPin className="h-3 w-3 text-destructive" /> {listing.location}
+                      {listings.map((listing: any) => {
+                        const rentDisplay = typeof listing.monthlyRent === 'number' 
+                          ? `₹${listing.monthlyRent.toLocaleString('en-IN')}` 
+                          : listing.monthlyRent;
+
+                        return (
+                          <Card key={listing.id} className="border-none shadow-sm bg-white overflow-hidden">
+                            <div className="flex flex-col md:flex-row">
+                              <div className="flex-1 p-6">
+                                <div className="flex items-start justify-between">
+                                  <div>
+                                    <h4 className="text-lg font-bold font-headline mb-1">{listing.title}</h4>
+                                    <div className="flex items-center text-sm text-muted-foreground gap-1 mb-3">
+                                      <MapPin className="h-3 w-3 text-destructive" /> {listing.location}
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-xl font-bold text-primary font-headline">{rentDisplay}</p>
+                                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Per Month</p>
                                   </div>
                                 </div>
-                                <div className="text-right">
-                                  <p className="text-xl font-bold text-primary font-headline">₹{listing.monthlyRent}</p>
-                                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Per Month</p>
+                                <div className="flex flex-wrap gap-2 mb-4">
+                                  {listing.amenities?.map((amenity: string) => (
+                                    <span key={amenity} className="text-[10px] bg-primary/5 text-primary px-2 py-0.5 rounded-full font-bold">{amenity}</span>
+                                  ))}
+                                </div>
+                                <div className="flex items-center justify-end gap-2 pt-4 border-t">
+                                  <Button variant="outline" size="sm" onClick={() => window.location.href = `/rooms/${listing.id}`}>
+                                    View Details
+                                  </Button>
+                                  <SocialPostDialog 
+                                    room={{
+                                      ...listing,
+                                      monthlyRent: rentDisplay,
+                                      nearestCommunication: listing.nearestCommunicationOptions?.[0] || "",
+                                      wifiAvailable: listing.amenities?.includes("WiFi"),
+                                      acAvailable: listing.amenities?.includes("AC"),
+                                      inverterAvailable: listing.amenities?.includes("Inverter"),
+                                      landlord: { name: user?.displayName || "Landlord", whatsapp: "" }
+                                    }} 
+                                    trigger={
+                                      <Button size="sm" className="bg-secondary text-secondary-foreground hover:bg-secondary/90">
+                                        <Sparkles className="mr-2 h-4 w-4" /> AI Share Listing
+                                      </Button>
+                                    }
+                                  />
                                 </div>
                               </div>
-                              <div className="flex flex-wrap gap-2 mb-4">
-                                {listing.amenities?.map((amenity: string) => (
-                                  <span key={amenity} className="text-[10px] bg-primary/5 text-primary px-2 py-0.5 rounded-full font-bold">{amenity}</span>
-                                ))}
-                              </div>
-                              <div className="flex items-center justify-end gap-2 pt-4 border-t">
-                                <Button variant="outline" size="sm" onClick={() => window.location.href = `/rooms/${listing.id}`}>
-                                  View Details
-                                </Button>
-                                <SocialPostDialog 
-                                  room={{
-                                    ...listing,
-                                    monthlyRent: `₹${listing.monthlyRent}`,
-                                    nearestCommunication: listing.nearestCommunicationOptions?.[0] || "",
-                                    wifiAvailable: listing.amenities?.includes("WiFi"),
-                                    acAvailable: listing.amenities?.includes("AC"),
-                                    inverterAvailable: listing.amenities?.includes("Inverter"),
-                                    landlord: { name: user?.displayName || "Landlord", whatsapp: "" }
-                                  }} 
-                                  trigger={
-                                    <Button size="sm" className="bg-secondary text-secondary-foreground hover:bg-secondary/90">
-                                      <Sparkles className="mr-2 h-4 w-4" /> AI Share Listing
-                                    </Button>
-                                  }
-                                />
-                              </div>
                             </div>
-                          </div>
-                        </Card>
-                      ))}
+                          </Card>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

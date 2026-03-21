@@ -13,6 +13,11 @@ export default function RoomCard({ room }: { room: any }) {
   // Use locality for public display, fallback to a neighborhood extraction if locality is missing
   const publicLocation = room.locality || (room.location ? room.location.split(',')[1]?.trim() || room.location.split(',')[0] : "Location hidden");
 
+  // Handle double currency symbol by checking if it's a number or string
+  const rentDisplay = typeof room.monthlyRent === 'number' 
+    ? `₹${room.monthlyRent.toLocaleString('en-IN')}` 
+    : room.monthlyRent;
+
   return (
     <Link href={`/rooms/${room.id}`}>
       <Card className="group overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 h-full flex flex-col bg-card rounded-2xl">
@@ -54,7 +59,7 @@ export default function RoomCard({ room }: { room: any }) {
         <CardFooter className="p-5 pt-0 flex items-center justify-between border-t border-gray-50 mt-auto bg-gray-50/30">
           <div className="flex flex-col">
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Monthly Rent</span>
-            <span className="text-2xl font-bold text-primary font-headline">₹{room.monthlyRent}</span>
+            <span className="text-2xl font-bold text-primary font-headline">{rentDisplay}</span>
           </div>
           <Button variant="outline" className="rounded-full border-primary/20 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors font-bold h-9">
             View Details

@@ -206,7 +206,9 @@ export default function AdminDashboard() {
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-primary font-bold">₹{listing.monthlyRent}</TableCell>
+                        <TableCell className="text-primary font-bold">
+                          {typeof listing.monthlyRent === 'number' ? `₹${listing.monthlyRent.toLocaleString('en-IN')}` : listing.monthlyRent}
+                        </TableCell>
                         <TableCell>
                           {editingLocality?.id === listing.id ? (
                             <div className="flex items-center gap-2">
@@ -253,7 +255,9 @@ export default function AdminDashboard() {
                     ) : requests?.map((req: any) => (
                       <TableRow key={req.id} className="hover:bg-muted/30">
                         <TableCell className="font-medium">{req.locationFilter}</TableCell>
-                        <TableCell className="text-orange-600 font-bold">₹{req.maxRent}</TableCell>
+                        <TableCell className="text-orange-600 font-bold">
+                          {typeof req.maxRent === 'number' ? `₹${req.maxRent.toLocaleString('en-IN')}` : req.maxRent}
+                        </TableCell>
                         <TableCell>
                           <Badge variant="secondary" className="gap-1">
                             <MessageCircle className="h-3 w-3" /> {req.notificationPreference}
