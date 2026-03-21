@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { User, MessageCircle, Settings, Home, Bell, Sparkles, Facebook, Mail, CheckCircle, Link2, Save } from "lucide-react";
+import { User, MessageCircle, Home, Bell, Facebook, Mail, CheckCircle, Link2, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, where, orderBy, doc } from "firebase/firestore";
@@ -21,21 +21,9 @@ export default function ProfilePage() {
   const { toast } = useToast();
   const { firestore } = useFirestore();
   const { user } = useUser();
-  const [isSavingChannel, setIsSavingChannel] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Social Posts Feed
-  const socialPostsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(
-      collection(firestore, "social_posts"),
-      where("authorId", "==", user.uid),
-      orderBy("createdAt", "desc")
-    );
-  }, [firestore, user]);
-
-  const { data: socialPosts, isLoading: postsLoading } = useCollection(socialPostsQuery);
-
-  // Notifications
+  // Notifications / Activity
   const notificationsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
@@ -46,7 +34,7 @@ export default function ProfilePage() {
 
   const { data: notifications, isLoading: notificationsLoading } = useCollection(notificationsQuery);
 
-  // Social Channels
+  // Social Channels Config
   const channelsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
@@ -58,45 +46,38 @@ export default function ProfilePage() {
   const { data: channels } = useCollection(channelsQuery);
   const fbChannel = channels?.[0];
 
-  const handleUpdate = (e: React.FormEvent) => {
+  const handleUpdateProfile = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    toast({
-      title: "Profile Updated",
-      description: "Your changes have been saved successfully.",
-    });
-  };
-
-  const handleSaveChannel = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!user || !firestore) return;
+    setIsSaving(true);
     
-    setIsSavingChannel(true);
     const formData = new FormData(e.currentTarget);
     const pageId = formData.get("pageId") as string;
     const isEnabled = formData.get("enabled") === "on";
 
-    const configId = fbChannel?.id || doc(collection(firestore, "temp")).id;
-    
-    setDocumentNonBlocking(
-      doc(firestore, `users/${user.uid}/social_channel_configurations/${configId}`),
-      {
-        id: configId,
-        userId: user.uid,
-        platform: "Facebook",
-        channelType: "Page",
-        channelIdentifier: pageId,
-        enabled: isEnabled,
-        updatedAt: new Date().toISOString(),
-        createdAt: fbChannel?.createdAt || new Date().toISOString()
-      },
-      { merge: true }
-    );
+    if (user && firestore) {
+      const configId = fbChannel?.id || doc(collection(firestore, "temp")).id;
+      
+      setDocumentNonBlocking(
+        doc(firestore, `users/${user.uid}/social_channel_configurations/${configId}`),
+        {
+          id: configId,
+          userId: user.uid,
+          platform: "Facebook",
+          channelType: "Page",
+          channelIdentifier: pageId,
+          enabled: isEnabled,
+          updatedAt: new Date().toISOString(),
+          createdAt: fbChannel?.createdAt || new Date().toISOString()
+        },
+        { merge: true }
+      );
+    }
 
     toast({
-      title: "Social Channel Configured",
-      description: "Your Facebook Page ID has been linked for auto-posting.",
+      title: "Settings Saved",
+      description: "Your profile and Facebook auto-post configuration have been updated.",
     });
-    setIsSavingChannel(false);
+    setIsSaving(false);
   };
 
   return (
@@ -122,9 +103,6 @@ export default function ProfilePage() {
                   <Button variant="ghost" className="w-full justify-start font-headline">
                     <Home className="mr-2 h-4 w-4" /> My Listings
                   </Button>
-                  <Button variant="ghost" className="w-full justify-start font-headline">
-                    <Bell className="mr-2 h-4 w-4" /> Activity
-                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -134,125 +112,80 @@ export default function ProfilePage() {
           <div className="lg:col-span-3 space-y-8">
             <Tabs defaultValue="account" className="w-full">
               <TabsList className="bg-white border-b border-none shadow-sm mb-6 w-full justify-start h-12 p-1 gap-2">
-                <TabsTrigger value="account" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg font-headline">Account Details</TabsTrigger>
-                <TabsTrigger value="channels" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg font-headline">Social Channels</TabsTrigger>
-                <TabsTrigger value="social" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg font-headline">Social Feed</TabsTrigger>
-                <TabsTrigger value="notifications" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg font-headline">Notifications</TabsTrigger>
+                <TabsTrigger value="account" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg font-headline">Account & Settings</TabsTrigger>
+                <TabsTrigger value="activity" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-lg font-headline">Activity Log</TabsTrigger>
               </TabsList>
               
               <TabsContent value="account">
                 <Card className="border-none shadow-md">
                   <CardHeader>
                     <CardTitle className="font-headline font-bold text-2xl">Profile Settings</CardTitle>
-                    <CardDescription>Update your contact info and personal details.</CardDescription>
+                    <CardDescription>Manage your contact info and automatic Facebook sharing.</CardDescription>
                   </CardHeader>
                   <CardContent className="p-6">
-                    <form onSubmit={handleUpdate} className="space-y-6">
+                    <form onSubmit={handleUpdateProfile} className="space-y-8">
                       <div className="grid md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <Label htmlFor="fullname">Full Name</Label>
-                          <Input id="fullname" defaultValue={user?.displayName || ""} />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="email">Email Address</Label>
-                          <Input id="email" defaultValue={user?.email || ""} disabled />
+                          <Input id="fullname" name="fullname" defaultValue={user?.displayName || ""} />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="whatsapp" className="flex items-center gap-1">
                             <MessageCircle className="h-4 w-4 text-green-500" /> WhatsApp Number
                           </Label>
-                          <Input id="whatsapp" placeholder="+91 XXXXX XXXXX" />
+                          <Input id="whatsapp" name="whatsapp" placeholder="+91 XXXXX XXXXX" />
                         </div>
                       </div>
-                      <Button type="submit" className="font-headline px-8">Save Changes</Button>
-                    </form>
-                  </CardContent>
-                </Card>
-              </TabsContent>
 
-              <TabsContent value="channels">
-                <Card className="border-none shadow-md">
-                  <CardHeader>
-                    <CardTitle className="font-headline font-bold text-2xl flex items-center gap-2">
-                      <Facebook className="h-6 w-6 text-blue-600" /> Facebook Auto-Post Configuration
-                    </CardTitle>
-                    <CardDescription>Configure where RentiPedia's AI should automatically post your listings and queries.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-6">
-                    <form onSubmit={handleSaveChannel} className="space-y-6">
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="pageId" className="flex items-center gap-2">
-                            <Link2 className="h-4 w-4" /> Facebook Page ID
-                          </Label>
-                          <Input 
-                            id="pageId" 
-                            name="pageId"
-                            defaultValue={fbChannel?.channelIdentifier || ""} 
-                            placeholder="e.g. 1029384756"
-                            required
-                          />
-                          <p className="text-[10px] text-muted-foreground">This ID allows our AI to target your specific page for auto-posting.</p>
-                        </div>
-                        
-                        <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
-                          <div className="space-y-0.5">
-                            <Label className="text-base">Enable Auto-Posting</Label>
-                            <p className="text-xs text-muted-foreground">Automatically post new listings and requirements to this page.</p>
+                      <div className="pt-6 border-t">
+                        <h3 className="text-lg font-headline font-bold mb-4 flex items-center gap-2">
+                          <Facebook className="h-5 w-5 text-blue-600" /> Facebook Automation
+                        </h3>
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="pageId" className="flex items-center gap-2 text-sm">
+                              <Link2 className="h-4 w-4" /> Target Facebook Page ID
+                            </Label>
+                            <Input 
+                              id="pageId" 
+                              name="pageId"
+                              defaultValue={fbChannel?.channelIdentifier || ""} 
+                              placeholder="e.g. 1029384756"
+                            />
+                            <p className="text-[10px] text-muted-foreground">RentiPedia will automatically post all your listings and queries to this Page.</p>
                           </div>
-                          <Switch name="enabled" defaultChecked={fbChannel?.enabled ?? true} />
+                          
+                          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
+                            <div className="space-y-0.5">
+                              <Label className="text-sm">Enable Auto-Posting</Label>
+                              <p className="text-[10px] text-muted-foreground">AI will instantly share new posts to your Facebook page.</p>
+                            </div>
+                            <Switch name="enabled" defaultChecked={fbChannel?.enabled ?? true} />
+                          </div>
                         </div>
                       </div>
-                      <Button type="submit" disabled={isSavingChannel} className="font-headline px-8">
-                        <Save className="mr-2 h-4 w-4" /> Save Channel Config
+
+                      <Button type="submit" disabled={isSaving} className="font-headline px-8">
+                        <Save className="mr-2 h-4 w-4" /> Save All Settings
                       </Button>
                     </form>
                   </CardContent>
                 </Card>
               </TabsContent>
 
-              <TabsContent value="social">
+              <TabsContent value="activity">
                  <div className="space-y-4">
                     <h3 className="text-xl font-headline font-bold flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-primary" /> AI-Generated Social Posts
+                      <Bell className="h-5 w-5 text-primary" /> Activity & Matches
                     </h3>
-                    <p className="text-sm text-muted-foreground mb-6">History of posts RentiPedia's AI has automatically shared for you.</p>
+                    <p className="text-sm text-muted-foreground mb-6">Real-time updates on property matches and social sharing status.</p>
                     
-                    {postsLoading ? (
-                      <div className="p-10 text-center">Loading feed...</div>
-                    ) : socialPosts?.length === 0 ? (
-                      <Card className="border-dashed border-2 py-12 text-center">
-                        <Facebook className="h-10 w-10 text-muted mx-auto mb-4" />
-                        <p className="text-muted-foreground">No social posts generated yet. Post a room to see AI in action!</p>
-                      </Card>
-                    ) : (
-                      socialPosts?.map((post) => (
-                        <Card key={post.id} className="border-none shadow-sm overflow-hidden">
-                           <div className="bg-blue-50 px-4 py-2 border-b flex items-center justify-between">
-                              <div className="flex items-center gap-2 text-blue-600 font-bold text-xs">
-                                 <Facebook className="h-3 w-3" /> Shared to Facebook {post.channelIdentifier ? `(Page: ${post.channelIdentifier})` : 'Groups'}
-                              </div>
-                              <span className="text-[10px] text-muted-foreground">
-                                {post.createdAt && format(new Date(post.createdAt), 'MMM d, h:mm a')}
-                              </span>
-                           </div>
-                           <CardContent className="p-4 bg-white">
-                              <p className="text-sm whitespace-pre-wrap leading-relaxed">{post.postContent}</p>
-                           </CardContent>
-                        </Card>
-                      ))
-                    )}
-                 </div>
-              </TabsContent>
-
-              <TabsContent value="notifications">
-                 <div className="space-y-4">
                     {notificationsLoading ? (
                       <div className="p-10 text-center">Loading activity...</div>
                     ) : notifications?.length === 0 ? (
                       <Card className="border-none py-12 text-center">
                         <Bell className="h-10 w-10 text-muted mx-auto mb-4" />
-                        <p className="text-muted-foreground">No matches or notifications found.</p>
+                        <p className="text-muted-foreground">No activity found. Post a room or requirement to start matching!</p>
                       </Card>
                     ) : (
                       notifications?.map((notif) => (
