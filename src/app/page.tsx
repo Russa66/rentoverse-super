@@ -27,7 +27,7 @@ export default function HomePage() {
         />
         <div className="container relative z-10 px-4 text-center text-white">
           <h1 className="text-5xl md:text-7xl font-headline font-bold mb-6 tracking-tight">
-            Find your next <span className="text-secondary italic">perfect</span> room.
+            Find your <span className="text-secondary italic">perfect</span> room.
           </h1>
           <p className="text-lg md:text-xl mb-10 max-w-3xl mx-auto font-body opacity-90 leading-relaxed">
             Rentpedia makes finding and listing rooms effortless with intuitive search and AI-powered sharing tools.
@@ -53,8 +53,9 @@ export default function HomePage() {
       {/* Categories / Quick Links */}
       <section className="py-12 bg-white">
         <div className="container px-4 mx-auto">
+          <h2 className="text-center text-2xl font-headline font-bold mb-8">Browse by Property Type</h2>
           <div className="flex flex-wrap justify-center gap-4">
-             {['Near Metro', 'WiFi Included', 'Under ₹10,000', 'With AC', 'Landlord Direct'].map((tag) => (
+             {['Single Room', '1 BHK', '2 BHK', 'Studio', 'Shared Room', 'Commercial'].map((tag) => (
                <Button key={tag} variant="outline" className="rounded-full border-gray-200 hover:border-primary hover:text-primary text-sm px-6 h-10">
                  {tag}
                </Button>
