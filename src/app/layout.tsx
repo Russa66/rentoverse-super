@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
 
 export const metadata: Metadata = {
-  title: 'Rentpedia | Find Your Perfect Room',
+  title: 'RentiPedia | Find Your Perfect Room',
   description: 'Intuitive room search and listing platform with AI-powered social sharing.',
 };
 

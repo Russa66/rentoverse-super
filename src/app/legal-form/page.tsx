@@ -27,7 +27,7 @@ export default function LegalFormPage() {
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-2">
                 <FileText className="h-6 w-6 text-primary" />
-                <span className="font-headline font-bold text-xl uppercase tracking-tighter">Rentpedia Legal</span>
+                <span className="font-headline font-bold text-xl uppercase tracking-tighter">RentiPedia Legal</span>
               </div>
               <div className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Standard Form #RP-2024-V1</div>
             </div>
