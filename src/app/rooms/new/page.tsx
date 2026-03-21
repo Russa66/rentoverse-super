@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,9 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sparkles, Facebook, MessageCircle, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { useFirestore, useUser } from "@/firebase";
+import { useFirestore, useUser, useAuth } from "@/firebase";
 import { collection, doc, query, getDocs, where } from "firebase/firestore";
 import { addDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
 import { composeSocialPost } from "@/ai/flows/ai-social-post-composer-flow";
 
 export default function NewListing() {
@@ -21,7 +21,8 @@ export default function NewListing() {
   const { toast } = useToast();
   const router = useRouter();
   const { firestore } = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
 
   const [formData, setFormData] = useState({
     location: "",
@@ -36,10 +37,19 @@ export default function NewListing() {
     description: ""
   });
 
+  // Automatically sign in anonymously if no user is present
+  useEffect(() => {
+    if (!isUserLoading && !user && auth) {
+      initiateAnonymousSignIn(auth);
+    }
+  }, [user, isUserLoading, auth]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // If user is still loading or doesn't exist even after anonymous sign-in attempt, wait.
     if (!user || !firestore) {
-      toast({ title: "Authentication Required", description: "Please sign in to list a room.", variant: "destructive" });
+      toast({ title: "Connecting...", description: "Setting up your secure workspace.", variant: "default" });
       return;
     }
 
@@ -67,7 +77,7 @@ export default function NewListing() {
       setDocumentNonBlocking(doc(firestore, `published_room_listings/${listingId}`), listingData, { merge: true });
 
       // 2. AI Social Post Configuration Check
-      setLoadingStep("AI is Formatting for Facebook Page...");
+      setLoadingStep("AI is Formatting for Facebook...");
       const channelQuery = query(collection(firestore, `users/${user.uid}/social_channel_configurations`), where("platform", "==", "Facebook"), where("enabled", "==", true));
       const channelSnapshot = await getDocs(channelQuery);
       const configuredChannel = channelSnapshot.docs[0]?.data();
@@ -112,7 +122,7 @@ export default function NewListing() {
         });
       });
 
-      toast({ title: "Success!", description: `Listing live ${configuredChannel ? 'and posted to your FB Page!' : 'and shared to FB Groups!'}` });
+      toast({ title: "Success!", description: `Listing live ${configuredChannel ? 'and shared to your FB Page!' : 'and shared to FB groups!'}` });
       router.push(`/rooms/${listingId}`);
     } catch (error) {
       toast({ title: "Error", description: "Failed to publish listing.", variant: "destructive" });
@@ -140,11 +150,6 @@ export default function NewListing() {
                  <div className="text-center">
                    <p className="text-xl font-headline font-bold text-primary">{loadingStep}</p>
                    <p className="text-sm text-muted-foreground mt-2">Hang tight, RentiPedia's AI is working for you.</p>
-                 </div>
-                 <div className="flex gap-4 opacity-50">
-                    <Facebook className="h-6 w-6" />
-                    <MessageCircle className="h-6 w-6" />
-                    <Mail className="h-6 w-6" />
                  </div>
               </div>
             ) : (
@@ -192,7 +197,7 @@ export default function NewListing() {
                 <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex items-start gap-3">
                    <Sparkles className="h-5 w-5 text-primary mt-1 shrink-0" />
                    <p className="text-xs text-muted-foreground leading-relaxed">
-                     By publishing, RentiPedia's AI will automatically draft and post an optimized listing to your configured Facebook page or groups and notify matching tenants via WhatsApp and Email.
+                     By publishing, RentiPedia's AI will automatically draft and post an optimized listing to social groups and notify matching tenants via WhatsApp and Email.
                    </p>
                 </div>
 

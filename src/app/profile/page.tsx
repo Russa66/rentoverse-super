@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, MessageCircle, Home, Bell, Mail, CheckCircle, Save, Sparkles, MapPin, Share2 } from "lucide-react";
+import { User, MessageCircle, Home, Bell, Mail, CheckCircle, Save, Sparkles, MapPin, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, orderBy } from "firebase/firestore";
@@ -54,6 +54,8 @@ export default function ProfilePage() {
     }, 1000);
   };
 
+  const isVerified = !!user?.phoneNumber;
+
   return (
     <div className="min-h-screen bg-muted/30">
       <Navbar />
@@ -67,8 +69,15 @@ export default function ProfilePage() {
                   <AvatarImage src={`https://picsum.photos/seed/${user?.uid || 'user'}/200`} />
                   <AvatarFallback><User /></AvatarFallback>
                 </Avatar>
-                <h2 className="text-xl font-headline font-bold">{user?.displayName || "RentiPedia User"}</h2>
-                <p className="text-sm text-muted-foreground mb-6">Verified Member</p>
+                <h2 className="text-xl font-headline font-bold">{user?.displayName || (user?.isAnonymous ? "Guest User" : "RentiPedia User")}</h2>
+                
+                <div className={`flex items-center gap-1.5 mt-1 mb-6 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${isVerified ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
+                  {isVerified ? (
+                    <><CheckCircle className="h-3 w-3" /> Verified Member</>
+                  ) : (
+                    <><XCircle className="h-3 w-3" /> Not Verified</>
+                  )}
+                </div>
                 
                 <div className="w-full space-y-1">
                   <Button 
@@ -116,7 +125,19 @@ export default function ProfilePage() {
                           <Label htmlFor="whatsapp" className="flex items-center gap-1">
                             <MessageCircle className="h-4 w-4 text-green-500" /> WhatsApp Number
                           </Label>
-                          <Input id="whatsapp" name="whatsapp" placeholder="+91 XXXXX XXXXX" />
+                          <Input id="whatsapp" name="whatsapp" placeholder="+91 XXXXX XXXXX" defaultValue={user?.phoneNumber || ""} />
+                        </div>
+                      </div>
+
+                      <div className="bg-muted/50 p-4 rounded-lg flex items-start gap-3 border border-border">
+                        <Sparkles className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                        <div>
+                           <p className="text-sm font-bold">Registration Status</p>
+                           <p className="text-xs text-muted-foreground leading-relaxed">
+                             {user?.isAnonymous 
+                               ? "You are currently using an anonymous guest account. Link your phone number to become a verified member and secure your account permanently." 
+                               : "You are logged in with a registered account. Verified members enjoy higher trust ratings from property owners."}
+                           </p>
                         </div>
                       </div>
 

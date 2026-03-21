@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,28 +8,39 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { useFirestore, useUser } from "@/firebase";
+import { useFirestore, useUser, useAuth } from "@/firebase";
 import { collection, doc, query, getDocs, where } from "firebase/firestore";
 import { addDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
 import { composeSocialPost } from "@/ai/flows/ai-social-post-composer-flow";
-import { Search, Sparkles, Facebook, MessageCircle, Mail } from "lucide-react";
+import { Search, Sparkles } from "lucide-react";
 
 export default function PostRequirement() {
   const [loadingStep, setLoadingStep] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
   const { firestore } = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
 
   const [formData, setFormData] = useState({
     location: "",
     budget: "",
   });
 
+  // Automatically sign in anonymously if no user is present
+  useEffect(() => {
+    if (!isUserLoading && !user && auth) {
+      initiateAnonymousSignIn(auth);
+    }
+  }, [user, isUserLoading, auth]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // If user is still loading or doesn't exist even after anonymous sign-in attempt, wait.
     if (!user || !firestore) {
-      toast({ title: "Authentication Required", description: "Please sign in to post a requirement.", variant: "destructive" });
+      toast({ title: "Connecting...", description: "Setting up your secure workspace.", variant: "default" });
       return;
     }
 
@@ -52,11 +62,7 @@ export default function PostRequirement() {
       setDocumentNonBlocking(doc(firestore, `saved_search_requests/${requestId}`), requestData, { merge: true });
 
       // 2. AI Social Post Configuration Check
-      setLoadingStep("AI is Formatting for Facebook Page...");
-      const channelQuery = query(collection(firestore, `users/${user.uid}/social_channel_configurations`), where("platform", "==", "Facebook"), where("enabled", "==", true));
-      const channelSnapshot = await getDocs(channelQuery);
-      const configuredChannel = channelSnapshot.docs[0]?.data();
-
+      setLoadingStep("AI is Formatting for Facebook...");
       const aiPost = await composeSocialPost({
         type: "requirement",
         location: formData.location,
@@ -68,7 +74,6 @@ export default function PostRequirement() {
         authorId: user.uid,
         savedSearchRequestId: requestId,
         platform: "facebook",
-        channelIdentifier: configuredChannel?.channelIdentifier || null,
         postContent: aiPost.postContent,
         status: "POSTED",
         createdAt: new Date().toISOString()
@@ -96,7 +101,7 @@ export default function PostRequirement() {
         });
       });
 
-      toast({ title: "Requirement Posted!", description: `AI shared to ${configuredChannel ? 'your FB Page' : 'FB Groups'} and notified matching landlords.` });
+      toast({ title: "Requirement Posted!", description: `AI shared to social groups and notified matching landlords.` });
       router.push("/profile");
     } catch (error) {
       toast({ title: "Error", description: "Failed to post requirement.", variant: "destructive" });
@@ -108,7 +113,7 @@ export default function PostRequirement() {
   return (
     <div className="min-h-screen bg-muted/30 pb-12">
       <Navbar />
-      <div className="container max-w-xl px-4 py-12 mx-auto">
+      <div className="container max-xl px-4 py-12 mx-auto">
         <Card className="border-none shadow-xl">
           <CardHeader className="text-center">
             <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -140,7 +145,7 @@ export default function PostRequirement() {
                 <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex items-start gap-3">
                    <Sparkles className="h-5 w-5 text-primary mt-0.5 shrink-0" />
                    <p className="text-[10px] text-muted-foreground leading-relaxed">
-                     RentiPedia will automatically post this requirement to your configured Facebook page or relevant groups and alert matching property owners via WhatsApp/Email.
+                     RentiPedia will automatically post this requirement to relevant social groups and alert matching property owners via WhatsApp/Email.
                    </p>
                 </div>
 
