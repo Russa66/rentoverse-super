@@ -1,28 +1,22 @@
 'use server';
 /**
  * @fileOverview An AI-powered tool to automatically draft engaging and relevant social media posts
- *               for Facebook and WhatsApp groups based on a new room listing.
- *
- * - composeSocialPost - A function that generates a social media post.
- * - ComposeSocialPostInput - The input type for the composeSocialPost function.
- * - ComposeSocialPostOutput - The return type for the composeSocialPost function.
+ *               for Facebook and WhatsApp groups based on a new room listing or search request.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
 const ComposeSocialPostInputSchema = z.object({
-  location: z.string().describe('Precise location of the room (e.g., "123 Main St, Anytown, CA").'),
-  nearestCommunication: z
-    .string()
-    .describe('Nearest public transportation options (e.g., "5-min walk to Central Station, Bus Stop 100 ft away").'),
-  wifiAvailable: z.boolean().describe('Whether Wi-Fi is available.'),
-  inverterAvailable: z.boolean().describe('Whether an inverter (power backup) is available.'),
-  acAvailable: z.boolean().describe('Whether air conditioning is available.'),
-  waterSupplyCondition: z.string().describe('Condition of water supply (e.g., "24/7 municipal water supply").'),
-  monthlyRent: z.string().describe('Monthly rent (e.g., "$500/month", "₹8000 per month").'),
-  photoUrls: z.array(z.string().url()).describe('URLs of photos of the room.').optional(),
-  socialMediaType: z.enum(['facebook', 'whatsapp']).describe('The social media platform for which the post is being generated.'),
+  type: z.enum(['listing', 'requirement']).default('listing'),
+  location: z.string().describe('Precise location of the room or preferred area.'),
+  nearestCommunication: z.string().optional().describe('Nearest public transportation options.'),
+  wifiAvailable: z.boolean().optional(),
+  inverterAvailable: z.boolean().optional(),
+  acAvailable: z.boolean().optional(),
+  waterSupplyCondition: z.string().optional(),
+  monthlyRent: z.string().describe('Rent amount or budget.'),
+  socialMediaType: z.enum(['facebook', 'whatsapp']).describe('The target platform.'),
 });
 export type ComposeSocialPostInput = z.infer<typeof ComposeSocialPostInputSchema>;
 
@@ -39,38 +33,27 @@ const composeSocialPostPrompt = ai.definePrompt({
   name: 'composeSocialPostPrompt',
   input: { schema: ComposeSocialPostInputSchema },
   output: { schema: ComposeSocialPostOutputSchema },
-  prompt: `You are an AI social media content creator specializing in crafting engaging posts for room rentals.
-Your task is to generate a compelling social media post for a new room listing.
-The post should be tailored for {{socialMediaType}}.
+  prompt: `You are an AI social media content creator for RentiPedia.
+Your task is to generate a compelling social media post for {{socialMediaType}}.
 
-Here are the details of the room listing:
+{{#if (eq type "listing")}}
+Type: Room Available for Rent
+Details:
 - Location: {{{location}}}
 - Nearest Communication: {{{nearestCommunication}}}
 - Monthly Rent: {{monthlyRent}}
-- Amenities:
-  - Wi-Fi: {{#if wifiAvailable}}Available{{else}}Not Available{{/if}}
-  - Inverter/Power Backup: {{#if inverterAvailable}}Available{{else}}Not Available{{/if}}
-  - AC: {{#if acAvailable}}Available{{else}}Not Available{{/if}}
-  - Water Supply: {{{waterSupplyCondition}}}
-{{#if photoUrls}}
-- Photos: See attached photos for a better look!
+- Amenities: {{#if wifiAvailable}}WiFi, {{/if}}{{#if inverterAvailable}}Inverter, {{/if}}{{#if acAvailable}}AC{{/if}}
+- Water: {{{waterSupplyCondition}}}
+Tone: Professional and inviting.
+{{else}}
+Type: Looking for a Room (Tenant Requirement)
+Details:
+- Preferred Location: {{{location}}}
+- Budget: {{monthlyRent}}
+Tone: Urgent and friendly.
 {{/if}}
 
-For Facebook posts:
-- Use a slightly more descriptive and engaging tone.
-- Include relevant hashtags.
-- Encourage comments and shares.
-- Call to action: "DM for details" or "Contact us!"
-
-For WhatsApp posts:
-- Be concise and use a friendly, conversational tone.
-- Include relevant emojis.
-- Use a clear call to action: "Message me for details!" or "Call now!"
-
-Draft an engaging social media post based on these details, keeping the specified platform in mind.
-
-Generated Post:
-`,
+Draft an engaging post with relevant emojis and hashtags.`,
 });
 
 const composeSocialPostFlow = ai.defineFlow(
