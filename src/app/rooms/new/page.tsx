@@ -1,15 +1,14 @@
+
 "use client";
 
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Train, Wifi, Zap, Wind, Droplets, Camera, Sparkles } from "lucide-react";
+import { Sparkles, Facebook, MessageCircle, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser } from "@/firebase";
@@ -18,7 +17,7 @@ import { addDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-b
 import { composeSocialPost } from "@/ai/flows/ai-social-post-composer-flow";
 
 export default function NewListing() {
-  const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
   const { firestore } = useFirestore();
@@ -40,11 +39,11 @@ export default function NewListing() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
-      toast({ title: "Authentication Required", description: "Please sign in.", variant: "destructive" });
+      toast({ title: "Authentication Required", description: "Please sign in to list a room.", variant: "destructive" });
       return;
     }
 
-    setLoading(true);
+    setLoadingStep("Saving Listing...");
 
     try {
       const listingId = doc(collection(firestore, "temp")).id;
@@ -68,6 +67,7 @@ export default function NewListing() {
       setDocumentNonBlocking(doc(firestore, `published_room_listings/${listingId}`), listingData, { merge: true });
 
       // 2. AI Social Post
+      setLoadingStep("AI is Sharing to Facebook...");
       const aiPost = await composeSocialPost({
         type: "listing",
         location: formData.location,
@@ -85,26 +85,33 @@ export default function NewListing() {
       });
 
       // 3. Match with Tenants
+      setLoadingStep("Matching with Prospective Tenants...");
       const q = query(collection(firestore, "saved_search_requests"), where("locationFilter", "==", formData.location));
       const querySnapshot = await getDocs(q);
+      
       querySnapshot.forEach((tenantDoc) => {
         const tenant = tenantDoc.data();
-        addDocumentNonBlocking(collection(firestore, `users/${tenant.renterId}/notifications`), {
-          recipientId: tenant.renterId,
-          message: `New property match in ${formData.location}! Budget: ₹${formData.rent}`,
-          notificationType: "ListingMatch",
-          deliveryMethod: "InApp",
-          status: "Pending",
-          createdAt: new Date().toISOString()
+        const msg = `New property match in ${formData.location}! Budget: ₹${formData.rent}`;
+        
+        // Multi-channel notifications
+        ["InApp", "WhatsApp", "Email"].forEach(method => {
+          addDocumentNonBlocking(collection(firestore, `users/${tenant.renterId}/notifications`), {
+            recipientId: tenant.renterId,
+            message: msg,
+            notificationType: "ListingMatch",
+            deliveryMethod: method,
+            status: "Pending",
+            createdAt: new Date().toISOString()
+          });
         });
       });
 
-      toast({ title: "Success!", description: "Listing live & Facebook post shared!" });
+      toast({ title: "Success!", description: "Listing is live, shared to Facebook, and matching tenants notified!" });
       router.push(`/rooms/${listingId}`);
     } catch (error) {
-      toast({ title: "Error", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to publish listing.", variant: "destructive" });
     } finally {
-      setLoading(false);
+      setLoadingStep(null);
     }
   };
 
@@ -114,36 +121,80 @@ export default function NewListing() {
       <div className="container max-w-3xl px-4 py-8 mx-auto">
         <Card className="border-none shadow-lg">
           <CardHeader className="text-center bg-primary/5 rounded-t-xl py-10">
-            <CardTitle className="text-3xl font-headline font-bold">List Your Room</CardTitle>
-            <CardDescription>Share your property with thousands of verified renters.</CardDescription>
+            <CardTitle className="text-3xl font-headline font-bold text-primary">List Your Room</CardTitle>
+            <CardDescription>Share your property with thousands of verified renters on RentiPedia.</CardDescription>
           </CardHeader>
           <CardContent className="p-8">
-            <form onSubmit={handleSubmit} className="space-y-8">
-              <div className="grid gap-6 sm:grid-cols-2">
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>Precise Location</Label>
-                  <Input required value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} placeholder="e.g. Koramangala, Bangalore" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Monthly Rent (INR)</Label>
-                  <Input required type="number" value={formData.rent} onChange={(e) => setFormData({...formData, rent: e.target.value})} placeholder="15000" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Ideal For</Label>
-                  <Select required onValueChange={(v) => setFormData({...formData, idealFor: v})}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Single Tenant">Single Tenant</SelectItem>
-                      <SelectItem value="Family">Family</SelectItem>
-                      <SelectItem value="Commercial">Commercial</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+            {loadingStep ? (
+              <div className="flex flex-col items-center justify-center py-20 space-y-6">
+                 <div className="relative">
+                   <div className="h-20 w-20 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+                   <Sparkles className="absolute inset-0 m-auto h-8 w-8 text-primary animate-pulse" />
+                 </div>
+                 <div className="text-center">
+                   <p className="text-xl font-headline font-bold text-primary">{loadingStep}</p>
+                   <p className="text-sm text-muted-foreground mt-2">Hang tight, RentiPedia's AI is working for you.</p>
+                 </div>
+                 <div className="flex gap-4 opacity-50">
+                    <Facebook className="h-6 w-6" />
+                    <MessageCircle className="h-6 w-6" />
+                    <Mail className="h-6 w-6" />
+                 </div>
               </div>
-              <Button type="submit" disabled={loading} className="w-full h-14 text-lg">
-                {loading ? "Processing..." : "Publish & Share Listing"}
-              </Button>
-            </form>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-8">
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Precise Location</Label>
+                    <Input required value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} placeholder="e.g. Koramangala, Bangalore" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Monthly Rent (INR)</Label>
+                    <Input required type="number" value={formData.rent} onChange={(e) => setFormData({...formData, rent: e.target.value})} placeholder="15000" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Ideal For</Label>
+                    <Select required onValueChange={(v) => setFormData({...formData, idealFor: v})}>
+                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Single Tenant">Single Tenant</SelectItem>
+                        <SelectItem value="Family">Family</SelectItem>
+                        <SelectItem value="Commercial">Commercial</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Nearest Transportation / Landmarks</Label>
+                    <Input required value={formData.transport} onChange={(e) => setFormData({...formData, transport: e.target.value})} placeholder="e.g. 5 mins from Indiranagar Metro" />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Water Supply Conditions</Label>
+                    <Input required value={formData.waterDetails} onChange={(e) => setFormData({...formData, waterDetails: e.target.value})} placeholder="e.g. 24/7 Municipal & Borewell" />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Detailed Description</Label>
+                    <textarea 
+                      required 
+                      className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={formData.description} 
+                      onChange={(e) => setFormData({...formData, description: e.target.value})} 
+                      placeholder="Describe the room, furniture, roommates, etc." 
+                    />
+                  </div>
+                </div>
+                
+                <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex items-start gap-3">
+                   <Sparkles className="h-5 w-5 text-primary mt-1 shrink-0" />
+                   <p className="text-xs text-muted-foreground leading-relaxed">
+                     By publishing, RentiPedia's AI will automatically draft and post an optimized listing to our Facebook groups and notify matching tenants via WhatsApp and Email.
+                   </p>
+                </div>
+
+                <Button type="submit" className="w-full h-14 text-lg font-headline">
+                  Publish & Share Everywhere
+                </Button>
+              </form>
+            )}
           </CardContent>
         </Card>
       </div>
