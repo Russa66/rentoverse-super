@@ -34,7 +34,7 @@ export default function HomePage() {
     <div className="min-h-screen flex flex-col">
       <Navbar />
       
-      <section className="relative h-[600px] flex items-center justify-center overflow-hidden">
+      <section className="relative h-[650px] md:h-[600px] flex items-center justify-center overflow-hidden">
         <Image 
           src={heroImage?.imageUrl || "https://picsum.photos/seed/paris/1200/800"} 
           alt={heroImage?.description || "City view"} 
@@ -44,23 +44,31 @@ export default function HomePage() {
           data-ai-hint="city view"
         />
         <div className="container relative z-10 px-4 text-center text-white">
-          <h1 className="text-5xl md:text-7xl font-headline font-bold mb-6 tracking-tight">
+          <h1 className="text-4xl md:text-7xl font-headline font-bold mb-6 tracking-tight">
             Find your <span className="text-secondary italic">perfect</span> room and property.
           </h1>
-          <p className="text-lg md:text-xl mb-10 max-w-3xl mx-auto font-body opacity-90 leading-relaxed">
+          <p className="text-base md:text-xl mb-10 max-w-3xl mx-auto font-body opacity-90 leading-relaxed">
             RentoVerse makes finding, listing, and sharing your next property effortless with intuitive search and AI-powered tools.
           </p>
           
-          <div className="bg-white p-2 rounded-full shadow-2xl max-w-3xl mx-auto flex flex-col md:flex-row gap-2">
-            <div className="flex-1 flex items-center px-6 gap-3">
-              <MapPin className="h-5 w-5 text-destructive shrink-0" />
-              <Input 
-                className="border-none focus-visible:ring-0 text-gray-900 placeholder:text-gray-400 h-12 text-lg" 
-                placeholder="Search in Poabagan, Heavir More..." 
-              />
+          <div className="bg-white p-3 md:p-2 rounded-2xl md:rounded-full shadow-2xl max-w-3xl mx-auto flex flex-col md:flex-row gap-3 md:gap-2">
+            <div className="flex-1 flex items-start md:items-center px-4 md:px-6 gap-3">
+              <MapPin className="h-5 w-5 text-destructive shrink-0 mt-3 md:mt-0" />
+              <div className="flex-1 w-full">
+                {/* Mobile Textarea for detailed typing */}
+                <textarea 
+                  className="block md:hidden w-full border-none focus:ring-0 text-gray-900 placeholder:text-gray-400 bg-transparent text-lg resize-none min-h-[80px] py-2" 
+                  placeholder="Search in Poabagan, Heavir More..." 
+                />
+                {/* Desktop standard Input */}
+                <Input 
+                  className="hidden md:block border-none focus-visible:ring-0 text-gray-900 placeholder:text-gray-400 h-12 text-lg w-full" 
+                  placeholder="Search in Poabagan, Heavir More..." 
+                />
+              </div>
             </div>
-            <Link href="/search">
-              <Button size="lg" className="h-12 px-10 rounded-full w-full md:w-auto bg-primary text-primary-foreground hover:bg-primary/90 font-headline text-lg">
+            <Link href="/search" className="w-full md:w-auto">
+              <Button size="lg" className="h-14 md:h-12 px-10 rounded-xl md:rounded-full w-full bg-primary text-primary-foreground hover:bg-primary/90 font-headline text-lg">
                 <Search className="mr-2 h-5 w-5" /> Search
               </Button>
             </Link>
