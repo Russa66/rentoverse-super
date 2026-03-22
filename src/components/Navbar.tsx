@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { useUser } from "@/firebase";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 
+const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/firejet-0.appspot.com/o/studio%2Fstudio-184067128-73095%2Fuploads%2F1741162330756.png?alt=media&token=86603a11-e77a-4286-90b4-c3e6027a4e0a";
+
 export default function Navbar() {
   const { user } = useUser();
   const logo = PlaceHolderImages.find(img => img.id === 'logo');
@@ -16,9 +18,9 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 mx-auto">
         <Link href="/" className="flex items-center gap-2">
-          <div className="relative w-16 h-16">
+          <div className="relative w-24 h-12 md:w-32 md:h-16">
             <Image 
-              src={logo?.imageUrl || ""} 
+              src={logo?.imageUrl || LOGO_URL} 
               alt="RentoVerse Logo" 
               fill 
               className="object-contain"
