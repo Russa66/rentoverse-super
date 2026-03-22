@@ -6,7 +6,7 @@ import RoomCard from "@/components/RoomCard";
 import { MOCK_ROOMS } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, MapPin, Sparkles, Home as HomeIcon } from "lucide-react";
+import { Search, MapPin, Sparkles } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
@@ -15,6 +15,7 @@ import { collection, query, limit, orderBy } from "firebase/firestore";
 
 export default function HomePage() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
+  const logo = PlaceHolderImages.find(img => img.id === 'logo');
   const { firestore } = useFirestore();
 
   const featuredQuery = useMemoFirebase(() => {
@@ -127,8 +128,13 @@ export default function HomePage() {
       <footer className="py-16 bg-white border-t">
         <div className="container px-4 mx-auto text-center">
           <div className="flex items-center justify-center gap-2 mb-8">
-            <div className="bg-primary p-1.5 rounded-lg">
-              <HomeIcon className="h-6 w-6 text-white" />
+            <div className="relative w-12 h-12 overflow-hidden rounded-lg">
+              <Image 
+                src={logo?.imageUrl || ""} 
+                alt="RentoVerse Logo" 
+                fill 
+                className="object-cover"
+              />
             </div>
             <span className="font-headline font-bold text-2xl tracking-tighter text-primary">RentoVerse</span>
           </div>

@@ -2,19 +2,27 @@
 "use client";
 
 import Link from "next/link";
-import { Search, PlusCircle, User, Home, FileText, Send, LogIn } from "lucide-react";
+import Image from "next/image";
+import { Search, PlusCircle, User, FileText, Send, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/firebase";
+import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 export default function Navbar() {
   const { user } = useUser();
+  const logo = PlaceHolderImages.find(img => img.id === 'logo');
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 mx-auto">
         <Link href="/" className="flex items-center gap-2">
-          <div className="bg-primary p-1.5 rounded-lg">
-            <Home className="h-6 w-6 text-primary-foreground" />
+          <div className="relative w-10 h-10 overflow-hidden rounded-lg">
+            <Image 
+              src={logo?.imageUrl || ""} 
+              alt="RentoVerse Logo" 
+              fill 
+              className="object-cover"
+            />
           </div>
           <span className="text-xl font-headline font-bold text-primary tracking-tighter">RentoVerse</span>
         </Link>
