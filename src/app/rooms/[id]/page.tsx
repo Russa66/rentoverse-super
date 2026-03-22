@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { MapPin, Wifi, Zap, Wind, Droplets, Train, MessageCircle, Phone, Users, ShieldCheck, Lock } from "lucide-react";
+import { MapPin, Wifi, Zap, Wind, Droplets, Train, MessageCircle, Phone, Users, ShieldCheck, Lock, Maximize2 } from "lucide-react";
 import Image from "next/image";
 import SocialPostDialog from "@/components/SocialPostDialog";
 import Link from "next/link";
@@ -103,7 +103,11 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
                    <Badge className="bg-primary hover:bg-primary font-bold px-3 py-1 flex items-center gap-1">
                      <Users className="h-3 w-3" /> {room.idealFor || "Verified"}
                    </Badge>
-                   <Badge variant="outline" className="border-secondary text-secondary-foreground font-bold px-3 py-1">Live</Badge>
+                   {room.bhkCount && room.bhkCount !== 'N/A' && (
+                     <Badge variant="outline" className="border-primary text-primary font-bold px-3 py-1">
+                       {room.bhkCount} BHK
+                     </Badge>
+                   )}
                 </div>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground mb-6">
@@ -114,6 +118,23 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
                     <Lock className="h-3 w-3" /> Precise address hidden for privacy
                   </span>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                 <div className="p-4 rounded-xl bg-muted/50 flex items-center gap-3">
+                    <Maximize2 className="h-5 w-5 text-primary" />
+                    <div>
+                       <p className="text-[10px] uppercase font-bold text-muted-foreground">Area</p>
+                       <p className="font-headline font-bold">{room.areaSqFt || '---'} Sq Ft</p>
+                    </div>
+                 </div>
+                 <div className="p-4 rounded-xl bg-muted/50 flex items-center gap-3">
+                    <Droplets className="h-5 w-5 text-blue-500" />
+                    <div>
+                       <p className="text-[10px] uppercase font-bold text-muted-foreground">Water Source</p>
+                       <p className="font-headline font-bold">{room.waterSupplyCondition || 'Standard'}</p>
+                    </div>
+                 </div>
               </div>
 
               <Separator className="my-6" />

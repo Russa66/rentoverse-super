@@ -11,11 +11,14 @@ import { z } from 'genkit';
 const ComposeSocialPostInputSchema = z.object({
   type: z.enum(['listing', 'requirement']).default('listing'),
   location: z.string().describe('Precise location of the room or preferred area.'),
+  propertyType: z.string().optional().describe('Type of property, e.g., 1 BHK, PG, Commercial.'),
+  areaSqFt: z.number().optional().describe('Area of the property in square feet.'),
+  bhkCount: z.string().optional().describe('Number of BHKs if applicable.'),
   nearestCommunication: z.string().optional().describe('Nearest public transportation options.'),
   wifiAvailable: z.boolean().optional(),
   inverterAvailable: z.boolean().optional(),
   acAvailable: z.boolean().optional(),
-  waterSupplyCondition: z.string().optional(),
+  waterSupplyCondition: z.string().optional().describe('Source of water supply.'),
   monthlyRent: z.string().describe('Rent amount or budget.'),
   socialMediaType: z.enum(['facebook', 'whatsapp']).describe('The target platform.'),
 });
@@ -38,13 +41,15 @@ const composeSocialPostPrompt = ai.definePrompt({
 Your task is to generate a compelling social media post for {{socialMediaType}}.
 
 {{#if (eq type "listing")}}
-Type: Room Available for Rent
+Type: Property Available for Rent
 Details:
+- Property: {{#if bhkCount}}{{bhkCount}} BHK {{/if}}{{{propertyType}}}
+- Area: {{#if areaSqFt}}{{areaSqFt}} Sq Ft{{/if}}
 - Location: {{{location}}}
 - Nearest Communication: {{{nearestCommunication}}}
 - Monthly Rent: {{monthlyRent}}
 - Amenities: {{#if wifiAvailable}}WiFi, {{/if}}{{#if inverterAvailable}}Inverter, {{/if}}{{#if acAvailable}}AC{{/if}}
-- Water: {{{waterSupplyCondition}}}
+- Water Source: {{{waterSupplyCondition}}}
 Tone: Professional and inviting.
 {{else}}
 Type: Looking for a Room (Tenant Requirement)
