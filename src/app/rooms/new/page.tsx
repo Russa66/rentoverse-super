@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles, Facebook, MessageCircle, Mail } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser, useAuth } from "@/firebase";
@@ -38,7 +38,6 @@ export default function NewListing() {
     description: ""
   });
 
-  // Automatically sign in anonymously if no user is present
   useEffect(() => {
     if (!isUserLoading && !user && auth) {
       initiateAnonymousSignIn(auth);
@@ -48,7 +47,6 @@ export default function NewListing() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // If user is still loading or doesn't exist even after anonymous sign-in attempt, wait.
     if (!user || !firestore) {
       toast({ title: "Connecting...", description: "Setting up your secure workspace.", variant: "default" });
       return;
@@ -73,16 +71,10 @@ export default function NewListing() {
         createdAt: new Date().toISOString(),
       };
 
-      // 1. Save Listings
       setDocumentNonBlocking(doc(firestore, `users/${user.uid}/listings/${listingId}`), listingData, { merge: true });
       setDocumentNonBlocking(doc(firestore, `published_room_listings/${listingId}`), listingData, { merge: true });
 
-      // 2. AI Social Post Configuration Check
       setLoadingStep("AI is Formatting for Facebook...");
-      const channelQuery = query(collection(firestore, `users/${user.uid}/social_channel_configurations`), where("platform", "==", "Facebook"), where("enabled", "==", true));
-      const channelSnapshot = await getDocs(channelQuery);
-      const configuredChannel = channelSnapshot.docs[0]?.data();
-
       const aiPost = await composeSocialPost({
         type: "listing",
         location: formData.location,
@@ -95,13 +87,11 @@ export default function NewListing() {
         authorId: user.uid,
         listingId,
         platform: "facebook",
-        channelIdentifier: configuredChannel?.channelIdentifier || null,
         postContent: aiPost.postContent,
         status: "POSTED",
         createdAt: new Date().toISOString()
       });
 
-      // 3. Match with Tenants
       setLoadingStep("Matching with Prospective Tenants...");
       const q = query(collection(firestore, "saved_search_requests"), where("locationFilter", "==", formData.location));
       const querySnapshot = await getDocs(q);
@@ -110,7 +100,6 @@ export default function NewListing() {
         const tenant = tenantDoc.data();
         const msg = `New property match in ${formData.location}! Budget: ₹${formData.rent}`;
         
-        // Multi-channel notifications
         ["InApp", "WhatsApp", "Email"].forEach(method => {
           addDocumentNonBlocking(collection(firestore, `users/${tenant.renterId}/notifications`), {
             recipientId: tenant.renterId,
@@ -123,7 +112,7 @@ export default function NewListing() {
         });
       });
 
-      toast({ title: "Success!", description: `Listing live ${configuredChannel ? 'and shared to your FB Page!' : 'and shared to FB groups!'}` });
+      toast({ title: "Success!", description: "Listing live and shared to Facebook!" });
       router.push(`/rooms/${listingId}`);
     } catch (error) {
       toast({ title: "Error", description: "Failed to publish listing.", variant: "destructive" });
@@ -158,7 +147,7 @@ export default function NewListing() {
                 <div className="grid gap-6 sm:grid-cols-2">
                   <div className="space-y-2 sm:col-span-2">
                     <Label>Precise Location</Label>
-                    <Input required value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} placeholder="e.g. Koramangala, Bangalore" />
+                    <Input required value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} placeholder="e.g. Poabagan, Heavir More etc." />
                   </div>
                   <div className="space-y-2">
                     <Label>Monthly Rent (INR)</Label>
@@ -177,7 +166,7 @@ export default function NewListing() {
                   </div>
                   <div className="space-y-2 sm:col-span-2">
                     <Label>Nearest Transportation / Landmarks</Label>
-                    <Input required value={formData.transport} onChange={(e) => setFormData({...formData, transport: e.target.value})} placeholder="e.g. 5 mins from Indiranagar Metro" />
+                    <Input required value={formData.transport} onChange={(e) => setFormData({...formData, transport: e.target.value})} placeholder="e.g. 5 mins from indira more" />
                   </div>
                   <div className="space-y-2 sm:col-span-2">
                     <Label>Water Supply Conditions</Label>

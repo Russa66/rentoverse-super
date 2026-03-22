@@ -36,7 +36,6 @@ export default function PostRequirement() {
     powerBackupRequired: false,
   });
 
-  // Automatically sign in anonymously if no user is present
   useEffect(() => {
     if (!isUserLoading && !user && auth) {
       initiateAnonymousSignIn(auth);
@@ -80,17 +79,14 @@ export default function PostRequirement() {
         createdAt: new Date().toISOString(),
       };
 
-      // 1. Save Request
       setDocumentNonBlocking(doc(firestore, `users/${user.uid}/saved_search_requests/${requestId}`), requestData, { merge: true });
       setDocumentNonBlocking(doc(firestore, `saved_search_requests/${requestId}`), requestData, { merge: true });
 
-      // Update user's contact info in profile if not set
       updateDocumentNonBlocking(doc(firestore, "users", user.uid), { 
         phoneNumber: formData.phoneNumber,
         updatedAt: new Date().toISOString()
       });
 
-      // 2. AI Social Post Generation
       setLoadingStep("AI is Formatting for Social Groups...");
       const aiPost = await composeSocialPost({
         type: "requirement",
@@ -111,7 +107,6 @@ export default function PostRequirement() {
         createdAt: new Date().toISOString()
       });
 
-      // 3. Match with Landlords
       setLoadingStep("Alerting Property Owners...");
       const q = query(collection(firestore, "published_room_listings"), where("location", "==", formData.location));
       const querySnapshot = await getDocs(q);
@@ -175,7 +170,7 @@ export default function PostRequirement() {
                       required 
                       value={formData.location} 
                       onChange={(e) => setFormData({...formData, location: e.target.value})} 
-                      placeholder="e.g. Indiranagar, Bangalore" 
+                      placeholder="e.g. Poabagan, Heavir More etc." 
                       className="h-12"
                     />
                   </div>

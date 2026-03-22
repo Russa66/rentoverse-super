@@ -28,14 +28,12 @@ export default function HomePage() {
 
   const { data: listings, isLoading } = useCollection(featuredQuery);
 
-  // Combine mock data with firestore data for a full-looking landing page
   const displayListings = listings && listings.length > 0 ? listings : MOCK_ROOMS;
 
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
       
-      {/* Hero Section */}
       <section className="relative h-[600px] flex items-center justify-center overflow-hidden">
         <Image 
           src={heroImage?.imageUrl || "https://picsum.photos/seed/paris/1200/800"} 
@@ -58,7 +56,7 @@ export default function HomePage() {
               <MapPin className="h-5 w-5 text-destructive shrink-0" />
               <Input 
                 className="border-none focus-visible:ring-0 text-gray-900 placeholder:text-gray-400 h-12 text-lg" 
-                placeholder="Where do you want to stay?" 
+                placeholder="Search in Poabagan, Heavir More..." 
               />
             </div>
             <Link href="/search">
@@ -70,7 +68,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Categories / Quick Links */}
       <section className="py-12 bg-white">
         <div className="container px-4 mx-auto">
           <h2 className="text-center text-2xl font-headline font-bold mb-8">Browse by Property Type</h2>
@@ -84,7 +81,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Featured Listings */}
       <section className="py-16 container px-4 mx-auto flex-1">
         <div className="flex items-end justify-between mb-10">
           <div>
@@ -111,7 +107,6 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* Landlord CTA Section */}
       <section className="py-24 bg-primary/5 border-y border-primary/10">
         <div className="container px-4 mx-auto text-center">
           <div className="bg-primary/10 inline-flex items-center gap-2 px-4 py-2 rounded-full text-primary font-bold text-sm mb-6">
