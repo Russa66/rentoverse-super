@@ -28,7 +28,6 @@ export default function LoginPage() {
   const logo = PlaceHolderImages.find(img => img.id === 'logo');
 
   useEffect(() => {
-    // If user is already logged in (non-anonymous), handle the redirect logic
     if (user && !user.isAnonymous && firestore) {
       checkAdminAndRedirect(user.uid);
     }
@@ -58,7 +57,6 @@ export default function LoginPage() {
         title: "Welcome back!",
         description: "Checking your credentials...",
       });
-      // The useEffect will handle the redirection once the user state updates
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -75,7 +73,7 @@ export default function LoginPage() {
       <div className="container flex items-center justify-center py-20 px-4">
         <Card className="max-w-md w-full border-none shadow-2xl">
           <CardHeader className="text-center space-y-1">
-            <div className="relative w-24 h-24 mx-auto mb-4">
+            <div className="relative w-32 h-32 mx-auto mb-4">
               <Image 
                 src={logo?.imageUrl || ""} 
                 alt="RentoVerse Logo" 

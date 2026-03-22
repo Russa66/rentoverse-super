@@ -1,3 +1,4 @@
+
 "use client";
 
 import Navbar from "@/components/Navbar";
@@ -126,8 +127,8 @@ export default function HomePage() {
 
       <footer className="py-16 bg-white border-t">
         <div className="container px-4 mx-auto text-center">
-          <div className="flex items-center justify-center gap-2 mb-8">
-            <div className="relative w-24 h-24">
+          <div className="flex flex-col items-center justify-center gap-4 mb-8">
+            <div className="relative w-32 h-32">
               <Image 
                 src={logo?.imageUrl || ""} 
                 alt="RentoVerse Logo" 
