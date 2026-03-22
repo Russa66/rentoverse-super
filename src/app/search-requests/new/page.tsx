@@ -270,7 +270,7 @@ export default function PostRequirement() {
                         checked={formData.powerBackupRequired} 
                         onCheckedChange={(v) => setFormData({...formData, powerBackupRequired: !!v})} 
                       />
-                      <label htmlFor="backup" className="text-sm font-medium leading-none cursor-pointer">Backup</label>
+                      <label htmlFor="backup" className="text-sm font-medium leading-none cursor-pointer">Inverter</label>
                     </div>
                   </div>
                 </div>

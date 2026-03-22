@@ -91,7 +91,7 @@ export default function SearchPage() {
             <div>
               <Label className="font-bold mb-4 block">Essential Amenities</Label>
               <div className="space-y-3">
-                {['WiFi Included', 'Air Conditioning', 'Power Backup', 'Purified Water', 'Private Washroom'].map((item) => (
+                {['WiFi Included', 'Air Conditioning', 'Inverter', 'Purified Water', 'Private Washroom'].map((item) => (
                   <div key={item} className="flex items-center space-x-2">
                     <Checkbox id={item} className="rounded-sm" />
                     <label htmlFor={item} className="text-sm font-medium leading-none cursor-pointer">{item}</label>

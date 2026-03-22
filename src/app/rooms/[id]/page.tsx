@@ -61,7 +61,7 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
   const amenities = room.amenities || [];
   const hasWifi = amenities.includes("WiFi") || !!room.wifiAvailable;
   const hasAc = amenities.includes("AC") || !!room.acAvailable;
-  const hasBackup = amenities.includes("Inverter") || !!room.inverterAvailable;
+  const hasInverter = amenities.includes("Inverter") || !!room.inverterAvailable;
   const rentDisplay = typeof room.monthlyRent === 'number' ? `₹${room.monthlyRent}` : room.monthlyRent;
   const whatsapp = room.landlord?.whatsapp || "";
   const landlordName = room.landlord?.name || "Verified Landlord";
@@ -128,8 +128,8 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
                     <span className="text-xs font-bold uppercase tracking-wider">AC</span>
                  </div>
                  <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-yellow-50 border border-yellow-100">
-                    <Zap className={`h-8 w-8 ${hasBackup ? 'text-yellow-600' : 'text-muted/30'}`} />
-                    <span className="text-xs font-bold uppercase tracking-wider">Backup</span>
+                    <Zap className={`h-8 w-8 ${hasInverter ? 'text-yellow-600' : 'text-muted/30'}`} />
+                    <span className="text-xs font-bold uppercase tracking-wider">Inverter</span>
                  </div>
                  <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-blue-50 border border-blue-100">
                     <Droplets className="h-8 w-8 text-blue-500" />
@@ -198,7 +198,7 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
                      monthlyRent: rentDisplay,
                      wifiAvailable: hasWifi,
                      acAvailable: hasAc,
-                     inverterAvailable: hasBackup
+                     inverterAvailable: hasInverter
                    }} />
                 </div>
 
