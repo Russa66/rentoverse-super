@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Checkbox } from "@/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser, useAuth } from "@/firebase";
@@ -16,7 +16,7 @@ import { collection, doc, query, getDocs, where } from "firebase/firestore";
 import { addDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
 import { composeSocialPost } from "@/ai/flows/ai-social-post-composer-flow";
-import { Search, Sparkles, Phone, ShieldCheck } from "lucide-react";
+import { Search, Sparkles, Phone, ShieldCheck, MapPin } from "lucide-react";
 
 export default function PostRequirement() {
   const [loadingStep, setLoadingStep] = useState<string | null>(null);
@@ -27,7 +27,9 @@ export default function PostRequirement() {
   const auth = useAuth();
 
   const [formData, setFormData] = useState({
-    location: "",
+    location1: "",
+    location2: "",
+    location3: "",
     budget: "",
     propertyType: "Single Room",
     phoneNumber: "",
@@ -67,10 +69,13 @@ export default function PostRequirement() {
       if (formData.wifiRequired) amenities.push("WiFi");
       if (formData.powerBackupRequired) amenities.push("Inverter");
 
+      const locations = [formData.location1, formData.location2, formData.location3].filter(Boolean);
+      const combinedLocation = locations.join(", ");
+
       const requestData = {
         id: requestId,
         renterId: user.uid,
-        locationFilter: formData.location,
+        locationFilter: combinedLocation,
         maxRent: Number(formData.budget),
         propertyType: formData.propertyType,
         requiredAmenities: amenities,
@@ -90,7 +95,7 @@ export default function PostRequirement() {
       setLoadingStep("AI is Formatting for Social Groups...");
       const aiPost = await composeSocialPost({
         type: "requirement",
-        location: formData.location,
+        location: combinedLocation,
         monthlyRent: `₹${formData.budget}`,
         socialMediaType: "facebook",
         acAvailable: formData.acRequired,
@@ -108,12 +113,13 @@ export default function PostRequirement() {
       });
 
       setLoadingStep("Alerting Property Owners...");
-      const q = query(collection(firestore, "published_room_listings"), where("location", "==", formData.location));
+      // Query against the primary location for matches
+      const q = query(collection(firestore, "published_room_listings"), where("location", "==", formData.location1));
       const querySnapshot = await getDocs(q);
       
       querySnapshot.forEach((listingDoc) => {
         const listing = listingDoc.data();
-        const msg = `Match! A tenant is looking for a ${formData.propertyType} in ${formData.location} (Budget: ₹${formData.budget}). Contact them at ${formData.phoneNumber}`;
+        const msg = `Match! A tenant is looking for a ${formData.propertyType} in ${combinedLocation} (Budget: ₹${formData.budget}). Contact them at ${formData.phoneNumber}`;
         
         ["InApp", "WhatsApp", "Email"].forEach(method => {
           addDocumentNonBlocking(collection(firestore, `users/${listing.landlordId}/notifications`), {
@@ -163,18 +169,41 @@ export default function PostRequirement() {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid gap-6 sm:grid-cols-2">
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label className="font-bold">Preferred Location</Label>
-                    <Input 
-                      required 
-                      value={formData.location} 
-                      onChange={(e) => setFormData({...formData, location: e.target.value})} 
-                      placeholder="e.g. Poabagan, Heavir More etc." 
-                      className="h-12"
-                    />
+                <div className="space-y-4">
+                  <Label className="font-bold">Preferred Locations (Up to 3)</Label>
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-3 h-4 w-4 text-primary" />
+                      <Input 
+                        required 
+                        value={formData.location1} 
+                        onChange={(e) => setFormData({...formData, location1: e.target.value})} 
+                        placeholder="Primary Location (e.g. Poabagan) - Mandatory" 
+                        className="h-12 pl-10"
+                      />
+                    </div>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                        value={formData.location2} 
+                        onChange={(e) => setFormData({...formData, location2: e.target.value})} 
+                        placeholder="Second Location (e.g. Heavir More) - Optional" 
+                        className="h-12 pl-10"
+                      />
+                    </div>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                        value={formData.location3} 
+                        onChange={(e) => setFormData({...formData, location3: e.target.value})} 
+                        placeholder="Third Location (Optional)" 
+                        className="h-12 pl-10"
+                      />
+                    </div>
                   </div>
+                </div>
 
+                <div className="grid gap-6 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label className="font-bold">Max Monthly Budget (INR)</Label>
                     <Input 
