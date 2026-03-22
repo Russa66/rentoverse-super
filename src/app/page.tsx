@@ -128,12 +128,12 @@ export default function HomePage() {
       <footer className="py-16 bg-white border-t">
         <div className="container px-4 mx-auto text-center">
           <div className="flex items-center justify-center gap-2 mb-8">
-            <div className="relative w-12 h-12 overflow-hidden rounded-lg">
+            <div className="relative w-24 h-24">
               <Image 
                 src={logo?.imageUrl || ""} 
                 alt="RentoVerse Logo" 
                 fill 
-                className="object-cover"
+                className="object-contain"
               />
             </div>
             <span className="font-headline font-bold text-2xl tracking-tighter text-primary">RentoVerse</span>

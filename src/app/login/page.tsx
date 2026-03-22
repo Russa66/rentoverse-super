@@ -12,7 +12,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Lock, Mail, Sparkles } from "lucide-react";
+import { Mail, Sparkles } from "lucide-react";
+import Image from "next/image";
+import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -23,6 +25,7 @@ export default function LoginPage() {
   const { user } = useUser();
   const router = useRouter();
   const { toast } = useToast();
+  const logo = PlaceHolderImages.find(img => img.id === 'logo');
 
   useEffect(() => {
     // If user is already logged in (non-anonymous), handle the redirect logic
@@ -72,8 +75,13 @@ export default function LoginPage() {
       <div className="container flex items-center justify-center py-20 px-4">
         <Card className="max-w-md w-full border-none shadow-2xl">
           <CardHeader className="text-center space-y-1">
-            <div className="bg-primary/10 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <Lock className="h-6 w-6 text-primary" />
+            <div className="relative w-24 h-24 mx-auto mb-4">
+              <Image 
+                src={logo?.imageUrl || ""} 
+                alt="RentoVerse Logo" 
+                fill 
+                className="object-contain"
+              />
             </div>
             <CardTitle className="text-2xl font-headline font-bold">RentoVerse Login</CardTitle>
             <CardDescription>Enter your credentials to access your dashboard.</CardDescription>
