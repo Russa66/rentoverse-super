@@ -9,17 +9,21 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, MessageCircle, Home, Bell, Mail, CheckCircle, Save, Sparkles, MapPin, XCircle } from "lucide-react";
+import { User, MessageCircle, Home, Bell, Mail, CheckCircle, Save, Sparkles, MapPin, XCircle, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
+import { useFirestore, useUser, useCollection, useMemoFirebase, useAuth } from "@/firebase";
 import { collection, query, orderBy } from "firebase/firestore";
 import { format } from "date-fns";
 import SocialPostDialog from "@/components/SocialPostDialog";
+import { signOut } from "firebase/auth";
+import { useRouter } from "next/navigation";
 
 export default function ProfilePage() {
   const { toast } = useToast();
   const { firestore } = useFirestore();
   const { user } = useUser();
+  const { auth } = useAuth();
+  const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("account");
 
@@ -53,6 +57,16 @@ export default function ProfilePage() {
       });
       setIsSaving(false);
     }, 1000);
+  };
+
+  const handleLogout = async () => {
+    if (!auth) return;
+    await signOut(auth);
+    router.push("/");
+    toast({
+      title: "Logged Out",
+      description: "You have been successfully signed out.",
+    });
   };
 
   const isVerified = !!user?.phoneNumber;
@@ -94,6 +108,13 @@ export default function ProfilePage() {
                     onClick={() => setActiveTab("listings")}
                   >
                     <Home className="mr-2 h-4 w-4" /> My Listings
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start font-headline text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" /> Sign Out
                   </Button>
                 </div>
               </div>

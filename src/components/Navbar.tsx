@@ -2,10 +2,13 @@
 "use client";
 
 import Link from "next/link";
-import { Search, PlusCircle, User, Home, FileText, Send, LayoutDashboard } from "lucide-react";
+import { Search, PlusCircle, User, Home, FileText, Send, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useUser } from "@/firebase";
 
 export default function Navbar() {
+  const { user } = useUser();
+
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 mx-auto">
@@ -23,9 +26,6 @@ export default function Navbar() {
           <Link href="/search-requests/new" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1">
             <Send className="h-4 w-4" /> Post Requirement
           </Link>
-          <Link href="/admin" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1">
-            <LayoutDashboard className="h-4 w-4" /> Admin
-          </Link>
           <Link href="/legal-form" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1">
             <FileText className="h-4 w-4" /> Legal
           </Link>
@@ -37,11 +37,19 @@ export default function Navbar() {
               <PlusCircle className="mr-2 h-4 w-4" /> List a Room
             </Button>
           </Link>
-          <Link href="/profile">
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <User className="h-5 w-5" />
-            </Button>
-          </Link>
+          {user && !user.isAnonymous ? (
+            <Link href="/profile">
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <User className="h-5 w-5" />
+              </Button>
+            </Link>
+          ) : (
+            <Link href="/login">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <LogIn className="h-4 w-4" /> Login
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
     </nav>
