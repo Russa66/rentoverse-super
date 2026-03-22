@@ -126,7 +126,7 @@ export default function HomePage() {
           </p>
           <Link href="/rooms/new">
             <Button size="lg" className="font-headline px-12 rounded-xl h-16 text-xl bg-primary hover:bg-primary/90">
-              Start Listing Today
+              List Property Today
             </Button>
           </Link>
         </div>

@@ -32,7 +32,7 @@ export default function Navbar() {
         <div className="flex items-center gap-2">
           <Link href="/rooms/new">
             <Button variant="outline" size="sm" className="hidden sm:flex border-primary text-primary hover:bg-primary/10">
-              <PlusCircle className="mr-2 h-4 w-4" /> List a Room
+              <PlusCircle className="mr-2 h-4 w-4" /> List Property
             </Button>
           </Link>
           {user && !user.isAnonymous ? (
