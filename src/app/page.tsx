@@ -1,4 +1,3 @@
-
 "use client";
 
 import Navbar from "@/components/Navbar";
@@ -138,7 +137,7 @@ export default function HomePage() {
             </div>
             <span className="font-headline font-bold text-2xl tracking-tighter text-primary">RentoVerse</span>
           </div>
-          <p className="text-muted-foreground text-sm">© 2024 RentoVerse. Your trustworthy property companion.</p>
+          <p className="text-muted-foreground text-sm">© 2026 RentoVerse. Your trustworthy property companion.</p>
         </div>
       </footer>
     </div>

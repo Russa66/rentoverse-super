@@ -1,4 +1,3 @@
-
 "use client";
 
 import Navbar from "@/components/Navbar";
@@ -37,7 +36,7 @@ export default function LegalFormPage() {
                   className="object-contain"
                 />
               </div>
-              <div className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Standard Form #RV-2024-V1</div>
+              <div className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Standard Form #RV-2026-V1</div>
             </div>
             <CardTitle className="text-3xl font-headline mb-2 underline decoration-primary decoration-4 underline-offset-8">Room Rental Agreement</CardTitle>
           </CardHeader>
@@ -88,12 +87,12 @@ export default function LegalFormPage() {
                 <div className="text-center">
                   <div className="h-16 border-b-2 border-gray-300"></div>
                   <p className="mt-4 font-bold">Landlord Signature</p>
-                  <p className="text-xs text-muted-foreground">Date: ___/___/2024</p>
+                  <p className="text-xs text-muted-foreground">Date: ___/___/2026</p>
                 </div>
                 <div className="text-center">
                   <div className="h-16 border-b-2 border-gray-300"></div>
                   <p className="mt-4 font-bold">Tenant Signature</p>
-                  <p className="text-xs text-muted-foreground">Date: ___/___/2024</p>
+                  <p className="text-xs text-muted-foreground">Date: ___/___/2026</p>
                 </div>
              </div>
           </CardContent>
