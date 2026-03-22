@@ -3,11 +3,14 @@
 
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { FileText, ShieldCheck, Download, Printer, CheckCircle2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ShieldCheck, Download, Printer, CheckCircle2 } from "lucide-react";
+import Image from "next/image";
+import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 export default function LegalFormPage() {
+  const logo = PlaceHolderImages.find(img => img.id === 'logo');
+
   return (
     <div className="min-h-screen bg-muted/30 pb-20">
       <Navbar />
@@ -26,9 +29,13 @@ export default function LegalFormPage() {
           <div className="bg-primary h-2 w-full" />
           <CardHeader className="p-10 pb-6 text-center">
             <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-2">
-                <FileText className="h-6 w-6 text-primary" />
-                <span className="font-headline font-bold text-xl uppercase tracking-tighter">RentoVerse Legal</span>
+              <div className="relative w-24 h-24">
+                <Image 
+                  src={logo?.imageUrl || ""} 
+                  alt="RentoVerse Logo" 
+                  fill 
+                  className="object-contain"
+                />
               </div>
               <div className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Standard Form #RV-2024-V1</div>
             </div>
