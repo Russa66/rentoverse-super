@@ -11,7 +11,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, limit, orderBy } from "firebase/firestore";
+import { collection, query, limit } from "firebase/firestore";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function HomePage() {
@@ -21,15 +21,13 @@ export default function HomePage() {
   const featuredQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(
-      collection(firestore, "published_room_listings"),
+      collection(firestore, "room_listings"),
       limit(6)
     );
   }, [firestore]);
 
   const { data: listings, isLoading, error } = useCollection(featuredQuery);
 
-  // If we have listings, show them. If loading, show skeletons. 
-  // If empty or error, fallback to mock data but show an indicator if it's an error.
   const hasRealData = listings && listings.length > 0;
   const displayListings = hasRealData ? listings : MOCK_ROOMS;
 
@@ -40,11 +38,10 @@ export default function HomePage() {
       <section className="relative h-[650px] md:h-[600px] flex items-center justify-center overflow-hidden">
         <Image 
           src={heroImage?.imageUrl || "https://picsum.photos/seed/paris/1200/800"} 
-          alt={heroImage?.description || "City view"} 
+          alt="Hero" 
           fill 
           className="object-cover brightness-[0.4]"
           priority
-          data-ai-hint="city view"
         />
         <div className="container relative z-10 px-4 text-center text-white">
           <h1 className="text-4xl md:text-7xl font-headline font-bold mb-6 tracking-tight">
@@ -60,32 +57,19 @@ export default function HomePage() {
               <div className="flex-1 w-full">
                 <textarea 
                   className="block md:hidden w-full border-none focus:ring-0 text-gray-900 placeholder:text-gray-400 bg-transparent text-lg resize-none min-h-[80px] py-2" 
-                  placeholder="Search in Poabagan, Heavir More..." 
+                  placeholder="Search location..." 
                 />
                 <Input 
                   className="hidden md:block border-none focus-visible:ring-0 text-gray-900 placeholder:text-gray-400 h-12 text-lg w-full" 
-                  placeholder="Search in Poabagan, Heavir More..." 
+                  placeholder="Search location..." 
                 />
               </div>
             </div>
             <Link href="/search" className="w-full md:w-auto">
-              <Button size="lg" className="h-14 md:h-12 px-10 rounded-xl md:rounded-full w-full bg-primary text-primary-foreground hover:bg-primary/90 font-headline text-lg">
+              <Button size="lg" className="h-14 md:h-12 px-10 rounded-xl md:rounded-full w-full font-headline text-lg">
                 <Search className="mr-2 h-5 w-5" /> Search
               </Button>
             </Link>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-12 bg-white">
-        <div className="container px-4 mx-auto">
-          <h2 className="text-center text-2xl font-headline font-bold mb-8">Browse by Property Type</h2>
-          <div className="flex flex-wrap justify-center gap-4">
-             {['Single Room', '1 BHK', '2 BHK', 'Studio', 'Shared Room', 'Commercial'].map((tag) => (
-               <Button key={tag} variant="outline" className="rounded-full border-gray-200 hover:border-primary hover:text-primary text-sm px-6 h-10">
-                 {tag}
-               </Button>
-             ))}
           </div>
         </div>
       </section>
@@ -96,27 +80,11 @@ export default function HomePage() {
             <h2 className="text-3xl font-headline font-bold mb-2">Popular Nearby Rooms</h2>
             <p className="text-muted-foreground">Handpicked properties with the best amenities in your city.</p>
           </div>
-          <Link href="/search" className="text-primary font-bold hover:underline flex items-center gap-1">
-            View all properties <span className="text-xl">&rarr;</span>
+          <Link href="/search" className="text-primary font-bold hover:underline">
+            View all &rarr;
           </Link>
         </div>
 
-        {error && (
-          <Alert variant="destructive" className="mb-8">
-            <Info className="h-4 w-4" />
-            <AlertTitle>Connection Note</AlertTitle>
-            <AlertDescription>
-              We're currently showing preview properties while connecting to our live database.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {!hasRealData && !isLoading && !error && (
-          <div className="bg-muted/30 rounded-xl p-4 mb-8 text-center border-dashed border-2">
-             <p className="text-sm text-muted-foreground">No live listings yet. Showing example properties.</p>
-          </div>
-        )}
-        
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {[1, 2, 3].map((i) => (
@@ -134,16 +102,13 @@ export default function HomePage() {
 
       <section className="py-24 bg-primary/5 border-y border-primary/10">
         <div className="container px-4 mx-auto text-center">
-          <div className="bg-primary/10 inline-flex items-center gap-2 px-4 py-2 rounded-full text-primary font-bold text-sm mb-6">
-            <Sparkles className="h-4 w-4" /> AI Powered Listing
-          </div>
           <h2 className="text-4xl md:text-5xl font-headline font-bold mb-6">Are you a Landlord?</h2>
-          <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
             Create high-converting listings in minutes. Use our AI to draft perfectly optimized posts for your social groups.
           </p>
           <Link href="/rooms/new">
-            <Button size="lg" className="font-headline px-12 rounded-xl h-16 text-xl bg-primary hover:bg-primary/90">
-              List Property Today
+            <Button size="lg" className="font-headline px-12 rounded-xl h-16 text-xl">
+              List Property
             </Button>
           </Link>
         </div>
@@ -151,12 +116,6 @@ export default function HomePage() {
 
       <footer className="py-16 bg-white border-t">
         <div className="container px-4 mx-auto text-center">
-          <div className="flex flex-col items-center justify-center gap-4 mb-8">
-            <div className="flex items-center gap-2">
-              <Home className="h-10 w-10 text-primary" />
-              <span className="font-headline font-bold text-3xl tracking-tighter text-primary">RentoVerse</span>
-            </div>
-          </div>
           <p className="text-muted-foreground text-sm">© 2026 RentoVerse. Your trustworthy property companion.</p>
         </div>
       </footer>

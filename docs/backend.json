@@ -1,581 +1,99 @@
+
 {
   "entities": {
     "User": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
-      "description": "Represents a user of the Rentipedia platform, who can act as an owner (landlord), tenant (renter), or administrator.",
+      "description": "Represents a user of the RentoVerse platform.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the User entity."
+          "description": "Unique identifier (UID) for the User."
         },
-        "firstName": {
+        "name": {
           "type": "string",
-          "description": "The first name of the user."
-        },
-        "lastName": {
-          "type": "string",
-          "description": "The last name of the user."
+          "description": "Full name of the user."
         },
         "email": {
           "type": "string",
-          "description": "The email address of the user, used for communication.",
           "format": "email"
         },
         "phoneNumber": {
           "type": "string",
-          "description": "The WhatsApp contact number of the user."
+          "description": "WhatsApp contact number."
         },
         "userType": {
           "type": "string",
-          "description": "The role of the user on the platform (Owner, Tenant, or Admin).",
-          "format": "enum"
-        },
-        "profileImageUrl": {
-          "type": "string",
-          "description": "URL to the user's profile picture.",
-          "format": "uri"
+          "enum": ["Owner", "Tenant", "Admin"],
+          "description": "The primary role of the user."
         },
         "createdAt": {
           "type": "string",
-          "description": "Timestamp when the user account was created.",
           "format": "date-time"
         },
         "updatedAt": {
           "type": "string",
-          "description": "Timestamp when the user account was last updated.",
           "format": "date-time"
         }
       },
-      "required": [
-        "id",
-        "firstName",
-        "lastName",
-        "email",
-        "phoneNumber",
-        "userType",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["id", "name", "userType", "createdAt", "updatedAt"]
     },
     "RoomListing": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "RoomListing",
       "type": "object",
-      "description": "Represents a room or property available for rent, posted by an owner.",
+      "description": "A property or room available for rent.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the RoomListing entity."
-        },
-        "ownerId": {
-          "type": "string",
-          "description": "Reference to the User who owns this listing (User.userType must be 'Owner'). (Relationship: User 1:N RoomListing)"
-        },
-        "title": {
-          "type": "string",
-          "description": "A concise title for the room listing."
-        },
-        "description": {
-          "type": "string",
-          "description": "A detailed description of the room and property."
-        },
-        "addressStreet": {
-          "type": "string",
-          "description": "The street address of the room."
-        },
-        "addressCity": {
-          "type": "string",
-          "description": "The city where the room is located."
-        },
-        "addressState": {
-          "type": "string",
-          "description": "The state or region where the room is located."
-        },
-        "addressZipCode": {
-          "type": "string",
-          "description": "The postal code of the room's location."
-        },
-        "latitude": {
-          "type": "number",
-          "description": "The geographical latitude of the room's precise location."
-        },
-        "longitude": {
-          "type": "number",
-          "description": "The geographical longitude of the room's precise location."
-        },
-        "monthlyRent": {
-          "type": "number",
-          "description": "The monthly rent amount for the room."
-        },
-        "securityDeposit": {
-          "type": "number",
-          "description": "The security deposit required for the room."
-        },
-        "availableFrom": {
-          "type": "string",
-          "description": "The date from which the room is available for rent.",
-          "format": "date"
-        },
-        "numberOfBedrooms": {
-          "type": "number",
-          "description": "The number of bedrooms in the listing."
-        },
-        "numberOfBathrooms": {
-          "type": "number",
-          "description": "The number of bathrooms in the listing."
-        },
-        "areaSquareFeet": {
-          "type": "number",
-          "description": "The total area of the room/property in square feet."
-        },
-        "amenities": {
-          "type": "array",
-          "description": "A list of available amenities (e.g., 'WiFi', 'AC', 'Inverter', 'Parking', 'Furnished').",
-          "items": {
-            "type": "string"
-          }
-        },
-        "waterSupplyCondition": {
-          "type": "string",
-          "description": "Details about the water supply condition (e.g., '24/7', 'Limited hours', 'Borewell')."
-        },
-        "nearbyTransportation": {
-          "type": "array",
-          "description": "A list of nearby transportation options (e.g., 'Metro Station (1km)', 'Bus Stop (200m)').",
-          "items": {
-            "type": "string"
-          }
-        },
-        "photos": {
-          "type": "array",
-          "description": "URLs of photos showcasing the room/property.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "isActive": {
-          "type": "boolean",
-          "description": "Indicates whether the listing is currently active and available for rent."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the room listing was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the room listing was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "landlordId": { "type": "string" },
+        "title": { "type": "string" },
+        "location": { "type": "string" },
+        "locality": { "type": "string" },
+        "monthlyRent": { "type": "number" },
+        "areaSqFt": { "type": "number" },
+        "bhkCount": { "type": "string" },
+        "propertyType": { "type": "string" },
+        "waterSupplyCondition": { "type": "string" },
+        "amenities": { "type": "array", "items": { "type": "string" } },
+        "description": { "type": "string" },
+        "idealFor": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "ownerId",
-        "title",
-        "description",
-        "addressStreet",
-        "addressCity",
-        "addressState",
-        "addressZipCode",
-        "latitude",
-        "longitude",
-        "monthlyRent",
-        "availableFrom",
-        "amenities",
-        "waterSupplyCondition",
-        "nearbyTransportation",
-        "photos",
-        "isActive",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["id", "landlordId", "title", "location", "monthlyRent", "isActive"]
     },
     "RoomRequirement": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "RoomRequirement",
       "type": "object",
-      "description": "Represents a renter's specific criteria or preferences for a room, used for personalized searches and AI post generation.",
+      "description": "A tenant's search preference.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the RoomRequirement entity."
-        },
-        "renterId": {
-          "type": "string",
-          "description": "Reference to the User who created this requirement (User.userType must be 'Tenant'). (Relationship: User 1:N RoomRequirement)"
-        },
-        "preferredLocationKeywords": {
-          "type": "array",
-          "description": "Keywords describing preferred locations (e.g., 'Downtown', 'Near University').",
-          "items": {
-            "type": "string"
-          }
-        },
-        "minMonthlyRent": {
-          "type": "number",
-          "description": "The minimum acceptable monthly rent."
-        },
-        "maxMonthlyRent": {
-          "type": "number",
-          "description": "The maximum acceptable monthly rent."
-        },
-        "requiredAmenities": {
-          "type": "array",
-          "description": "A list of required amenities (e.g., 'WiFi', 'AC', 'Pet-Friendly').",
-          "items": {
-            "type": "string"
-          }
-        },
-        "preferredBedrooms": {
-          "type": "number",
-          "description": "The preferred number of bedrooms."
-        },
-        "notes": {
-          "type": "string",
-          "description": "Any additional specific requirements or notes from the renter."
-        },
-        "isActive": {
-          "type": "boolean",
-          "description": "Indicates whether this room requirement is currently active."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the room requirement was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the room requirement was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "renterId": { "type": "string" },
+        "locationFilter": { "type": "string" },
+        "maxRent": { "type": "number" },
+        "propertyType": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "renterId",
-        "preferredLocationKeywords",
-        "isActive",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "Inquiry": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Inquiry",
-      "type": "object",
-      "description": "Represents an inquiry made by a potential renter about a specific room listing.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Inquiry entity."
-        },
-        "renterId": {
-          "type": "string",
-          "description": "Reference to the User who initiated the inquiry (User.userType must be 'Tenant'). (Relationship: User 1:N Inquiry)"
-        },
-        "landlordId": {
-          "type": "string",
-          "description": "Reference to the User who owns the inquired listing (User.userType must be 'Owner'). (Relationship: User 1:N Inquiry)"
-        },
-        "roomListingId": {
-          "type": "string",
-          "description": "Reference to the RoomListing that is the subject of the inquiry. (Relationship: RoomListing 1:N Inquiry)"
-        },
-        "message": {
-          "type": "string",
-          "description": "The content of the inquiry message from the renter."
-        },
-        "inquiryDate": {
-          "type": "string",
-          "description": "Timestamp when the inquiry was made.",
-          "format": "date-time"
-        },
-        "status": {
-          "type": "string",
-          "description": "The current status of the inquiry (e.g., 'New', 'Responded', 'Closed')."
-        }
-      },
-      "required": [
-        "id",
-        "renterId",
-        "landlordId",
-        "roomListingId",
-        "message",
-        "inquiryDate",
-        "status"
-      ]
-    },
-    "SocialPost": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "SocialPost",
-      "type": "object",
-      "description": "Represents an AI-generated social media post related to a room listing or requirement.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the SocialPost entity."
-        },
-        "generatedById": {
-          "type": "string",
-          "description": "Reference to the User who generated or initiated the post creation. (Relationship: User 1:N SocialPost)"
-        },
-        "roomListingId": {
-          "type": "string",
-          "description": "Reference to the RoomListing if the post is about a specific listing. (Relationship: RoomListing 1:N SocialPost)"
-        },
-        "roomRequirementId": {
-          "type": "string",
-          "description": "Reference to the RoomRequirement if the post is about a specific search requirement. (Relationship: RoomRequirement 1:N SocialPost)"
-        },
-        "platform": {
-          "type": "string",
-          "description": "The social media platform for which the post was generated (e.g., 'Facebook', 'WhatsApp')."
-        },
-        "content": {
-          "type": "string",
-          "description": "The actual text content of the social media post."
-        },
-        "mediaUrls": {
-          "type": "array",
-          "description": "URLs of any media (images, videos) associated with the post.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "isShared": {
-          "type": "boolean",
-          "description": "Indicates whether the post has been shared to the specified platform."
-        },
-        "sharedAt": {
-          "type": "string",
-          "description": "Timestamp when the post was shared.",
-          "format": "date-time"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the social post was generated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "generatedById",
-        "platform",
-        "content",
-        "isShared",
-        "createdAt"
-      ]
-    },
-    "LeaseAgreement": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "LeaseAgreement",
-      "type": "object",
-      "description": "Represents an online legal form or lease agreement created between a landlord and a tenant for a room listing.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the LeaseAgreement entity."
-        },
-        "roomListingId": {
-          "type": "string",
-          "description": "Reference to the RoomListing associated with this agreement. (Relationship: RoomListing 1:N LeaseAgreement)"
-        },
-        "tenantId": {
-          "type": "string",
-          "description": "Reference to the User who is the tenant in this agreement (User.userType must be 'Tenant'). (Relationship: User 1:N LeaseAgreement)"
-        },
-        "landlordId": {
-          "type": "string",
-          "description": "Reference to the User who is the landlord in this agreement (User.userType must be 'Owner'). (Relationship: User 1:N LeaseAgreement)"
-        },
-        "startDate": {
-          "type": "string",
-          "description": "The start date of the lease agreement.",
-          "format": "date"
-        },
-        "endDate": {
-          "type": "string",
-          "description": "The end date of the lease agreement.",
-          "format": "date"
-        },
-        "monthlyRent": {
-          "type": "number",
-          "description": "The agreed-upon monthly rent as specified in the agreement."
-        },
-        "securityDeposit": {
-          "type": "number",
-          "description": "The agreed-upon security deposit as specified in the agreement."
-        },
-        "termsAndConditions": {
-          "type": "string",
-          "description": "The full text of the terms and conditions of the lease agreement."
-        },
-        "documentUrl": {
-          "type": "string",
-          "description": "URL to the finalized legal document (e.g., PDF) of the agreement.",
-          "format": "uri"
-        },
-        "status": {
-          "type": "string",
-          "description": "The current status of the lease agreement (e.g., 'Draft', 'Sent for Signature', 'Signed', 'Active', 'Completed')."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the lease agreement was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the lease agreement was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "roomListingId",
-        "tenantId",
-        "landlordId",
-        "startDate",
-        "endDate",
-        "monthlyRent",
-        "securityDeposit",
-        "termsAndConditions",
-        "status",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["id", "renterId", "locationFilter", "maxRent"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores user profiles. The 'userType' field defines roles such as 'Owner', 'Tenant', or 'Admin'. The '{userId}' in the path matches the user's authentication UID, making this a root of user-owned data.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique Firebase Authentication UID of the user."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/admin_roles/{adminUid}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "A sentinel collection to define and check for administrative privileges. The existence of a document at `/admin_roles/{request.auth.uid}` grants admin access. This follows the DBAC 'existence over content' pattern.",
-          "params": [
-            {
-              "name": "adminUid",
-              "description": "The unique Firebase Authentication UID of an administrator."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/room_listings/{roomListingId}",
-        "definition": {
-          "entityName": "RoomListing",
-          "schema": {
-            "$ref": "#/backend/entities/RoomListing"
-          },
-          "description": "Stores publicly browsable room listings created by owners. Includes denormalized 'ownerId' for authorization independence, allowing owners to manage their listings securely and efficiently. Supports QAPs for listing all active rooms.",
-          "params": [
-            {
-              "name": "roomListingId",
-              "description": "The unique identifier for a specific room listing."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{renterId}/room_requirements/{roomRequirementId}",
-        "definition": {
-          "entityName": "RoomRequirement",
-          "schema": {
-            "$ref": "#/backend/entities/RoomRequirement"
-          },
-          "description": "Stores private room requirements created by a specific renter. The '{renterId}' in the path must match 'request.auth.uid', enforcing direct ownership. Includes 'renterId' field for explicit ownership clarity.",
-          "params": [
-            {
-              "name": "renterId",
-              "description": "The unique Firebase Authentication UID of the renter who owns this requirement."
-            },
-            {
-              "name": "roomRequirementId",
-              "description": "The unique identifier for a specific room requirement."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/inquiries/{inquiryId}",
-        "definition": {
-          "entityName": "Inquiry",
-          "schema": {
-            "$ref": "#/backend/entities/Inquiry"
-          },
-          "description": "Stores direct inquiries between renters and landlords. Includes denormalized 'renterId' and 'landlordId' for authorization independence, allowing both parties to access the inquiry without complex rule lookups. Supports QAPs for querying by either ID.",
-          "params": [
-            {
-              "name": "inquiryId",
-              "description": "The unique identifier for a specific inquiry."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{generatedById}/social_posts/{socialPostId}",
-        "definition": {
-          "entityName": "SocialPost",
-          "schema": {
-            "$ref": "#/backend/entities/SocialPost"
-          },
-          "description": "Stores AI-generated social media posts associated with the user who generated them. The '{generatedById}' in the path must match 'request.auth.uid', enforcing direct ownership. Includes 'generatedById' field for explicit ownership clarity.",
-          "params": [
-            {
-              "name": "generatedById",
-              "description": "The unique Firebase Authentication UID of the user who generated the social post."
-            },
-            {
-              "name": "socialPostId",
-              "description": "The unique identifier for a specific social media post."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/lease_agreements/{leaseAgreementId}",
-        "definition": {
-          "entityName": "LeaseAgreement",
-          "schema": {
-            "$ref": "#/backend/entities/LeaseAgreement"
-          },
-          "description": "Stores online legal forms/lease agreements between landlords and tenants. Includes denormalized 'tenantId' and 'landlordId' for authorization independence, enabling both parties to access their agreement securely. Supports QAPs for querying by either ID.",
-          "params": [
-            {
-              "name": "leaseAgreementId",
-              "description": "The unique identifier for a specific lease agreement."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "The recommended Firestore structure prioritizes secure, scalable, and debuggable access patterns by adhering strictly to the core design principles, especially Authorization Independence and Structural Segregation.\n\n**Authorization Independence via Denormalization:**\n*   For `RoomListing` documents, the `ownerId` is denormalized directly onto the document. This is critical because it allows security rules to check ownership (`request.auth.uid == resource.data.ownerId`) without needing to perform expensive and potentially non-atomic `get()` operations on parent documents. This ensures that an owner can create, update, or delete their listings atomically and securely.\n*   Similarly, for `Inquiry` and `LeaseAgreement` documents, both `renterId` and `landlordId` are denormalized onto the respective documents. This enables rules to grant access to *both* parties involved in the transaction (`request.auth.uid == resource.data.renterId || request.auth.uid == resource.data.landlordId`) without any `get()` calls, maintaining atomic operations and simplifying rule logic.\n*   For user-specific subcollections like `/users/{userId}/room_requirements` and `/users/{userId}/social_posts`, the `userId` in the path *is* the authorization context. The corresponding `renterId` or `generatedById` within the document is redundant for authorization but kept for data consistency and clarity. This path-based ownership naturally ensures authorization independence.\n\n**Support for Querying and Access Patterns (QAPs):**\n*   **Publicly Browsable Data:** The `/room_listings` collection is designed as a top-level collection for all active listings. This ensures that renters can perform efficient `list` queries (e.g., filtered by location, price, `isActive: true`) without being blocked by security rules trying to filter private data. The security rules for this collection will permit reads for all authenticated users (or potentially unauthenticated for public view, depending on final requirements) while strictly enforcing writes by the `ownerId`.\n*   **User-Owned Private Data:** Collections such as `/users/{userId}/room_requirements` and `/users/{userId}/social_posts` are directly nested under the user's document. This structure inherently supports QAPs where a user can `list` all their own requirements or social posts efficiently, as the rules enforce that `userId` in the path must match `request.auth.uid`. Rules become simple: `allow list: if request.auth.uid == userId;`.\n*   **Collaborative Data:** For `inquiries` and `lease_agreements`, the denormalization of both parties' UIDs (`renterId`, `landlordId`) means that both renters and landlords can query (QAP) for their respective items by using a `where` clause on their `uid` (e.g., `db.collection('inquiries').where('renterId', '==', currentUser.uid)`). This allows efficient retrieval of relevant documents without requiring broad, unfiltered reads or complex `get()` statements in rules.\n*   **Admin Roles:** The `/admin_roles/{adminUid}` collection uses an 'existence over content' strategy. Admin access can be checked with a simple `exists()` call in rules, supporting efficient and secure role-based authorization for administrative tasks.\n\nThis structure minimizes complexity in security rules, maximizes query efficiency, and provides a clear, predictable data model for Rentipedia's features."
+    "/users/{userId}": {
+      "schema": { "$ref": "#/backend/entities/User" },
+      "description": "User profiles and settings."
+    },
+    "/room_listings/{listingId}": {
+      "schema": { "$ref": "#/backend/entities/RoomListing" },
+      "description": "Publicly browsable property listings."
+    },
+    "/users/{userId}/room_requirements/{requirementId}": {
+      "schema": { "$ref": "#/backend/entities/RoomRequirement" },
+      "description": "A tenant's specific room requests."
+    }
   }
 }
