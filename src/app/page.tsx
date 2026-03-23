@@ -1,35 +1,42 @@
-
 "use client";
 
+import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import RoomCard from "@/components/RoomCard";
 import { MOCK_ROOMS } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Search, MapPin, Sparkles, Home, Info } from "lucide-react";
+import { Search, MapPin } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, limit } from "firebase/firestore";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function HomePage() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
+  const logo = PlaceHolderImages.find(img => img.id === 'logo');
   const { firestore } = useFirestore();
 
   const featuredQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(
       collection(firestore, "room_listings"),
-      limit(6)
+      limit(20) // Fetch more than 10 to allow for better randomization
     );
   }, [firestore]);
 
-  const { data: listings, isLoading, error } = useCollection(featuredQuery);
+  const { data: listings, isLoading } = useCollection(featuredQuery);
+  const [randomizedListings, setRandomizedListings] = useState<any[]>([]);
 
-  const hasRealData = listings && listings.length > 0;
-  const displayListings = hasRealData ? listings : MOCK_ROOMS;
+  useEffect(() => {
+    const baseListings = (listings && listings.length > 0) ? listings : MOCK_ROOMS;
+    
+    // Shuffle the array to provide a "different every time" experience
+    const shuffled = [...baseListings].sort(() => 0.5 - Math.random());
+    
+    // Take exactly 10 for the home page display
+    setRandomizedListings(shuffled.slice(0, 10));
+  }, [listings]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -59,8 +66,8 @@ export default function HomePage() {
                   className="block md:hidden w-full border-none focus:ring-0 text-gray-900 placeholder:text-gray-400 bg-transparent text-lg resize-none min-h-[80px] py-2" 
                   placeholder="Search location..." 
                 />
-                <Input 
-                  className="hidden md:block border-none focus-visible:ring-0 text-gray-900 placeholder:text-gray-400 h-12 text-lg w-full" 
+                <input 
+                  className="hidden md:block border-none focus-visible:ring-0 text-gray-900 placeholder:text-gray-400 h-12 text-lg w-full bg-transparent outline-none" 
                   placeholder="Search location..." 
                 />
               </div>
@@ -77,23 +84,23 @@ export default function HomePage() {
       <section className="py-16 container px-4 mx-auto flex-1">
         <div className="flex items-end justify-between mb-10">
           <div>
-            <h2 className="text-3xl font-headline font-bold mb-2">Popular Nearby Rooms</h2>
-            <p className="text-muted-foreground">Handpicked properties with the best amenities in your city.</p>
+            <h2 className="text-3xl font-headline font-bold mb-2">Explore Featured Properties</h2>
+            <p className="text-muted-foreground">Fresh picks for you in RentoVerse today.</p>
           </div>
           <Link href="/search" className="text-primary font-bold hover:underline">
             View all &rarr;
           </Link>
         </div>
 
-        {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[1, 2, 3].map((i) => (
+        {isLoading && randomizedListings.length === 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {[...Array(8)].map((_, i) => (
               <div key={i} className="h-80 bg-muted animate-pulse rounded-2xl" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {displayListings.map((room: any) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+            {randomizedListings.map((room: any) => (
               <RoomCard key={room.id} room={room} />
             ))}
           </div>
@@ -115,7 +122,15 @@ export default function HomePage() {
       </section>
 
       <footer className="py-16 bg-white border-t">
-        <div className="container px-4 mx-auto text-center">
+        <div className="container px-4 mx-auto flex flex-col items-center">
+          <div className="relative w-48 h-12 mb-6 opacity-60 grayscale hover:grayscale-0 transition-all">
+            <Image 
+              src={logo?.imageUrl || "https://firebasestorage.googleapis.com/v0/b/firejet-0.appspot.com/o/studio%2Fstudio-184067128-73095%2Fuploads%2F1741162330756.png?alt=media&token=86603a11-e77a-4286-90b4-c3e6027a4e0a"} 
+              alt="RentoVerse" 
+              fill 
+              className="object-contain" 
+            />
+          </div>
           <p className="text-muted-foreground text-sm">© 2026 RentoVerse. Your trustworthy property companion.</p>
         </div>
       </footer>
