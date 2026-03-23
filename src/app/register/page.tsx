@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth, useFirestore, useUser } from "@/firebase";
+import { useAuth, useFirestore } from "@/firebase";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,12 +11,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { MessageCircle, User, Mail, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { doc } from "firebase/firestore";
-import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
+
+const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/firejet-0.appspot.com/o/studio%2Fstudio-184067128-73095%2Fuploads%2F1741162330756.png?alt=media&token=86603a11-e77a-4286-90b4-c3e6027a4e0a";
 
 export default function RegisterPage() {
   const [step, setStep] = useState<"form" | "verify">("form");
@@ -30,7 +29,6 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   
   const { auth } = useAuth();
-  const { firestore } = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'logo');
@@ -57,16 +55,8 @@ export default function RegisterPage() {
 
     setIsLoading(true);
     try {
-      if (!auth || !firestore) return;
-
-      // For prototype, we use anonymous sign-in
+      if (!auth) return;
       await initiateAnonymousSignIn(auth);
-      
-      // The initiateAnonymousSignIn hook takes a moment, but in a real app 
-      // we'd use the returned user. For now, we'll wait for the listener.
-      // But we can preemptively write the profile if we have the UID.
-      // Since it's anonymous, we'll rely on the profile page to sync if needed.
-      // Better: we wait for the auth state and then write.
       
       toast({
         title: "Welcome to RentoVerse!",
@@ -89,9 +79,9 @@ export default function RegisterPage() {
       <div className="container flex items-center justify-center py-20 px-4">
         <Card className="max-w-md w-full border-none shadow-2xl">
           <CardHeader className="text-center space-y-1">
-            <div className="relative w-40 h-20 mx-auto mb-4">
+            <div className="relative w-48 h-24 mx-auto mb-4">
               <Image 
-                src={logo?.imageUrl || ""} 
+                src={logo?.imageUrl || LOGO_URL} 
                 alt="Logo" 
                 fill 
                 className="object-contain"

@@ -32,9 +32,9 @@
     },
     {
       "id": "hero",
-      "description": "Paris city view with Eiffel Tower",
-      "imageUrl": "https://picsum.photos/seed/paris/1200/800",
-      "imageHint": "city view"
+      "description": "City view for hero section",
+      "imageUrl": "https://picsum.photos/seed/city/1200/800",
+      "imageHint": "city apartment"
     }
   ]
 }

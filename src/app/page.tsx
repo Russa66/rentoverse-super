@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -12,6 +13,8 @@ import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, limit } from "firebase/firestore";
 
+const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/firejet-0.appspot.com/o/studio%2Fstudio-184067128-73095%2Fuploads%2F1741162330756.png?alt=media&token=86603a11-e77a-4286-90b4-c3e6027a4e0a";
+
 export default function HomePage() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
   const logo = PlaceHolderImages.find(img => img.id === 'logo');
@@ -21,7 +24,7 @@ export default function HomePage() {
     if (!firestore) return null;
     return query(
       collection(firestore, "room_listings"),
-      limit(20) // Fetch more than 10 to allow for better randomization
+      limit(20)
     );
   }, [firestore]);
 
@@ -30,11 +33,7 @@ export default function HomePage() {
 
   useEffect(() => {
     const baseListings = (listings && listings.length > 0) ? listings : MOCK_ROOMS;
-    
-    // Shuffle the array to provide a "different every time" experience
     const shuffled = [...baseListings].sort(() => 0.5 - Math.random());
-    
-    // Take exactly 10 for the home page display
     setRandomizedListings(shuffled.slice(0, 10));
   }, [listings]);
 
@@ -44,7 +43,7 @@ export default function HomePage() {
       
       <section className="relative h-[650px] md:h-[600px] flex items-center justify-center overflow-hidden">
         <Image 
-          src={heroImage?.imageUrl || "https://picsum.photos/seed/paris/1200/800"} 
+          src={heroImage?.imageUrl || "https://picsum.photos/seed/city/1200/800"} 
           alt="Hero" 
           fill 
           className="object-cover brightness-[0.4]"
@@ -61,14 +60,14 @@ export default function HomePage() {
           <div className="bg-white p-3 md:p-2 rounded-2xl md:rounded-full shadow-2xl max-w-3xl mx-auto flex flex-col md:flex-row gap-3 md:gap-2">
             <div className="flex-1 flex items-start md:items-center px-4 md:px-6 gap-3">
               <MapPin className="h-5 w-5 text-destructive shrink-0 mt-3 md:mt-0" />
-              <div className="flex-1 w-full">
+              <div className="flex-1 w-full text-left">
                 <textarea 
-                  className="block md:hidden w-full border-none focus:ring-0 text-gray-900 placeholder:text-gray-400 bg-transparent text-lg resize-none min-h-[80px] py-2" 
-                  placeholder="Search location..." 
+                  className="block md:hidden w-full border-none focus:ring-0 text-gray-900 placeholder:text-gray-400 bg-transparent text-lg resize-none min-h-[80px] py-2 outline-none" 
+                  placeholder="Where do you want to live?" 
                 />
                 <input 
                   className="hidden md:block border-none focus-visible:ring-0 text-gray-900 placeholder:text-gray-400 h-12 text-lg w-full bg-transparent outline-none" 
-                  placeholder="Search location..." 
+                  placeholder="Where do you want to live?" 
                 />
               </div>
             </div>
@@ -93,8 +92,8 @@ export default function HomePage() {
         </div>
 
         {isLoading && randomizedListings.length === 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {[...Array(8)].map((_, i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+            {[...Array(10)].map((_, i) => (
               <div key={i} className="h-80 bg-muted animate-pulse rounded-2xl" />
             ))}
           </div>
@@ -123,15 +122,15 @@ export default function HomePage() {
 
       <footer className="py-16 bg-white border-t">
         <div className="container px-4 mx-auto flex flex-col items-center">
-          <div className="relative w-48 h-12 mb-6 opacity-60 grayscale hover:grayscale-0 transition-all">
+          <div className="relative w-48 h-16 mb-6">
             <Image 
-              src={logo?.imageUrl || "https://firebasestorage.googleapis.com/v0/b/firejet-0.appspot.com/o/studio%2Fstudio-184067128-73095%2Fuploads%2F1741162330756.png?alt=media&token=86603a11-e77a-4286-90b4-c3e6027a4e0a"} 
+              src={logo?.imageUrl || LOGO_URL} 
               alt="RentoVerse" 
               fill 
               className="object-contain" 
             />
           </div>
-          <p className="text-muted-foreground text-sm">© 2026 RentoVerse. Your trustworthy property companion.</p>
+          <p className="text-muted-foreground text-sm font-medium">© 2026 RentoVerse. Your trustworthy property companion.</p>
         </div>
       </footer>
     </div>

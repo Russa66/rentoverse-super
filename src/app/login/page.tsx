@@ -76,7 +76,7 @@ export default function LoginPage() {
       <div className="container flex items-center justify-center py-20 px-4">
         <Card className="max-w-md w-full border-none shadow-2xl">
           <CardHeader className="text-center space-y-1">
-            <div className="relative w-40 h-20 mx-auto mb-4">
+            <div className="relative w-48 h-24 mx-auto mb-4">
               <Image 
                 src={logo?.imageUrl || LOGO_URL} 
                 alt="RentoVerse Logo" 

@@ -31,7 +31,7 @@ export default function LegalFormPage() {
           <div className="bg-primary h-2 w-full" />
           <CardHeader className="p-10 pb-6 text-center">
             <div className="flex justify-between items-center mb-6">
-              <div className="relative w-48 h-24">
+              <div className="relative w-64 h-24">
                 <Image 
                   src={logo?.imageUrl || LOGO_URL} 
                   alt="RentoVerse Logo" 
