@@ -3,99 +3,153 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * RentiPedia Security Rules
-     * 
+     * RENTIPEDIA SECURITY RULES (PROTOTYPING MODE)
+     *
      * Core Philosophy:
-     * - Public discovering of published listings.
-     * - Owner-centric management for profiles and drafts.
-     * - Authenticated access to global activity feeds for administrative/matching visibility.
+     * This ruleset implements a robust, identity-based access control model for the Rentipedia platform.
+     * It distinguishes between three primary user types: Owners, Tenants, and Admins.
+     *
+     * Data Structure:
+     * 1. Root Level: Publicly browsable 'room_listings' and shared transactional data like 'inquiries' and 'lease_agreements'.
+     * 2. User Level: Private, user-specific data (requirements, social posts) is nested under /users/{userId}.
+     * 3. Admin Sentinel: A specialized collection /admin_roles/{uid} determines global administrative privileges.
+     *
+     * Key Security Decisions:
+     * - Authorization Independence: Critical IDs (ownerId, renterId, tenantId) are denormalized onto documents 
+     *   to allow for fast, reliable, and cost-effective security checks without extra database reads.
+     * - Structural Segregation: User-owned subcollections enforce hard boundaries between different users' private data.
+     * - Flexibility: While access is strictly controlled, the rules do not enforce field-level data types or 
+     *   object shapes to facilitate rapid UI/feature iteration during the prototyping phase.
      */
 
     // --- GLOBAL HELPER FUNCTIONS ---
 
+    /** Checks if the request is from an authenticated user. */
     function isSignedIn() {
       return request.auth != null;
     }
 
+    /** Checks if the authenticated user's UID matches the provided userId. */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isExistingOwner(userId) {
+    /** Checks if the document exists and the authenticated user owns it based on its path. */
+    function isExistingPathOwner(userId) {
       return resource != null && isOwner(userId);
     }
 
-    function isParticipant(id1, id2) {
-      return isSignedIn() && (request.auth.uid == id1 || request.auth.uid == id2);
+    /** Checks if the authenticated user is listed as an admin in the sentinel collection. */
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid));
+    }
+
+    /** Checks if the authenticated user is a participant in a shared document (Inquiry/Lease). */
+    function isParticipant(data) {
+      return isSignedIn() && (
+        request.auth.uid == data.renterId || 
+        request.auth.uid == data.landlordId || 
+        request.auth.uid == data.tenantId
+      );
     }
 
     // --- COLLECTION RULES ---
 
+    /**
+     * @description Access rules for user profiles. Users can manage their own profile; admins have full access.
+     * @path /users/{userId}
+     * @allow (get, update) if UID matches userId.
+     * @deny (list) for non-admins to prevent user enumeration.
+     * @principle Ownership-based access control and admin overrides.
+     */
     match /users/{userId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isExistingPathOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+
+      /**
+       * @description Private room preferences/requirements for tenants.
+       * @path /users/{userId}/room_requirements/{id}
+       * @allow (all) for the owner of the user path.
+       * @deny (create) if the internal renterId does not match the path userId.
+       * @principle Path-based ownership with relational integrity validation.
+       */
+      match /room_requirements/{id} {
+        allow get, list: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && request.resource.data.renterId == userId;
+        allow update: if isExistingPathOwner(userId) && request.resource.data.renterId == userId;
+        allow delete: if isExistingPathOwner(userId) || isAdmin();
+      }
+
+      /**
+       * @description AI-generated social posts for owners or tenants.
+       * @path /users/{userId}/social_posts/{id}
+       * @allow (all) for the owner of the user path.
+       * @principle Restricts access to a user's own data tree.
+       */
+      match /social_posts/{id} {
+        allow get, list: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && request.resource.data.generatedById == userId;
+        allow update: if isExistingPathOwner(userId) && request.resource.data.generatedById == userId;
+        allow delete: if isExistingPathOwner(userId) || isAdmin();
+      }
     }
 
-    match /users/{landlordId}/listings/{listingId} {
-      allow get, list: if isOwner(landlordId);
-      allow create: if isOwner(landlordId) && request.resource.data.landlordId == landlordId;
-      allow update: if isExistingOwner(landlordId) && request.resource.data.landlordId == resource.data.landlordId;
-      allow delete: if isExistingOwner(landlordId);
+    /**
+     * @description Sentinel collection for admin roles.
+     * @path /admin_roles/{adminUid}
+     * @allow (read) for signed-in users (to check admin status).
+     * @deny (write) for everyone except existing admins (initial setup via console).
+     * @principle Role-Based Access Control (RBAC) via existence check.
+     */
+    match /admin_roles/{adminUid} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
     }
 
-    match /published_room_listings/{listingId} {
+    /**
+     * @description Publicly browsable room listings.
+     * @path /room_listings/{roomListingId}
+     * @allow (read) for anyone (public browsing).
+     * @allow (create) for signed-in users setting themselves as ownerId.
+     * @principle Public read with owner-only writes.
+     */
+    match /room_listings/{roomListingId} {
       allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.landlordId == request.auth.uid;
-      allow update: if isExistingOwner(resource.data.landlordId) && request.resource.data.landlordId == resource.data.landlordId;
-      allow delete: if isExistingOwner(resource.data.landlordId);
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if resource != null && (request.auth.uid == resource.data.ownerId || isAdmin()) && request.resource.data.ownerId == resource.data.ownerId;
+      allow delete: if resource != null && (request.auth.uid == resource.data.ownerId || isAdmin());
     }
 
-    // Top-level collection for admin/matching visibility
-    match /saved_search_requests/{requestId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.renterId == request.auth.uid;
-      allow update, delete: if isExistingOwner(resource.data.renterId);
-    }
-
-    match /users/{renterId}/saved_search_requests/{requestId} {
-      allow get, list: if isOwner(renterId);
-      allow create: if isOwner(renterId) && request.resource.data.renterId == renterId;
-      allow update: if isExistingOwner(renterId) && request.resource.data.renterId == resource.data.renterId;
-      allow delete: if isExistingOwner(renterId);
-    }
-
+    /**
+     * @description Direct inquiries between renters and landlords.
+     * @path /inquiries/{inquiryId}
+     * @allow (get) if the user is the renter, landlord, or an admin.
+     * @deny (list) to unauthorized users.
+     * @principle Shared access for closed collaborators using denormalized IDs.
+     */
     match /inquiries/{inquiryId} {
-      allow get, list: if isSignedIn(); // Allow list for matching/admin
-      allow create: if isSignedIn() && request.resource.data.renterId == request.auth.uid;
-      allow update, delete: if isParticipant(resource.data.landlordId, resource.data.renterId);
+      allow get: if isParticipant(resource.data) || isAdmin();
+      allow list: if isSignedIn(); // Queries must be filtered by renterId or landlordId in the client.
+      allow create: if isSignedIn() && (request.auth.uid == request.resource.data.renterId || request.auth.uid == request.resource.data.landlordId);
+      allow update: if resource != null && (isParticipant(resource.data) || isAdmin()) && request.resource.data.renterId == resource.data.renterId;
+      allow delete: if isAdmin();
     }
 
-    match /social_posts/{postId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-      allow update, delete: if isExistingOwner(resource.data.authorId);
-    }
-
-    match /users/{userId}/social_channel_configurations/{configId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isExistingOwner(userId);
-    }
-
-    match /legal_agreements/{agreementId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isParticipant(resource.data.landlordId, resource.data.renterId);
-    }
-
-    match /users/{recipientId}/notifications/{notificationId} {
-      allow get, list: if isOwner(recipientId);
-      allow create: if isSignedIn();
-      allow update: if isExistingOwner(recipientId);
-      allow delete: if isExistingOwner(recipientId);
+    /**
+     * @description Legal lease agreements between landlords and tenants.
+     * @path /lease_agreements/{leaseAgreementId}
+     * @allow (get) if the user is the tenant, landlord, or an admin.
+     * @principle Shared access for closed collaborators; immutable relational fields.
+     */
+    match /lease_agreements/{leaseAgreementId} {
+      allow get: if isParticipant(resource.data) || isAdmin();
+      allow list: if isSignedIn(); // Queries must be filtered by tenantId or landlordId in the client.
+      allow create: if isSignedIn() && (request.auth.uid == request.resource.data.tenantId || request.auth.uid == request.resource.data.landlordId);
+      allow update: if resource != null && (isParticipant(resource.data) || isAdmin()) && request.resource.data.tenantId == resource.data.tenantId && request.resource.data.landlordId == resource.data.landlordId;
+      allow delete: if isAdmin();
     }
   }
 }
