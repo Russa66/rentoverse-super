@@ -6,12 +6,13 @@ import RoomCard from "@/components/RoomCard";
 import { MOCK_ROOMS } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, MapPin, Sparkles, Home } from "lucide-react";
+import { Search, MapPin, Sparkles, Home, Info } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, limit, orderBy } from "firebase/firestore";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function HomePage() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
@@ -21,14 +22,16 @@ export default function HomePage() {
     if (!firestore) return null;
     return query(
       collection(firestore, "published_room_listings"),
-      orderBy("createdAt", "desc"),
       limit(6)
     );
   }, [firestore]);
 
-  const { data: listings, isLoading } = useCollection(featuredQuery);
+  const { data: listings, isLoading, error } = useCollection(featuredQuery);
 
-  const displayListings = listings && listings.length > 0 ? listings : MOCK_ROOMS;
+  // If we have listings, show them. If loading, show skeletons. 
+  // If empty or error, fallback to mock data but show an indicator if it's an error.
+  const hasRealData = listings && listings.length > 0;
+  const displayListings = hasRealData ? listings : MOCK_ROOMS;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -55,12 +58,10 @@ export default function HomePage() {
             <div className="flex-1 flex items-start md:items-center px-4 md:px-6 gap-3">
               <MapPin className="h-5 w-5 text-destructive shrink-0 mt-3 md:mt-0" />
               <div className="flex-1 w-full">
-                {/* Mobile Textarea for detailed typing */}
                 <textarea 
                   className="block md:hidden w-full border-none focus:ring-0 text-gray-900 placeholder:text-gray-400 bg-transparent text-lg resize-none min-h-[80px] py-2" 
                   placeholder="Search in Poabagan, Heavir More..." 
                 />
-                {/* Desktop standard Input */}
                 <Input 
                   className="hidden md:block border-none focus-visible:ring-0 text-gray-900 placeholder:text-gray-400 h-12 text-lg w-full" 
                   placeholder="Search in Poabagan, Heavir More..." 
@@ -99,6 +100,22 @@ export default function HomePage() {
             View all properties <span className="text-xl">&rarr;</span>
           </Link>
         </div>
+
+        {error && (
+          <Alert variant="destructive" className="mb-8">
+            <Info className="h-4 w-4" />
+            <AlertTitle>Connection Note</AlertTitle>
+            <AlertDescription>
+              We're currently showing preview properties while connecting to our live database.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {!hasRealData && !isLoading && !error && (
+          <div className="bg-muted/30 rounded-xl p-4 mb-8 text-center border-dashed border-2">
+             <p className="text-sm text-muted-foreground">No live listings yet. Showing example properties.</p>
+          </div>
+        )}
         
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">

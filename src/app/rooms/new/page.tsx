@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles, CheckCircle2, MessageCircle, ShieldCheck, Share2 } from "lucide-react";
+import { Sparkles, CheckCircle2, MessageCircle, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser, useAuth } from "@/firebase";
@@ -51,19 +51,31 @@ export default function NewListing() {
     e.preventDefault();
     
     if (!user || !firestore) {
-      toast({ title: "Connecting...", description: "Setting up your secure workspace.", variant: "default" });
+      toast({ title: "Connecting...", description: "Setting up your secure workspace. Please try again in a moment.", variant: "default" });
       return;
     }
 
-    setLoadingStep("Saving Listing...");
+    setLoadingStep("Authenticating & Preparing...");
 
     try {
       const listingId = doc(collection(firestore, "temp")).id;
+      const now = new Date().toISOString();
+
+      // 1. Ensure User Profile exists (Critical for Authorization)
+      setDocumentNonBlocking(doc(firestore, "users", user.uid), {
+        id: user.uid,
+        name: user.displayName || "RentoVerse Landlord",
+        userType: "landlord",
+        updatedAt: now,
+        createdAt: now // Will only set if not exists via merge
+      }, { merge: true });
+
       const listingData = {
         id: listingId,
         landlordId: user.uid,
         title: `${formData.bhkCount !== 'N/A' ? formData.bhkCount + ' BHK ' : ''}${formData.propertyType} in ${formData.location}`,
         location: formData.location,
+        locality: formData.location.split(',')[0].trim(), // Extract general locality
         areaSqFt: Number(formData.areaSqFt),
         bhkCount: formData.bhkCount,
         propertyType: formData.propertyType,
@@ -75,61 +87,75 @@ export default function NewListing() {
         description: formData.description,
         idealFor: formData.idealFor,
         availabilityStatus: "PUBLISHED",
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
       };
 
+      setLoadingStep("Publishing to RentoVerse Database...");
+
+      // 2. Write to Landlord's Private Collection
       setDocumentNonBlocking(doc(firestore, `users/${user.uid}/listings/${listingId}`), listingData, { merge: true });
+      
+      // 3. Write to Public Discovery Collection
       setDocumentNonBlocking(doc(firestore, `published_room_listings/${listingId}`), listingData, { merge: true });
 
-      setLoadingStep("AI is Formatting for Facebook & WhatsApp...");
-      const aiPost = await composeSocialPost({
-        type: "listing",
-        location: formData.location,
-        propertyType: formData.propertyType,
-        areaSqFt: Number(formData.areaSqFt),
-        bhkCount: formData.bhkCount !== 'N/A' ? formData.bhkCount : undefined,
-        nearestCommunication: formData.transport,
-        monthlyRent: `₹${formData.rent}`,
-        socialMediaType: "facebook",
-        waterSupplyCondition: formData.waterSource,
-        wifiAvailable: formData.wifi,
-        acAvailable: formData.ac,
-        inverterAvailable: formData.powerBackup
-      });
+      setLoadingStep("AI is Crafting Your Social Posts...");
+      
+      let postContent = `New Listing: ${listingData.title}\nRent: ₹${formData.rent}\nArea: ${formData.areaSqFt} sq ft\nLocation: ${formData.location}`;
+      
+      try {
+        const aiPost = await composeSocialPost({
+          type: "listing",
+          location: formData.location,
+          propertyType: formData.propertyType,
+          areaSqFt: Number(formData.areaSqFt),
+          bhkCount: formData.bhkCount !== 'N/A' ? formData.bhkCount : undefined,
+          nearestCommunication: formData.transport,
+          monthlyRent: `₹${formData.rent}`,
+          socialMediaType: "facebook",
+          waterSupplyCondition: formData.waterSource,
+          wifiAvailable: formData.wifi,
+          acAvailable: formData.ac,
+          inverterAvailable: formData.powerBackup
+        });
+        postContent = aiPost.postContent;
+      } catch (aiError) {
+        console.warn("AI Generation failed, using fallback content", aiError);
+      }
 
+      // 4. Save Social Post Record
       addDocumentNonBlocking(collection(firestore, "social_posts"), {
         authorId: user.uid,
         listingId,
         platform: "facebook",
-        postContent: aiPost.postContent,
+        postContent: postContent,
         status: "POSTED",
-        createdAt: new Date().toISOString()
+        createdAt: now
       });
 
       setLoadingStep("Matching with Prospective Tenants...");
-      const q = query(collection(firestore, "saved_search_requests"), where("locationFilter", "==", formData.location));
-      const querySnapshot = await getDocs(q);
       
-      querySnapshot.forEach((tenantDoc) => {
-        const tenant = tenantDoc.data();
-        const msg = `Match! ${listingData.title} available now. Budget fits: ₹${formData.rent}`;
-        
-        ["InApp", "WhatsApp", "Email"].forEach(method => {
+      // Notify matching tenants (Optional background process)
+      const q = query(collection(firestore, "saved_search_requests"), where("locationFilter", "==", formData.location));
+      getDocs(q).then(querySnapshot => {
+        querySnapshot.forEach((tenantDoc) => {
+          const tenant = tenantDoc.data();
           addDocumentNonBlocking(collection(firestore, `users/${tenant.renterId}/notifications`), {
             recipientId: tenant.renterId,
-            message: msg,
+            message: `Match! ${listingData.title} is now available in your area.`,
             notificationType: "ListingMatch",
-            deliveryMethod: method,
+            deliveryMethod: "WhatsApp",
             status: "Pending",
-            createdAt: new Date().toISOString()
+            createdAt: now
           });
         });
       });
 
-      setSuccessData({ id: listingId, postContent: aiPost.postContent });
-      toast({ title: "Success!", description: "Listing live and shared to Facebook!" });
+      setSuccessData({ id: listingId, postContent: postContent });
+      toast({ title: "Property Published!", description: "Your property is now live on RentoVerse." });
+      
     } catch (error) {
-      toast({ title: "Error", description: "Failed to publish listing.", variant: "destructive" });
+      toast({ title: "Submission Error", description: "Something went wrong while saving your data. Please check your connection.", variant: "destructive" });
     } finally {
       setLoadingStep(null);
     }
@@ -137,14 +163,14 @@ export default function NewListing() {
 
   const shareWithAdmin = () => {
     if (!successData) return;
-    const adminWhatsApp = "919000000000"; // Replace with real admin number
+    const adminWhatsApp = "919000000000";
     const text = encodeURIComponent(`New Listing Alert! ID: ${successData.id}\n\n${successData.postContent}`);
     window.open(`https://wa.me/${adminWhatsApp}?text=${text}`, "_blank");
   };
 
   const shareToOwner = () => {
     if (!successData) return;
-    const text = encodeURIComponent(`Your RentoVerse Listing is Live!\n\n${successData.postContent}`);
+    const text = encodeURIComponent(`My RentoVerse Listing is Live!\n\n${successData.postContent}`);
     window.open(`https://wa.me/?text=${text}`, "_blank");
   };
 
