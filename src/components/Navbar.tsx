@@ -8,8 +8,6 @@ import { useUser } from "@/firebase";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 
-const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/firejet-0.appspot.com/o/studio%2Fstudio-184067128-73095%2Fuploads%2F1741162330756.png?alt=media&token=86603a11-e77a-4286-90b4-c3e6027a4e0a";
-
 export default function Navbar() {
   const { user } = useUser();
   const logo = PlaceHolderImages.find(img => img.id === 'logo');
@@ -19,13 +17,15 @@ export default function Navbar() {
       <div className="container flex h-16 items-center justify-between px-4 mx-auto">
         <Link href="/" className="flex items-center gap-3">
           <div className="relative w-10 h-10">
-            <Image 
-              src={logo?.imageUrl || LOGO_URL} 
-              alt="RentoVerse" 
-              fill 
-              className="object-contain"
-              priority
-            />
+            {logo && (
+              <Image 
+                src={logo.imageUrl} 
+                alt="RentoVerse" 
+                fill 
+                className="object-contain"
+                priority
+              />
+            )}
           </div>
           <span className="text-2xl font-headline font-bold text-primary tracking-tighter">RentoVerse</span>
         </Link>

@@ -13,8 +13,6 @@ import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, limit } from "firebase/firestore";
 
-const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/firejet-0.appspot.com/o/studio%2Fstudio-184067128-73095%2Fuploads%2F1741162330756.png?alt=media&token=86603a11-e77a-4286-90b4-c3e6027a4e0a";
-
 export default function HomePage() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
   const logo = PlaceHolderImages.find(img => img.id === 'logo');
@@ -123,12 +121,14 @@ export default function HomePage() {
       <footer className="py-16 bg-white border-t">
         <div className="container px-4 mx-auto flex flex-col items-center">
           <div className="relative w-48 h-16 mb-6">
-            <Image 
-              src={logo?.imageUrl || LOGO_URL} 
-              alt="RentoVerse" 
-              fill 
-              className="object-contain" 
-            />
+            {logo && (
+              <Image 
+                src={logo.imageUrl} 
+                alt="RentoVerse" 
+                fill 
+                className="object-contain" 
+              />
+            )}
           </div>
           <p className="text-muted-foreground text-sm font-medium">© 2026 RentoVerse. Your trustworthy property companion.</p>
         </div>
