@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Search, SlidersHorizontal, MapPin, Info } from "lucide-react";
 import { useState } from "react";
+import Link from "next/link";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query } from "firebase/firestore";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -117,7 +118,7 @@ export default function SearchPage() {
                <h3 className="font-headline font-bold text-lg mb-2">Be the first to list here!</h3>
                <p className="text-sm text-muted-foreground mb-4">No live properties in this area yet. Showing examples.</p>
                <Link href="/rooms/new">
-                 <Button variant="outline" size="sm">List Your Property</Button>
+                 <Button variant="outline" size="sm">List Property</Button>
                </Link>
             </div>
           )}

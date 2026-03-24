@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: 'RentoVerse | Find Your Perfect Room',
   description: 'Intuitive room search and listing platform with AI-powered social sharing.',
   icons: {
-    icon: 'https://firebasestorage.googleapis.com/v0/b/firejet-0.appspot.com/o/studio%2Fstudio-184067128-73095%2Fuploads%2F1741162330756.png?alt=media&token=86603a11-e77a-4286-90b4-c3e6027a4e0a',
+    icon: 'https://firebasestorage.googleapis.com/v0/b/studio-184067128-73095.firebasestorage.app/o/only%20logo.jpg?alt=media&token=13a54a46-da72-4cc0-aeb0-a422540387af',
   }
 };
 

@@ -15,8 +15,6 @@ import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
 
-const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/firejet-0.appspot.com/o/studio%2Fstudio-184067128-73095%2Fuploads%2F1741162330756.png?alt=media&token=86603a11-e77a-4286-90b4-c3e6027a4e0a";
-
 export default function RegisterPage() {
   const [step, setStep] = useState<"form" | "verify">("form");
   const [formData, setFormData] = useState({
@@ -80,13 +78,15 @@ export default function RegisterPage() {
         <Card className="max-w-md w-full border-none shadow-2xl">
           <CardHeader className="text-center space-y-1">
             <div className="relative w-48 h-24 mx-auto mb-4">
-              <Image 
-                src={logo?.imageUrl || LOGO_URL} 
-                alt="Logo" 
-                fill 
-                className="object-contain"
-                priority
-              />
+              {logo && (
+                <Image 
+                  src={logo.imageUrl} 
+                  alt="RentoVerse Logo" 
+                  fill 
+                  className="object-contain"
+                  priority
+                />
+              )}
             </div>
             <CardTitle className="text-2xl font-headline font-bold">Register Account</CardTitle>
             <CardDescription>

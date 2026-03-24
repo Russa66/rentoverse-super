@@ -8,8 +8,6 @@ import { ShieldCheck, Download, Printer, CheckCircle2 } from "lucide-react";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 
-const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/firejet-0.appspot.com/o/studio%2Fstudio-184067128-73095%2Fuploads%2F1741162330756.png?alt=media&token=86603a11-e77a-4286-90b4-c3e6027a4e0a";
-
 export default function LegalFormPage() {
   const logo = PlaceHolderImages.find(img => img.id === 'logo');
 
@@ -32,13 +30,15 @@ export default function LegalFormPage() {
           <CardHeader className="p-10 pb-6 text-center">
             <div className="flex justify-between items-center mb-6">
               <div className="relative w-64 h-24">
-                <Image 
-                  src={logo?.imageUrl || LOGO_URL} 
-                  alt="RentoVerse Logo" 
-                  fill 
-                  className="object-contain"
-                  priority
-                />
+                {logo && (
+                  <Image 
+                    src={logo.imageUrl} 
+                    alt="RentoVerse Logo" 
+                    fill 
+                    className="object-contain"
+                    priority
+                  />
+                )}
               </div>
               <div className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Standard Form #RV-2026-V1</div>
             </div>
