@@ -43,7 +43,11 @@ export default function PostRequirement() {
       initiateAnonymousSignIn(auth);
     }
     if (user?.phoneNumber) {
-      setFormData(prev => ({ ...prev, phoneNumber: user.phoneNumber || "" }));
+      // Strip +91 for the display field
+      const displayPhone = user.phoneNumber.startsWith('+91') 
+        ? user.phoneNumber.substring(3) 
+        : user.phoneNumber;
+      setFormData(prev => ({ ...prev, phoneNumber: displayPhone }));
     }
   }, [user, isUserLoading, auth]);
 
@@ -55,9 +59,14 @@ export default function PostRequirement() {
       return;
     }
 
-    if (!formData.phoneNumber || formData.phoneNumber.length < 10) {
-      toast({ title: "Phone Required", description: "Please enter a valid phone number so landlords can contact you.", variant: "destructive" });
-      return;
+    let cleanPhone = formData.phoneNumber.trim().replace(/\s+/g, '');
+    if (!cleanPhone.startsWith('+')) {
+      if (cleanPhone.length === 10) {
+        cleanPhone = `+91${cleanPhone}`;
+      } else {
+        toast({ title: "Phone Required", description: "Please enter a valid 10-digit mobile number.", variant: "destructive" });
+        return;
+      }
     }
 
     setLoadingStep("Saving Requirement...");
@@ -79,7 +88,7 @@ export default function PostRequirement() {
         maxRent: Number(formData.budget),
         propertyType: formData.propertyType,
         requiredAmenities: amenities,
-        phoneNumber: formData.phoneNumber,
+        phoneNumber: cleanPhone,
         notificationPreference: "WhatsApp",
         createdAt: new Date().toISOString(),
       };
@@ -88,7 +97,7 @@ export default function PostRequirement() {
       setDocumentNonBlocking(doc(firestore, `saved_search_requests/${requestId}`), requestData, { merge: true });
 
       updateDocumentNonBlocking(doc(firestore, "users", user.uid), { 
-        phoneNumber: formData.phoneNumber,
+        phoneNumber: cleanPhone,
         updatedAt: new Date().toISOString()
       });
 
@@ -119,7 +128,7 @@ export default function PostRequirement() {
       
       querySnapshot.forEach((listingDoc) => {
         const listing = listingDoc.data();
-        const msg = `Match! A tenant is looking for a ${formData.propertyType} in ${combinedLocation} (Budget: ₹${formData.budget}). Contact them at ${formData.phoneNumber}`;
+        const msg = `Match! A tenant is looking for a ${formData.propertyType} in ${combinedLocation} (Budget: ₹${formData.budget}). Contact them at ${cleanPhone}`;
         
         ["InApp", "WhatsApp", "Email"].forEach(method => {
           addDocumentNonBlocking(collection(firestore, `users/${listing.landlordId}/notifications`), {
@@ -235,13 +244,19 @@ export default function PostRequirement() {
                     <Label className="font-bold flex items-center gap-2">
                       <Phone className="h-4 w-4 text-primary" /> Contact Phone Number
                     </Label>
-                    <Input 
-                      required 
-                      value={formData.phoneNumber} 
-                      onChange={(e) => setFormData({...formData, phoneNumber: e.target.value})} 
-                      placeholder="+91 XXXXX XXXXX" 
-                      className="h-12"
-                    />
+                    <div className="relative">
+                      <div className="absolute left-3 top-3 flex items-center gap-1 text-muted-foreground font-bold text-sm border-r pr-2 h-4">
+                        +91
+                      </div>
+                      <input 
+                        required 
+                        value={formData.phoneNumber} 
+                        onChange={(e) => setFormData({...formData, phoneNumber: e.target.value})} 
+                        placeholder="98765 43210" 
+                        className="flex h-12 w-full rounded-md border border-input bg-background pl-14 pr-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        type="tel"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -301,3 +316,5 @@ export default function PostRequirement() {
     </div>
   );
 }
+
+    

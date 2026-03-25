@@ -65,22 +65,28 @@ export default function RegisterPage() {
     e.preventDefault();
     if (!auth) return;
 
-    // Basic cleaning of phone number
-    let phone = formData.whatsapp.trim();
+    // Cleaning and formatting phone number for India (+91)
+    let phone = formData.whatsapp.trim().replace(/\s+/g, '');
+    
+    // Automatically prepend +91 if no country code is provided
     if (!phone.startsWith('+')) {
-      toast({ 
-        title: "Format Required", 
-        description: "Please include your country code (e.g. +91 9876543210)", 
-        variant: "destructive" 
-      });
-      return;
+      if (phone.length === 10) {
+        phone = `+91${phone}`;
+      } else {
+        toast({ 
+          title: "Invalid Phone Number", 
+          description: "Please enter a valid 10-digit mobile number.", 
+          variant: "destructive" 
+        });
+        return;
+      }
     }
 
     setIsLoading(true);
     try {
       const appVerifier = await setupRecaptcha();
       if (!appVerifier) {
-        throw new Error("Could not initialize security check. Please refresh.");
+        throw new Error("Could not initialize security check. Please refresh the page.");
       }
 
       const result = await signInWithPhoneNumber(auth, phone, appVerifier);
@@ -91,11 +97,11 @@ export default function RegisterPage() {
         description: `A code has been sent to ${phone} via SMS.`,
       });
     } catch (error: any) {
-      console.error(error);
+      console.error("Sign-in with phone error:", error);
       toast({
         variant: "destructive",
         title: "Registration Error",
-        description: error.message || "Failed to send code. Check your phone number format.",
+        description: error.message || "Failed to send code. Ensure your domain is authorized in Firebase Console.",
       });
     } finally {
       setIsLoading(false);
@@ -195,12 +201,13 @@ export default function RegisterPage() {
                 <form onSubmit={handleRegisterInitiate} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Full Name</Label>
-                    <Input
+                    <input
                       id="name"
                       placeholder="Enter your name"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       required
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </div>
                   <div className="space-y-2">
@@ -214,35 +221,39 @@ export default function RegisterPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="whatsapp">Phone Number (Required for WhatsApp Updates)</Label>
+                    <Label htmlFor="whatsapp">Phone Number</Label>
                     <div className="relative">
-                      <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
+                      <div className="absolute left-3 top-3 flex items-center gap-1 text-muted-foreground font-bold text-sm border-r pr-2 h-4">
+                        +91
+                      </div>
+                      <input
                         id="whatsapp"
-                        placeholder="+91 98765 43210"
+                        placeholder="98765 43210"
                         value={formData.whatsapp}
                         onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                        className="pl-10"
+                        className="flex h-10 w-full rounded-md border border-input bg-background pl-14 pr-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         required
+                        type="tel"
                       />
                     </div>
-                    <p className="text-[10px] text-muted-foreground">Always include country code (e.g. +91 for India)</p>
+                    <p className="text-[10px] text-muted-foreground">OTP will be sent to this number for verification.</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email (Optional)</Label>
-                    <Input
+                    <input
                       id="email"
                       type="email"
                       placeholder="email@example.com"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </div>
                   
                   <div id="recaptcha-container"></div>
                   
                   <Button type="submit" className="w-full font-headline h-12 mt-4" disabled={isLoading}>
-                    {isLoading ? "Preparing Security Check..." : "Send Verification Code"}
+                    {isLoading ? "Preparing..." : "Send Verification Code"}
                   </Button>
                 </form>
 
@@ -278,16 +289,18 @@ export default function RegisterPage() {
               <form onSubmit={handleVerify} className="space-y-6">
                 <div className="text-center p-4 bg-muted/50 rounded-xl border">
                    <p className="text-sm font-medium mb-1">Code sent to:</p>
-                   <p className="font-bold text-primary">{formData.whatsapp}</p>
+                   <p className="font-bold text-primary">
+                    {formData.whatsapp.startsWith('+') ? formData.whatsapp : `+91 ${formData.whatsapp}`}
+                   </p>
                 </div>
                 <div className="space-y-2 text-center">
                   <Label htmlFor="otp">Enter 6-Digit Code</Label>
-                  <Input
+                  <input
                     id="otp"
                     placeholder="123456"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value)}
-                    className="text-center text-2xl tracking-widest h-14"
+                    className="flex h-14 w-full rounded-md border border-input bg-background px-3 py-2 text-2xl text-center tracking-widest ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     maxLength={6}
                     required
                   />
@@ -306,3 +319,5 @@ export default function RegisterPage() {
     </div>
   );
 }
+
+    
