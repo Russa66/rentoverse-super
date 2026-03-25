@@ -21,7 +21,7 @@
         },
         "phoneNumber": {
           "type": "string",
-          "description": "WhatsApp contact number."
+          "description": "Verified contact number."
         },
         "userType": {
           "type": "string",
@@ -80,7 +80,7 @@
     }
   },
   "auth": {
-    "providers": ["password", "anonymous"]
+    "providers": ["password", "anonymous", "google", "phone"]
   },
   "firestore": {
     "/users/{userId}": {

@@ -9,7 +9,7 @@ import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 export default function Navbar() {
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const logo = PlaceHolderImages.find(img => img.id === 'logo');
 
   return (
@@ -48,18 +48,20 @@ export default function Navbar() {
               <PlusCircle className="mr-2 h-4 w-4" /> List Property
             </Button>
           </Link>
-          {user && !user.isAnonymous ? (
-            <Link href="/profile">
-              <Button variant="ghost" size="icon" className="rounded-full">
-                <User className="h-5 w-5" />
-              </Button>
-            </Link>
-          ) : (
-            <Link href="/login">
-              <Button variant="ghost" size="sm" className="gap-2">
-                <LogIn className="h-4 w-4" /> Login
-              </Button>
-            </Link>
+          {!isUserLoading && (
+            user && !user.isAnonymous ? (
+              <Link href="/profile">
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <User className="h-5 w-5" />
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/login">
+                <Button variant="ghost" size="sm" className="gap-2">
+                  <LogIn className="h-4 w-4" /> Login
+                </Button>
+              </Link>
+            )
           )}
         </div>
       </div>

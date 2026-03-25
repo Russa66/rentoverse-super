@@ -6,7 +6,7 @@ import Navbar from "@/components/Navbar";
 import RoomCard from "@/components/RoomCard";
 import { MOCK_ROOMS } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
-import { Search, MapPin } from "lucide-react";
+import { Search, MapPin, Home } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
@@ -120,15 +120,8 @@ export default function HomePage() {
 
       <footer className="py-16 bg-white border-t">
         <div className="container px-4 mx-auto flex flex-col items-center">
-          <div className="relative w-48 h-16 mb-6">
-            {logo && (
-              <Image 
-                src={logo.imageUrl} 
-                alt="RentoVerse" 
-                fill 
-                className="object-contain" 
-              />
-            )}
+          <div className="relative w-48 h-16 mb-6 flex justify-center items-center">
+            <Home className="h-8 w-8 text-primary" />
           </div>
           <p className="text-muted-foreground text-sm font-medium">© 2026 RentoVerse. Your trustworthy property companion.</p>
         </div>

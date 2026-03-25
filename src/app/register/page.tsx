@@ -1,8 +1,15 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { 
+  RecaptchaVerifier, 
+  signInWithPhoneNumber, 
+  ConfirmationResult, 
+  GoogleAuthProvider, 
+  signInWithPopup 
+} from "firebase/auth";
 import { useAuth, useFirestore } from "@/firebase";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
@@ -13,7 +20,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
+import { Chrome, Phone, CheckCircle2 } from "lucide-react";
+import { doc, setDoc } from "firebase/firestore";
 
 export default function RegisterPage() {
   const [step, setStep] = useState<"form" | "verify">("form");
@@ -25,46 +33,116 @@ export default function RegisterPage() {
   });
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   
   const { auth } = useAuth();
+  const { firestore } = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'logo');
 
-  const handleRegisterInitiate = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (formData.whatsapp.length < 10) {
-      toast({ title: "Invalid Number", description: "Please enter a valid WhatsApp number.", variant: "destructive" });
-      return;
+  useEffect(() => {
+    if (auth && !window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        'size': 'invisible',
+        'callback': () => {
+          // reCAPTCHA solved
+        }
+      });
     }
-    setStep("verify");
-    toast({
-      title: "Verification Code Sent",
-      description: "A 6-digit code has been sent to your WhatsApp.",
-    });
-  };
+  }, [auth]);
 
-  const handleVerify = async (e: React.FormEvent) => {
+  const handleRegisterInitiate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otp !== "123456") {
-      toast({ title: "Invalid Code", description: "Please use 123456 for testing.", variant: "destructive" });
+    if (!auth || !window.recaptchaVerifier) return;
+
+    if (formData.whatsapp.length < 10) {
+      toast({ title: "Invalid Number", description: "Please enter a valid Phone number with country code (e.g. +91).", variant: "destructive" });
       return;
     }
 
     setIsLoading(true);
     try {
-      if (!auth) return;
-      await initiateAnonymousSignIn(auth);
+      const appVerifier = window.recaptchaVerifier;
+      const result = await signInWithPhoneNumber(auth, formData.whatsapp, appVerifier);
+      setConfirmationResult(result);
+      setStep("verify");
+      toast({
+        title: "Verification Code Sent",
+        description: "A code has been sent to your phone via SMS.",
+      });
+    } catch (error: any) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Failed to send code",
+        description: error.message || "Please check your phone number and try again.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirmationResult) return;
+
+    setIsLoading(true);
+    try {
+      const credential = await confirmationResult.confirm(otp);
+      const user = credential.user;
+
+      // Create user profile in Firestore
+      if (firestore) {
+        await setDoc(doc(firestore, "users", user.uid), {
+          id: user.uid,
+          name: formData.name,
+          phoneNumber: formData.whatsapp,
+          email: formData.email || null,
+          userType: formData.userType,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
       
       toast({
         title: "Welcome to RentoVerse!",
         description: "Registration complete. Redirecting...",
       });
       
-      setTimeout(() => {
-        router.push("/profile");
-      }, 1500);
+      router.push("/profile");
+    } catch (error: any) {
+      toast({ 
+        variant: "destructive", 
+        title: "Verification Failed", 
+        description: error.message || "The code you entered is incorrect." 
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  const handleGoogleRegister = async () => {
+    if (!auth) return;
+    setIsLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      const credential = await signInWithPopup(auth, provider);
+      const user = credential.user;
+
+      if (firestore) {
+        await setDoc(doc(firestore, "users", user.uid), {
+          id: user.uid,
+          name: user.displayName || "RentoVerse User",
+          phoneNumber: user.phoneNumber || null,
+          email: user.email || null,
+          userType: "Tenant", // Default for Google sign-in
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      }
+
+      router.push("/profile");
     } catch (error: any) {
       toast({ variant: "destructive", title: "Registration Failed", description: error.message });
       setIsLoading(false);
@@ -90,56 +168,82 @@ export default function RegisterPage() {
             </div>
             <CardTitle className="text-2xl font-headline font-bold">Register Account</CardTitle>
             <CardDescription>
-              {step === "form" ? "Join RentoVerse to start searching or listing." : "Verify your identity via WhatsApp."}
+              {step === "form" ? "Join RentoVerse to start searching or listing." : "Verify your identity via SMS."}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {step === "form" ? (
-              <form onSubmit={handleRegisterInitiate} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    placeholder="Enter your name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                  />
+              <div className="space-y-4">
+                <form onSubmit={handleRegisterInitiate} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input
+                      id="name"
+                      placeholder="Enter your name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="userType">Register as</Label>
+                    <Select value={formData.userType} onValueChange={(v) => setFormData({...formData, userType: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Owner">Owner / Landlord</SelectItem>
+                        <SelectItem value="Tenant">Tenant / Renter</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="whatsapp">Phone Number (with +CountryCode)</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="whatsapp"
+                        placeholder="+91 98765 43210"
+                        value={formData.whatsapp}
+                        onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                        className="pl-10"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email (Optional)</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="email@example.com"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    />
+                  </div>
+                  <div id="recaptcha-container"></div>
+                  <Button type="submit" className="w-full font-headline h-12 mt-4" disabled={isLoading}>
+                    {isLoading ? "Sending..." : "Send Verification Code"}
+                  </Button>
+                </form>
+
+                <div className="relative my-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t"></span>
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-white px-2 text-muted-foreground font-bold">Or register with</span>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="userType">Register as</Label>
-                  <Select value={formData.userType} onValueChange={(v) => setFormData({...formData, userType: v})}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Owner">Owner / Landlord</SelectItem>
-                      <SelectItem value="Tenant">Tenant / Renter</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="whatsapp">WhatsApp Number</Label>
-                  <Input
-                    id="whatsapp"
-                    placeholder="+91 XXXXX XXXXX"
-                    value={formData.whatsapp}
-                    onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email (Optional)</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="email@example.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  />
-                </div>
-                <Button type="submit" className="w-full font-headline h-12 mt-4">
-                  Send Verification Code
+
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="w-full h-12 gap-2" 
+                  onClick={handleGoogleRegister}
+                  disabled={isLoading}
+                >
+                  <Chrome className="h-4 w-4" /> Google
                 </Button>
-              </form>
+              </div>
             ) : (
               <form onSubmit={handleVerify} className="space-y-6">
                 <div className="text-center p-4 bg-muted/50 rounded-xl border">
@@ -161,6 +265,9 @@ export default function RegisterPage() {
                 <Button type="submit" className="w-full font-headline h-12" disabled={isLoading}>
                   {isLoading ? "Verifying..." : "Complete Registration"}
                 </Button>
+                <Button variant="ghost" className="w-full" onClick={() => setStep("form")} disabled={isLoading}>
+                  Change Phone Number
+                </Button>
               </form>
             )}
           </CardContent>
@@ -168,4 +275,10 @@ export default function RegisterPage() {
       </div>
     </div>
   );
+}
+
+declare global {
+  interface Window {
+    recaptchaVerifier: RecaptchaVerifier;
+  }
 }
