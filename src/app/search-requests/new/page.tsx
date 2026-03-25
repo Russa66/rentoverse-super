@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser, useAuth } from "@/firebase";
 import { collection, doc, query, getDocs, where } from "firebase/firestore";
-import { addDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { setDocumentNonBlocking, updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
 import { composeSocialPost } from "@/ai/flows/ai-social-post-composer-flow";
 import { Search, Sparkles, Phone, ShieldCheck, MapPin } from "lucide-react";
@@ -59,16 +59,13 @@ export default function PostRequirement() {
       return;
     }
 
-    let cleanPhone = formData.phoneNumber.trim().replace(/\s+/g, '');
-    if (!cleanPhone.startsWith('+')) {
-      if (cleanPhone.length === 10) {
-        cleanPhone = `+91${cleanPhone}`;
-      } else {
-        toast({ title: "Phone Required", description: "Please enter a valid 10-digit mobile number.", variant: "destructive" });
-        return;
-      }
+    const phoneDigits = formData.phoneNumber.trim().replace(/\D/g, '');
+    if (phoneDigits.length !== 10) {
+      toast({ title: "Phone Required", description: "Please enter a 10-digit mobile number.", variant: "destructive" });
+      return;
     }
 
+    const fullPhone = `+91${phoneDigits}`;
     setLoadingStep("Saving Requirement...");
 
     try {
@@ -88,7 +85,7 @@ export default function PostRequirement() {
         maxRent: Number(formData.budget),
         propertyType: formData.propertyType,
         requiredAmenities: amenities,
-        phoneNumber: cleanPhone,
+        phoneNumber: fullPhone,
         notificationPreference: "WhatsApp",
         createdAt: new Date().toISOString(),
       };
@@ -97,7 +94,7 @@ export default function PostRequirement() {
       setDocumentNonBlocking(doc(firestore, `saved_search_requests/${requestId}`), requestData, { merge: true });
 
       updateDocumentNonBlocking(doc(firestore, "users", user.uid), { 
-        phoneNumber: cleanPhone,
+        phoneNumber: fullPhone,
         updatedAt: new Date().toISOString()
       });
 
@@ -122,13 +119,12 @@ export default function PostRequirement() {
       });
 
       setLoadingStep("Alerting Property Owners...");
-      // Query against the primary location for matches
-      const q = query(collection(firestore, "published_room_listings"), where("location", "==", formData.location1));
+      const q = query(collection(firestore, "room_listings"), where("locality", "==", formData.location1.split(',')[0].trim()));
       const querySnapshot = await getDocs(q);
       
       querySnapshot.forEach((listingDoc) => {
         const listing = listingDoc.data();
-        const msg = `Match! A tenant is looking for a ${formData.propertyType} in ${combinedLocation} (Budget: ₹${formData.budget}). Contact them at ${cleanPhone}`;
+        const msg = `Match! A tenant is looking for a ${formData.propertyType} in ${combinedLocation} (Budget: ₹${formData.budget}). Contact: ${fullPhone}`;
         
         ["InApp", "WhatsApp", "Email"].forEach(method => {
           addDocumentNonBlocking(collection(firestore, `users/${listing.landlordId}/notifications`), {
@@ -187,7 +183,7 @@ export default function PostRequirement() {
                         required 
                         value={formData.location1} 
                         onChange={(e) => setFormData({...formData, location1: e.target.value})} 
-                        placeholder="Primary Location (e.g. Poabagan) - Mandatory" 
+                        placeholder="Primary Location (e.g. Poabagan)" 
                         className="h-12 pl-10"
                       />
                     </div>
@@ -196,7 +192,7 @@ export default function PostRequirement() {
                       <Input 
                         value={formData.location2} 
                         onChange={(e) => setFormData({...formData, location2: e.target.value})} 
-                        placeholder="Second Location (e.g. Heavir More) - Optional" 
+                        placeholder="Second Location (Optional)" 
                         className="h-12 pl-10"
                       />
                     </div>
@@ -245,16 +241,17 @@ export default function PostRequirement() {
                       <Phone className="h-4 w-4 text-primary" /> Contact Phone Number
                     </Label>
                     <div className="relative">
-                      <div className="absolute left-3 top-3 flex items-center gap-1 text-muted-foreground font-bold text-sm border-r pr-2 h-4">
+                      <div className="absolute left-3 top-0 bottom-0 flex items-center gap-1 text-muted-foreground font-bold text-sm border-r pr-3 my-2 pointer-events-none">
                         +91
                       </div>
                       <input 
                         required 
                         value={formData.phoneNumber} 
-                        onChange={(e) => setFormData({...formData, phoneNumber: e.target.value})} 
-                        placeholder="98765 43210" 
+                        onChange={(e) => setFormData({...formData, phoneNumber: e.target.value.replace(/\D/g, '').slice(0, 10)})} 
+                        placeholder="9876543210" 
                         className="flex h-12 w-full rounded-md border border-input bg-background pl-14 pr-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         type="tel"
+                        maxLength={10}
                       />
                     </div>
                   </div>
@@ -316,5 +313,3 @@ export default function PostRequirement() {
     </div>
   );
 }
-
-    

@@ -13,14 +13,13 @@ import {
 import { useAuth, useFirestore } from "@/firebase";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { Chrome, Phone, CheckCircle2, ArrowRight } from "lucide-react";
+import { Chrome, CheckCircle2, ArrowRight, ShieldCheck } from "lucide-react";
 import { doc, setDoc } from "firebase/firestore";
 import Link from "next/link";
 
@@ -43,66 +42,77 @@ export default function RegisterPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'logo');
 
-  // Initialize Recaptcha
-  const setupRecaptcha = async () => {
-    if (!auth) return null;
-    try {
+  // Cleanup reCAPTCHA on unmount
+  useEffect(() => {
+    return () => {
       if (recaptchaVerifierRef.current) {
         recaptchaVerifierRef.current.clear();
+        recaptchaVerifierRef.current = null;
       }
-      const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible',
-      });
-      recaptchaVerifierRef.current = verifier;
-      return verifier;
-    } catch (error) {
-      console.error("Recaptcha initialization failed", error);
-      return null;
-    }
-  };
+    };
+  }, []);
 
   const handleRegisterInitiate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth) return;
 
-    // Cleaning and formatting phone number for India (+91)
-    let phone = formData.whatsapp.trim().replace(/\s+/g, '');
-    
-    // Automatically prepend +91 if no country code is provided
-    if (!phone.startsWith('+')) {
-      if (phone.length === 10) {
-        phone = `+91${phone}`;
-      } else {
-        toast({ 
-          title: "Invalid Phone Number", 
-          description: "Please enter a valid 10-digit mobile number.", 
-          variant: "destructive" 
-        });
-        return;
-      }
+    // Validation for 10-digit Indian number
+    const phoneDigits = formData.whatsapp.trim().replace(/\D/g, '');
+    if (phoneDigits.length !== 10) {
+      toast({ 
+        title: "Invalid Number", 
+        description: "Please enter a valid 10-digit mobile number.", 
+        variant: "destructive" 
+      });
+      return;
     }
 
+    const fullPhoneNumber = `+91${phoneDigits}`;
     setIsLoading(true);
+
     try {
-      const appVerifier = await setupRecaptcha();
-      if (!appVerifier) {
-        throw new Error("Could not initialize security check. Please refresh the page.");
+      // Initialize or reuse reCAPTCHA
+      if (!recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          'size': 'invisible',
+          'callback': () => {
+            // reCAPTCHA solved
+          },
+          'expired-callback': () => {
+            toast({ title: "Security Check Expired", description: "Please try again." });
+            setIsLoading(false);
+          }
+        });
       }
 
-      const result = await signInWithPhoneNumber(auth, phone, appVerifier);
+      const result = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifierRef.current);
       setConfirmationResult(result);
       setStep("verify");
       toast({
-        title: "Verification Code Sent",
-        description: `A code has been sent to ${phone} via SMS.`,
+        title: "OTP Sent",
+        description: `Verification code sent to ${fullPhoneNumber}`,
       });
     } catch (error: any) {
-      console.error("Sign-in with phone error:", error);
+      console.error("SMS Registration Error:", error);
+      
+      // Handle common Firebase errors
+      let message = "Failed to send code. Please try again later.";
+      if (error.code === 'auth/invalid-phone-number') message = "The phone number format is invalid.";
+      if (error.code === 'auth/too-many-requests') message = "Too many attempts. Please wait a few minutes.";
+      if (error.code === 'auth/network-request-failed') message = "Network error. Please check your connection.";
+      if (error.code === 'auth/captcha-check-failed') message = "Security check failed. Please refresh.";
+
       toast({
         variant: "destructive",
         title: "Registration Error",
-        description: error.message || "Failed to send code. Ensure your domain is authorized in Firebase Console.",
+        description: message,
       });
+      
+      // Reset reCAPTCHA on error
+      if (recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current.clear();
+        recaptchaVerifierRef.current = null;
+      }
     } finally {
       setIsLoading(false);
     }
@@ -110,7 +120,7 @@ export default function RegisterPage() {
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!confirmationResult) return;
+    if (!confirmationResult || otp.length !== 6) return;
 
     setIsLoading(true);
     try {
@@ -126,6 +136,7 @@ export default function RegisterPage() {
           userType: formData.userType,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          isVerified: true,
         }, { merge: true });
       }
       
@@ -138,8 +149,8 @@ export default function RegisterPage() {
     } catch (error: any) {
       toast({ 
         variant: "destructive", 
-        title: "Invalid Code", 
-        description: "The verification code is incorrect or has expired." 
+        title: "Verification Failed", 
+        description: "The code is incorrect. Please check and try again." 
       });
     } finally {
       setIsLoading(false);
@@ -163,6 +174,7 @@ export default function RegisterPage() {
           userType: "Tenant",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          isVerified: !!user.phoneNumber,
         }, { merge: true });
       }
 
@@ -196,6 +208,8 @@ export default function RegisterPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <div id="recaptcha-container"></div>
+            
             {step === "form" ? (
               <div className="space-y-4">
                 <form onSubmit={handleRegisterInitiate} className="space-y-4">
@@ -223,17 +237,18 @@ export default function RegisterPage() {
                   <div className="space-y-2">
                     <Label htmlFor="whatsapp">Phone Number</Label>
                     <div className="relative">
-                      <div className="absolute left-3 top-3 flex items-center gap-1 text-muted-foreground font-bold text-sm border-r pr-2 h-4">
+                      <div className="absolute left-3 top-0 bottom-0 flex items-center gap-1 text-muted-foreground font-bold text-sm border-r pr-3 my-2 pointer-events-none">
                         +91
                       </div>
                       <input
                         id="whatsapp"
-                        placeholder="98765 43210"
+                        placeholder="9876543210"
                         value={formData.whatsapp}
-                        onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                         className="flex h-10 w-full rounded-md border border-input bg-background pl-14 pr-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         required
                         type="tel"
+                        maxLength={10}
                       />
                     </div>
                     <p className="text-[10px] text-muted-foreground">OTP will be sent to this number for verification.</p>
@@ -246,14 +261,12 @@ export default function RegisterPage() {
                       placeholder="email@example.com"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </div>
                   
-                  <div id="recaptcha-container"></div>
-                  
                   <Button type="submit" className="w-full font-headline h-12 mt-4" disabled={isLoading}>
-                    {isLoading ? "Preparing..." : "Send Verification Code"}
+                    {isLoading ? "Checking Security..." : "Send Verification Code"}
                   </Button>
                 </form>
 
@@ -289,9 +302,7 @@ export default function RegisterPage() {
               <form onSubmit={handleVerify} className="space-y-6">
                 <div className="text-center p-4 bg-muted/50 rounded-xl border">
                    <p className="text-sm font-medium mb-1">Code sent to:</p>
-                   <p className="font-bold text-primary">
-                    {formData.whatsapp.startsWith('+') ? formData.whatsapp : `+91 ${formData.whatsapp}`}
-                   </p>
+                   <p className="font-bold text-primary">+91 {formData.whatsapp}</p>
                 </div>
                 <div className="space-y-2 text-center">
                   <Label htmlFor="otp">Enter 6-Digit Code</Label>
@@ -299,7 +310,7 @@ export default function RegisterPage() {
                     id="otp"
                     placeholder="123456"
                     value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     className="flex h-14 w-full rounded-md border border-input bg-background px-3 py-2 text-2xl text-center tracking-widest ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     maxLength={6}
                     required
@@ -319,5 +330,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-
-    
