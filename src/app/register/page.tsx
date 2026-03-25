@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { 
   RecaptchaVerifier, 
@@ -20,8 +20,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { Chrome, Phone, CheckCircle2 } from "lucide-react";
+import { Chrome, Phone, CheckCircle2, ArrowRight } from "lucide-react";
 import { doc, setDoc } from "firebase/firestore";
+import Link from "next/link";
 
 export default function RegisterPage() {
   const [step, setStep] = useState<"form" | "verify">("form");
@@ -35,48 +36,66 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   
+  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
   const { auth } = useAuth();
   const { firestore } = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'logo');
 
-  useEffect(() => {
-    if (auth && !window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+  // Initialize Recaptcha
+  const setupRecaptcha = async () => {
+    if (!auth) return null;
+    try {
+      if (recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current.clear();
+      }
+      const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         'size': 'invisible',
-        'callback': () => {
-          // reCAPTCHA solved
-        }
       });
+      recaptchaVerifierRef.current = verifier;
+      return verifier;
+    } catch (error) {
+      console.error("Recaptcha initialization failed", error);
+      return null;
     }
-  }, [auth]);
+  };
 
   const handleRegisterInitiate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth || !window.recaptchaVerifier) return;
+    if (!auth) return;
 
-    if (formData.whatsapp.length < 10) {
-      toast({ title: "Invalid Number", description: "Please enter a valid Phone number with country code (e.g. +91).", variant: "destructive" });
+    // Basic cleaning of phone number
+    let phone = formData.whatsapp.trim();
+    if (!phone.startsWith('+')) {
+      toast({ 
+        title: "Format Required", 
+        description: "Please include your country code (e.g. +91 9876543210)", 
+        variant: "destructive" 
+      });
       return;
     }
 
     setIsLoading(true);
     try {
-      const appVerifier = window.recaptchaVerifier;
-      const result = await signInWithPhoneNumber(auth, formData.whatsapp, appVerifier);
+      const appVerifier = await setupRecaptcha();
+      if (!appVerifier) {
+        throw new Error("Could not initialize security check. Please refresh.");
+      }
+
+      const result = await signInWithPhoneNumber(auth, phone, appVerifier);
       setConfirmationResult(result);
       setStep("verify");
       toast({
         title: "Verification Code Sent",
-        description: "A code has been sent to your phone via SMS.",
+        description: `A code has been sent to ${phone} via SMS.`,
       });
     } catch (error: any) {
       console.error(error);
       toast({
         variant: "destructive",
-        title: "Failed to send code",
-        description: error.message || "Please check your phone number and try again.",
+        title: "Registration Error",
+        description: error.message || "Failed to send code. Check your phone number format.",
       });
     } finally {
       setIsLoading(false);
@@ -92,30 +111,29 @@ export default function RegisterPage() {
       const credential = await confirmationResult.confirm(otp);
       const user = credential.user;
 
-      // Create user profile in Firestore
       if (firestore) {
         await setDoc(doc(firestore, "users", user.uid), {
           id: user.uid,
           name: formData.name,
-          phoneNumber: formData.whatsapp,
+          phoneNumber: user.phoneNumber,
           email: formData.email || null,
           userType: formData.userType,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-        });
+        }, { merge: true });
       }
       
       toast({
         title: "Welcome to RentoVerse!",
-        description: "Registration complete. Redirecting...",
+        description: "Your account is verified and ready.",
       });
       
       router.push("/profile");
     } catch (error: any) {
       toast({ 
         variant: "destructive", 
-        title: "Verification Failed", 
-        description: error.message || "The code you entered is incorrect." 
+        title: "Invalid Code", 
+        description: "The verification code is incorrect or has expired." 
       });
     } finally {
       setIsLoading(false);
@@ -136,7 +154,7 @@ export default function RegisterPage() {
           name: user.displayName || "RentoVerse User",
           phoneNumber: user.phoneNumber || null,
           email: user.email || null,
-          userType: "Tenant", // Default for Google sign-in
+          userType: "Tenant",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }, { merge: true });
@@ -166,7 +184,7 @@ export default function RegisterPage() {
                 />
               )}
             </div>
-            <CardTitle className="text-2xl font-headline font-bold">Register Account</CardTitle>
+            <CardTitle className="text-2xl font-headline font-bold">Create Account</CardTitle>
             <CardDescription>
               {step === "form" ? "Join RentoVerse to start searching or listing." : "Verify your identity via SMS."}
             </CardDescription>
@@ -196,7 +214,7 @@ export default function RegisterPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="whatsapp">Phone Number (with +CountryCode)</Label>
+                    <Label htmlFor="whatsapp">Phone Number (Required for WhatsApp Updates)</Label>
                     <div className="relative">
                       <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -208,6 +226,7 @@ export default function RegisterPage() {
                         required
                       />
                     </div>
+                    <p className="text-[10px] text-muted-foreground">Always include country code (e.g. +91 for India)</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email (Optional)</Label>
@@ -219,9 +238,11 @@ export default function RegisterPage() {
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     />
                   </div>
+                  
                   <div id="recaptcha-container"></div>
+                  
                   <Button type="submit" className="w-full font-headline h-12 mt-4" disabled={isLoading}>
-                    {isLoading ? "Sending..." : "Send Verification Code"}
+                    {isLoading ? "Preparing Security Check..." : "Send Verification Code"}
                   </Button>
                 </form>
 
@@ -243,6 +264,15 @@ export default function RegisterPage() {
                 >
                   <Chrome className="h-4 w-4" /> Google
                 </Button>
+
+                <div className="text-center mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Already have an account?{" "}
+                    <Link href="/login" className="text-primary font-bold hover:underline">
+                      Login
+                    </Link>
+                  </p>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleVerify} className="space-y-6">
@@ -251,7 +281,7 @@ export default function RegisterPage() {
                    <p className="font-bold text-primary">{formData.whatsapp}</p>
                 </div>
                 <div className="space-y-2 text-center">
-                  <Label htmlFor="otp">6-Digit Code</Label>
+                  <Label htmlFor="otp">Enter 6-Digit Code</Label>
                   <Input
                     id="otp"
                     placeholder="123456"
@@ -275,10 +305,4 @@ export default function RegisterPage() {
       </div>
     </div>
   );
-}
-
-declare global {
-  interface Window {
-    recaptchaVerifier: RecaptchaVerifier;
-  }
 }

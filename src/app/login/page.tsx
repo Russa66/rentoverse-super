@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Sparkles, UserPlus, Chrome } from "lucide-react";
+import { Mail, Sparkles, UserPlus, Chrome, ArrowRight } from "lucide-react";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import Link from "next/link";
@@ -76,7 +76,7 @@ export default function LoginPage() {
       await signInWithPopup(auth, provider);
       toast({
         title: "Logged in with Google",
-        description: "Redirecting to your profile...",
+        description: "Redirecting...",
       });
     } catch (error: any) {
       toast({
@@ -137,14 +137,7 @@ export default function LoginPage() {
                   />
                 </div>
                 <Button type="submit" className="w-full font-headline h-12" disabled={isLoading}>
-                  {isLoading ? (
-                    <div className="flex items-center gap-2">
-                      <div className="h-4 w-4 border-2 border-white/30 border-t-white animate-spin rounded-full" />
-                      Signing in...
-                    </div>
-                  ) : (
-                    "Login"
-                  )}
+                  {isLoading ? "Signing in..." : "Login"}
                 </Button>
               </form>
 
@@ -172,7 +165,7 @@ export default function LoginPage() {
               <p className="text-sm text-muted-foreground">
                 Don't have an account?{" "}
                 <Link href="/register" className="text-primary font-bold hover:underline inline-flex items-center gap-1">
-                  <UserPlus className="h-4 w-4" /> Register Now
+                  Register Now <ArrowRight className="h-3 w-3" />
                 </Link>
               </p>
             </div>
@@ -180,7 +173,7 @@ export default function LoginPage() {
             <div className="mt-8 p-4 bg-primary/5 rounded-lg border border-primary/10 flex items-start gap-3">
               <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Administrators will be automatically redirected to the secure management dashboard upon successful login.
+                RentoVerse uses secure Firebase authentication. Make sure your phone number includes the country code for SMS verification.
               </p>
             </div>
           </CardContent>
