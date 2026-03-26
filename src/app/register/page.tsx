@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { Chrome, CheckCircle2, ArrowRight, ShieldCheck } from "lucide-react";
+import { Chrome, CheckCircle2, ArrowRight, ShieldCheck, AlertCircle } from "lucide-react";
 import { doc, setDoc } from "firebase/firestore";
 import Link from "next/link";
 
@@ -42,21 +42,30 @@ export default function RegisterPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'logo');
 
-  // Cleanup reCAPTCHA on unmount
+  // Diagnostic check for Auth on mount
   useEffect(() => {
+    if (!auth) {
+      toast({
+        variant: "destructive",
+        title: "Auth Connection Error",
+        description: "Firebase Auth is not initialized. Please refresh the page.",
+      });
+    }
     return () => {
       if (recaptchaVerifierRef.current) {
         recaptchaVerifierRef.current.clear();
         recaptchaVerifierRef.current = null;
       }
     };
-  }, []);
+  }, [auth, toast]);
 
   const handleRegisterInitiate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth) return;
+    if (!auth) {
+      toast({ variant: "destructive", title: "Error", description: "Authentication system is unavailable." });
+      return;
+    }
 
-    // Validation for 10-digit Indian number
     const phoneDigits = formData.whatsapp.trim().replace(/\D/g, '');
     if (phoneDigits.length !== 10) {
       toast({ 
@@ -71,19 +80,22 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      // Initialize or reuse reCAPTCHA
-      if (!recaptchaVerifierRef.current) {
-        recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          'size': 'invisible',
-          'callback': () => {
-            // reCAPTCHA solved
-          },
-          'expired-callback': () => {
-            toast({ title: "Security Check Expired", description: "Please try again." });
-            setIsLoading(false);
-          }
-        });
+      // Clear existing verifier if any
+      if (recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current.clear();
       }
+
+      // Initialize Recaptcha
+      recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        'size': 'invisible',
+        'callback': (response: any) => {
+          console.log("reCAPTCHA solved");
+        },
+        'expired-callback': () => {
+          toast({ title: "Security Check Expired", description: "Please try again." });
+          setIsLoading(false);
+        }
+      });
 
       const result = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifierRef.current);
       setConfirmationResult(result);
@@ -95,20 +107,22 @@ export default function RegisterPage() {
     } catch (error: any) {
       console.error("SMS Registration Error:", error);
       
-      // Handle common Firebase errors
-      let message = "Failed to send code. Please try again later.";
+      let message = "Failed to send code. Please try again.";
+      
+      // Map Firebase Errors to human-readable diagnostics
       if (error.code === 'auth/invalid-phone-number') message = "The phone number format is invalid.";
       if (error.code === 'auth/too-many-requests') message = "Too many attempts. Please wait a few minutes.";
-      if (error.code === 'auth/network-request-failed') message = "Network error. Please check your connection.";
-      if (error.code === 'auth/captcha-check-failed') message = "Security check failed. Please refresh.";
+      if (error.code === 'auth/network-request-failed') message = "Network error. Check your internet connection.";
+      if (error.code === 'auth/captcha-check-failed') message = "Security check failed. Ensure your browser is up to date.";
+      if (error.code === 'auth/unauthorized-domain') message = "This domain is not authorized for SMS auth in Firebase Console.";
+      if (error.code === 'auth/operation-not-allowed') message = "Phone provider is not enabled in Firebase Console.";
 
       toast({
         variant: "destructive",
-        title: "Registration Error",
+        title: "Registration Blocked",
         description: message,
       });
       
-      // Reset reCAPTCHA on error
       if (recaptchaVerifierRef.current) {
         recaptchaVerifierRef.current.clear();
         recaptchaVerifierRef.current = null;
@@ -128,7 +142,8 @@ export default function RegisterPage() {
       const user = credential.user;
 
       if (firestore) {
-        await setDoc(doc(firestore, "users", user.uid), {
+        // Use non-await pattern for doc creation per guidelines
+        setDoc(doc(firestore, "users", user.uid), {
           id: user.uid,
           name: formData.name,
           phoneNumber: user.phoneNumber,
@@ -166,7 +181,7 @@ export default function RegisterPage() {
       const user = credential.user;
 
       if (firestore) {
-        await setDoc(doc(firestore, "users", user.uid), {
+        setDoc(doc(firestore, "users", user.uid), {
           id: user.uid,
           name: user.displayName || "RentoVerse User",
           phoneNumber: user.phoneNumber || null,
@@ -208,6 +223,7 @@ export default function RegisterPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* The reCAPTCHA container must be present in the DOM for the verifier to attach */}
             <div id="recaptcha-container"></div>
             
             {step === "form" ? (
@@ -221,7 +237,7 @@ export default function RegisterPage() {
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       required
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </div>
                   <div className="space-y-2">
@@ -231,6 +247,7 @@ export default function RegisterPage() {
                       <SelectContent>
                         <SelectItem value="Owner">Owner / Landlord</SelectItem>
                         <SelectItem value="Tenant">Tenant / Renter</SelectItem>
+                        <SelectItem value="Admin">Admin</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -251,7 +268,7 @@ export default function RegisterPage() {
                         maxLength={10}
                       />
                     </div>
-                    <p className="text-[10px] text-muted-foreground">OTP will be sent to this number for verification.</p>
+                    <p className="text-[10px] text-muted-foreground">Verification code will be sent to this number.</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email (Optional)</Label>
@@ -265,8 +282,8 @@ export default function RegisterPage() {
                     />
                   </div>
                   
-                  <Button type="submit" className="w-full font-headline h-12 mt-4" disabled={isLoading}>
-                    {isLoading ? "Checking Security..." : "Send Verification Code"}
+                  <Button type="submit" className="w-full font-headline h-12 mt-4" disabled={isLoading || formData.whatsapp.length !== 10}>
+                    {isLoading ? "Preparing Security Check..." : "Send Verification Code"}
                   </Button>
                 </form>
 
@@ -316,7 +333,7 @@ export default function RegisterPage() {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full font-headline h-12" disabled={isLoading}>
+                <Button type="submit" className="w-full font-headline h-12" disabled={isLoading || otp.length !== 6}>
                   {isLoading ? "Verifying..." : "Complete Registration"}
                 </Button>
                 <Button variant="ghost" className="w-full" onClick={() => setStep("form")} disabled={isLoading}>
@@ -324,6 +341,16 @@ export default function RegisterPage() {
                 </Button>
               </form>
             )}
+
+            <div className="mt-8 p-4 bg-primary/5 rounded-lg border border-primary/10 flex items-start gap-3">
+              <ShieldCheck className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-[11px] font-bold text-primary uppercase">Security Check</p>
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  RentoVerse uses Firebase Phone Authentication. If the code doesn't arrive, ensure your domain is whitelisted in the Firebase Console.
+                </p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
