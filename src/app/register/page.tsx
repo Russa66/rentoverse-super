@@ -20,7 +20,8 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Chrome, CheckCircle2, ArrowRight, ShieldCheck, AlertCircle } from "lucide-react";
-import { doc, setDoc } from "firebase/firestore";
+import { doc } from "firebase/firestore";
+import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import Link from "next/link";
 
 export default function RegisterPage() {
@@ -36,29 +37,20 @@ export default function RegisterPage() {
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
-  const auth = useAuth(); // Corrected: useAuth returns the auth object directly
+  const auth = useAuth();
   const { firestore } = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'logo');
 
-  // Diagnostic check for Auth on mount
   useEffect(() => {
-    if (!auth) {
-      console.error("Firebase Auth is missing from context");
-      toast({
-        variant: "destructive",
-        title: "Auth Connection Error",
-        description: "Firebase Auth is not initialized. Please refresh the page.",
-      });
-    }
     return () => {
       if (recaptchaVerifierRef.current) {
         recaptchaVerifierRef.current.clear();
         recaptchaVerifierRef.current = null;
       }
     };
-  }, [auth, toast]);
+  }, []);
 
   const handleRegisterInitiate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,17 +73,14 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      // Clear existing verifier if any
       if (recaptchaVerifierRef.current) {
         recaptchaVerifierRef.current.clear();
       }
 
-      // Initialize Recaptcha
-      // The element must be in the DOM
       recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
         'size': 'invisible',
-        'callback': (response: any) => {
-          console.log("reCAPTCHA solved successfully");
+        'callback': () => {
+          console.log("reCAPTCHA solved");
         },
         'expired-callback': () => {
           toast({ title: "Security Check Expired", description: "Please try again." });
@@ -99,7 +88,6 @@ export default function RegisterPage() {
         }
       });
 
-      console.log("Attempting to send SMS to:", fullPhoneNumber);
       const result = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifierRef.current);
       setConfirmationResult(result);
       setStep("verify");
@@ -108,28 +96,16 @@ export default function RegisterPage() {
         description: `Verification code sent to ${fullPhoneNumber}`,
       });
     } catch (error: any) {
-      console.error("SMS Registration Error Details:", error);
-      
-      let message = "Failed to send code. Please try again.";
-      
-      // Map Firebase Errors to human-readable diagnostics
-      if (error.code === 'auth/invalid-phone-number') message = "The phone number format is invalid.";
-      if (error.code === 'auth/too-many-requests') message = "Too many attempts. Please wait a few minutes.";
-      if (error.code === 'auth/network-request-failed') message = "Network error. Check your internet connection.";
-      if (error.code === 'auth/captcha-check-failed') message = "Security check failed. Ensure your browser is up to date.";
-      if (error.code === 'auth/unauthorized-domain') message = "This domain is not authorized for SMS auth in Firebase Console.";
-      if (error.code === 'auth/operation-not-allowed') message = "Phone provider is not enabled in Firebase Console.";
+      console.error("SMS Registration Error:", error);
+      let message = "Failed to send code. Please ensure your domain is authorized in Firebase.";
+      if (error.code === 'auth/unauthorized-domain') message = "This domain is not authorized for SMS auth.";
+      if (error.code === 'auth/too-many-requests') message = "Too many attempts. Please wait.";
 
       toast({
         variant: "destructive",
-        title: "Registration Blocked",
+        title: "Registration Error",
         description: message,
       });
-      
-      if (recaptchaVerifierRef.current) {
-        recaptchaVerifierRef.current.clear();
-        recaptchaVerifierRef.current = null;
-      }
     } finally {
       setIsLoading(false);
     }
@@ -145,12 +121,14 @@ export default function RegisterPage() {
       const user = credential.user;
 
       if (firestore) {
-        setDoc(doc(firestore, "users", user.uid), {
+        // Save user profile immediately upon successful verification
+        setDocumentNonBlocking(doc(firestore, "users", user.uid), {
           id: user.uid,
           name: formData.name,
           phoneNumber: user.phoneNumber,
           email: formData.email || null,
           userType: formData.userType,
+          address: "", // Initialize empty address for later update
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           isVerified: true,
@@ -164,11 +142,10 @@ export default function RegisterPage() {
       
       router.push("/profile");
     } catch (error: any) {
-      console.error("Verification confirmation error:", error);
       toast({ 
         variant: "destructive", 
         title: "Verification Failed", 
-        description: "The code is incorrect. Please check and try again." 
+        description: "The code is incorrect. Please try again." 
       });
     } finally {
       setIsLoading(false);
@@ -184,12 +161,13 @@ export default function RegisterPage() {
       const user = credential.user;
 
       if (firestore) {
-        setDoc(doc(firestore, "users", user.uid), {
+        setDocumentNonBlocking(doc(firestore, "users", user.uid), {
           id: user.uid,
           name: user.displayName || "RentoVerse User",
           phoneNumber: user.phoneNumber || null,
           email: user.email || null,
           userType: "Tenant",
+          address: "",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           isVerified: !!user.phoneNumber,
@@ -226,7 +204,6 @@ export default function RegisterPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {/* The reCAPTCHA container MUST be in the DOM */}
             <div id="recaptcha-container"></div>
             
             {step === "form" ? (
@@ -240,7 +217,7 @@ export default function RegisterPage() {
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       required
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
                   </div>
                   <div className="space-y-2">
@@ -250,7 +227,6 @@ export default function RegisterPage() {
                       <SelectContent>
                         <SelectItem value="Owner">Owner / Landlord</SelectItem>
                         <SelectItem value="Tenant">Tenant / Renter</SelectItem>
-                        <SelectItem value="Admin">Admin</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -265,13 +241,12 @@ export default function RegisterPage() {
                         placeholder="9876543210"
                         value={formData.whatsapp}
                         onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value.replace(/\D/g, '').slice(0, 10) })}
-                        className="flex h-10 w-full rounded-md border border-input bg-background pl-14 pr-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex h-10 w-full rounded-md border border-input bg-background pl-14 pr-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         required
                         type="tel"
                         maxLength={10}
                       />
                     </div>
-                    <p className="text-[10px] text-muted-foreground">Verification code will be sent to this number.</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email (Optional)</Label>
@@ -281,12 +256,12 @@ export default function RegisterPage() {
                       placeholder="email@example.com"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
                   </div>
                   
                   <Button type="submit" className="w-full font-headline h-12 mt-4" disabled={isLoading || formData.whatsapp.length !== 10}>
-                    {isLoading ? "Preparing Security Check..." : "Send Verification Code"}
+                    {isLoading ? "Checking Security..." : "Send Verification Code"}
                   </Button>
                 </form>
 
@@ -295,7 +270,7 @@ export default function RegisterPage() {
                     <span className="w-full border-t"></span>
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-white px-2 text-muted-foreground font-bold">Or register with</span>
+                    <span className="bg-white px-2 text-muted-foreground font-bold">Or</span>
                   </div>
                 </div>
 
@@ -306,7 +281,7 @@ export default function RegisterPage() {
                   onClick={handleGoogleRegister}
                   disabled={isLoading}
                 >
-                  <Chrome className="h-4 w-4" /> Google
+                  <Chrome className="h-4 w-4" /> Sign up with Google
                 </Button>
 
                 <div className="text-center mt-4">
@@ -331,7 +306,7 @@ export default function RegisterPage() {
                     placeholder="123456"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className="flex h-14 w-full rounded-md border border-input bg-background px-3 py-2 text-2xl text-center tracking-widest ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex h-14 w-full rounded-md border border-input bg-background px-3 py-2 text-2xl text-center tracking-widest focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     maxLength={6}
                     required
                   />
@@ -344,16 +319,6 @@ export default function RegisterPage() {
                 </Button>
               </form>
             )}
-
-            <div className="mt-8 p-4 bg-primary/5 rounded-lg border border-primary/10 flex items-start gap-3">
-              <ShieldCheck className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <p className="text-[11px] font-bold text-primary uppercase">Security Check</p>
-                <p className="text-[10px] text-muted-foreground leading-relaxed">
-                  RentoVerse uses Firebase Phone Authentication. Ensure your domain is whitelisted in the Firebase Console Settings.
-                </p>
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>

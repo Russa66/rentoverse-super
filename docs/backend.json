@@ -23,10 +23,18 @@
           "type": "string",
           "description": "Verified contact number."
         },
+        "address": {
+          "type": "string",
+          "description": "Full physical address of the user."
+        },
         "userType": {
           "type": "string",
           "enum": ["Owner", "Tenant", "Admin"],
           "description": "The primary role of the user."
+        },
+        "isAdmin": {
+          "type": "boolean",
+          "description": "Whether the user has administrative privileges."
         },
         "createdAt": {
           "type": "string",
