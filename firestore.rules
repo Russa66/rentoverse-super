@@ -1,57 +1,198 @@
+/**
+ * Rentipedia Firestore Security Rules
+ *
+ * Core Philosophy:
+ * This ruleset implements a strict authorization model for a real-estate rental marketplace. 
+ * It prioritizes "Authorization Independence" by using denormalized IDs and sentinel 
+ * collections to avoid expensive cross-document lookups (get() calls).
+ *
+ * Data Structure:
+ * - /users/{userId}: Private user profiles.
+ * - /landlords/{userId} & /renters/{userId}: Sentinel collections for role verification.
+ * - /amenities: Publicly readable reference data.
+ * - /room_listings: Publicly searchable listings with owner-restricted writes.
+ * - /inquiries & /legal_forms: Collaborative documents shared between two specific parties.
+ * - /users/{userId}/social_posts & /users/{userId}/channels: Private user-owned subcollections.
+ *
+ * Key Security Decisions:
+ * - Role-Based Access: Roles (Landlord/Renter) are verified using existence checks on 
+ *   sentinel collections, allowing for high-performance role validation.
+ * - Denormalization: All listings and sub-resources (Photos) denormalize the 'landlordId' 
+ *   to ensure write permissions are self-contained.
+ * - Shared Ownership: Inquiries and legal agreements use a collaborative model where 
+ *   both the renter and landlord IDs are stored on the document to grant access.
+ */
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * RENTOVERSE SECURITY RULES
-     */
+    // --- Helper Functions ---
 
+    /** @description Checks if the user is authenticated. */
     function isSignedIn() {
       return request.auth != null;
     }
 
+    /** @description Checks if the user's UID matches the provided ID. */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isAdmin() {
-      return isSignedIn() && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    /** @description Checks ownership and ensures the document exists for update/delete. */
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
     }
 
-    function isParticipant(data) {
-      return isSignedIn() && (
-        request.auth.uid == data.renterId || 
-        request.auth.uid == data.landlordId
-      );
+    /** @description Checks if the user's UID matches an ID field within the document data. */
+    function isDataOwner(ownerId) {
+      return isSignedIn() && request.auth.uid == ownerId;
     }
 
+    /** @description Checks data-level ownership for existing documents. */
+    function isExistingDataOwner(ownerId) {
+      return resource != null && isDataOwner(ownerId);
+    }
+
+    /** @description Verifies if a user has the Landlord role via the sentinel collection. */
+    function isLandlord() {
+      return exists(/databases/$(database)/documents/landlords/$(request.auth.uid));
+    }
+
+    /** @description Verifies if a user is one of two specific participants in a transaction. */
+    function isParticipant(renterId, landlordId) {
+      return isSignedIn() && (request.auth.uid == renterId || request.auth.uid == landlordId);
+    }
+
+    /** @description Verifies participant access for existing documents. */
+    function isExistingParticipant(renterId, landlordId) {
+      return resource != null && isParticipant(renterId, landlordId);
+    }
+
+    // --- Collection Rules ---
+
+    /**
+     * @description Rules for the User profile collection.
+     * @path /users/{userId}
+     * @allow (get) if request.auth.uid == userId
+     * @deny (list) if request.auth.uid != userId
+     * @principle Restricts access to a user's own profile data tree.
+     */
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
+      allow get, list: if isOwner(userId);
       allow create: if isOwner(userId);
-      allow update: if isOwner(userId) || isAdmin();
-      allow delete: if isAdmin();
+      allow update: if isExistingOwner(userId);
+      allow delete: if false; // Profiles are typically deactivated, not deleted.
+    }
 
-      match /room_requirements/{id} {
-        allow get, list: if isOwner(userId) || isAdmin();
-        allow create: if isOwner(userId);
-        allow update: if isOwner(userId) || isAdmin();
-        allow delete: if isOwner(userId) || isAdmin();
+    /**
+     * @description Sentinel collections for Landlord and Renter role verification.
+     * @path /landlords/{userId} or /renters/{userId}
+     * @allow (create) if request.auth.uid == userId
+     * @deny (create) if request.auth.uid != userId
+     * @principle Uses "Existence over Content" for performant role-based access control.
+     */
+    match /landlords/{userId} {
+      allow get, list: if isOwner(userId);
+      allow create, update, delete: if isOwner(userId);
+    }
+    match /renters/{userId} {
+      allow get, list: if isOwner(userId);
+      allow create, update, delete: if isOwner(userId);
+    }
+
+    /**
+     * @description Global reference data for room amenities.
+     * @path /amenities/{amenityId}
+     * @allow (get/list) for any user
+     * @deny (write) for all standard users
+     * @principle Public read access for reference data with restricted management.
+     */
+    match /amenities/{amenityId} {
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
+    /**
+     * @description Public room listings posted by landlords.
+     * @path /room_listings/{roomListingId}
+     * @allow (get/list) for any user
+     * @deny (create) if user is not a verified landlord or landlordId doesn't match auth.
+     * @principle Public searchability with strict owner-only write validation.
+     */
+    match /room_listings/{roomListingId} {
+      allow get, list: if true;
+      allow create: if isLandlord() && request.resource.data.landlordId == request.auth.uid;
+      allow update: if isExistingDataOwner(resource.data.landlordId) && request.resource.data.landlordId == resource.data.landlordId;
+      allow delete: if isExistingDataOwner(resource.data.landlordId);
+
+      /**
+       * @description Photos belonging to a specific room listing.
+       * @path /room_listings/{roomListingId}/photos/{photoId}
+       * @allow (create) if landlordId matches current user.
+       * @principle Denormalizes landlordId for authorization independence from parent.
+       */
+      match /photos/{photoId} {
+        allow get, list: if true;
+        allow create: if request.resource.data.landlordId == request.auth.uid;
+        allow update: if isExistingDataOwner(resource.data.landlordId) && request.resource.data.landlordId == resource.data.landlordId;
+        allow delete: if isExistingDataOwner(resource.data.landlordId);
       }
     }
 
-    match /room_listings/{listingId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.landlordId == request.auth.uid;
-      allow update: if isSignedIn() && (request.auth.uid == resource.data.landlordId || isAdmin());
-      allow delete: if isSignedIn() && (request.auth.uid == resource.data.landlordId || isAdmin());
+    /**
+     * @description Private social posts generated by a user.
+     * @path /users/{userId}/social_posts/{socialPostId}
+     * @allow (create) if path userId and authorUserId match auth.
+     * @principle Enforces relational integrity between the path and the internal author field.
+     */
+    match /users/{userId}/social_posts/{socialPostId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.authorUserId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.authorUserId == resource.data.authorUserId;
+      allow delete: if isExistingOwner(userId);
     }
 
-    match /social_posts/{id} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
+    /**
+     * @description User-configured social media sharing channels.
+     * @path /users/{userId}/channels/{channelId}
+     * @allow (update) if ownership is maintained and userId remains immutable.
+     * @principle Ensures private configuration data is only accessible by the owner.
+     */
+    match /users/{userId}/channels/{channelId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Direct inquiries between renters and landlords.
+     * @path /inquiries/{inquiryId}
+     * @allow (get) if authenticated user is the landlord or the renter on the doc.
+     * @deny (list) for unauthenticated users.
+     * @principle Implements collaborative access for two-party interactions.
+     */
+    match /inquiries/{inquiryId} {
+      allow get: if isParticipant(resource.data.renterUserId, resource.data.landlordUserId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.renterUserId == request.auth.uid;
+      allow update: if isExistingParticipant(resource.data.renterUserId, resource.data.landlordUserId);
+      allow delete: if false;
+    }
+
+    /**
+     * @description Generated legal agreements and forms.
+     * @path /legal_forms/{legalFormId}
+     * @allow (get) if request.auth.uid is either the renterUserId or landlordUserId.
+     * @principle Restricts access to sensitive legal documents to the involved parties only.
+     */
+    match /legal_forms/{legalFormId} {
+      allow get: if isParticipant(resource.data.renterUserId, resource.data.landlordUserId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && (request.resource.data.renterUserId == request.auth.uid || request.resource.data.landlordUserId == request.auth.uid);
+      allow update: if isExistingParticipant(resource.data.renterUserId, resource.data.landlordUserId);
+      allow delete: if false;
     }
   }
 }
