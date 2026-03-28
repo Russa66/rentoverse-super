@@ -22,7 +22,7 @@ export default function ProfilePage() {
   const { toast } = useToast();
   const { firestore } = useFirestore();
   const { user } = useUser();
-  const { auth } = useAuth();
+  const auth = useAuth(); // Corrected: useAuth returns the auth object directly
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("account");

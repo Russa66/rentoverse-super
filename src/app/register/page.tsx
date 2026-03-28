@@ -36,7 +36,7 @@ export default function RegisterPage() {
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
-  const { auth } = useAuth();
+  const auth = useAuth(); // Corrected: useAuth returns the auth object directly
   const { firestore } = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
@@ -45,6 +45,7 @@ export default function RegisterPage() {
   // Diagnostic check for Auth on mount
   useEffect(() => {
     if (!auth) {
+      console.error("Firebase Auth is missing from context");
       toast({
         variant: "destructive",
         title: "Auth Connection Error",
@@ -86,10 +87,11 @@ export default function RegisterPage() {
       }
 
       // Initialize Recaptcha
+      // The element must be in the DOM
       recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
         'size': 'invisible',
         'callback': (response: any) => {
-          console.log("reCAPTCHA solved");
+          console.log("reCAPTCHA solved successfully");
         },
         'expired-callback': () => {
           toast({ title: "Security Check Expired", description: "Please try again." });
@@ -97,6 +99,7 @@ export default function RegisterPage() {
         }
       });
 
+      console.log("Attempting to send SMS to:", fullPhoneNumber);
       const result = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifierRef.current);
       setConfirmationResult(result);
       setStep("verify");
@@ -105,7 +108,7 @@ export default function RegisterPage() {
         description: `Verification code sent to ${fullPhoneNumber}`,
       });
     } catch (error: any) {
-      console.error("SMS Registration Error:", error);
+      console.error("SMS Registration Error Details:", error);
       
       let message = "Failed to send code. Please try again.";
       
@@ -142,7 +145,6 @@ export default function RegisterPage() {
       const user = credential.user;
 
       if (firestore) {
-        // Use non-await pattern for doc creation per guidelines
         setDoc(doc(firestore, "users", user.uid), {
           id: user.uid,
           name: formData.name,
@@ -162,6 +164,7 @@ export default function RegisterPage() {
       
       router.push("/profile");
     } catch (error: any) {
+      console.error("Verification confirmation error:", error);
       toast({ 
         variant: "destructive", 
         title: "Verification Failed", 
@@ -223,7 +226,7 @@ export default function RegisterPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {/* The reCAPTCHA container must be present in the DOM for the verifier to attach */}
+            {/* The reCAPTCHA container MUST be in the DOM */}
             <div id="recaptcha-container"></div>
             
             {step === "form" ? (
@@ -347,7 +350,7 @@ export default function RegisterPage() {
               <div className="space-y-1">
                 <p className="text-[11px] font-bold text-primary uppercase">Security Check</p>
                 <p className="text-[10px] text-muted-foreground leading-relaxed">
-                  RentoVerse uses Firebase Phone Authentication. If the code doesn't arrive, ensure your domain is whitelisted in the Firebase Console.
+                  RentoVerse uses Firebase Phone Authentication. Ensure your domain is whitelisted in the Firebase Console Settings.
                 </p>
               </div>
             </div>
