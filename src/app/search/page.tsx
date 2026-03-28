@@ -1,4 +1,3 @@
-
 "use client";
 
 import Navbar from "@/components/Navbar";
@@ -22,7 +21,7 @@ export default function SearchPage() {
 
   const listingsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return collection(firestore, "published_room_listings");
+    return collection(firestore, "room_listings");
   }, [firestore]);
 
   const { data: listings, isLoading, error } = useCollection(listingsQuery);
@@ -131,12 +130,6 @@ export default function SearchPage() {
                 <>Explore <span className="text-primary">Featured</span> Properties</>
               )}
             </h1>
-            <select className="bg-transparent text-sm font-medium border-none focus:ring-0 cursor-pointer">
-              <option>Sort by: Recommended</option>
-              <option>Price: Low to High</option>
-              <option>Price: High to Low</option>
-              <option>Newest First</option>
-            </select>
           </div>
           
           {isLoading ? (

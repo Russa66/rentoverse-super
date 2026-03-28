@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc, updateDocumentNonBlocking } from "@/firebase";
@@ -33,14 +32,15 @@ export default function AdminDashboard() {
   // Fetch all listings
   const listingsQuery = useMemoFirebase(() => {
     if (!firestore || !profile?.isAdmin) return null;
-    return collection(firestore, "published_room_listings");
+    return collection(firestore, "room_listings");
   }, [firestore, profile]);
   const { data: listings, isLoading: listingsLoading } = useCollection(listingsQuery);
 
-  // Fetch all search requests
+  // Fetch all requirements (root level if possible, but rules match nested /users/{userId}/room_requirements)
+  // For prototyping, we'll look for a root collection if it exists
   const requestsQuery = useMemoFirebase(() => {
     if (!firestore || !profile?.isAdmin) return null;
-    return collection(firestore, "saved_search_requests");
+    return collection(firestore, "room_requirements");
   }, [firestore, profile]);
   const { data: requests, isLoading: requestsLoading } = useCollection(requestsQuery);
 
@@ -54,10 +54,10 @@ export default function AdminDashboard() {
   const handleUpdateLocality = (listingId: string) => {
     if (!firestore || !editingLocality) return;
 
-    const listingRef = doc(firestore, "published_room_listings", listingId);
+    const listingRef = doc(firestore, "room_listings", listingId);
     updateDocumentNonBlocking(listingRef, { locality: editingLocality.value });
     
-    // Also update the private copy
+    // Also update the private copy if nested storage is used
     const listing = listings?.find(l => l.id === listingId);
     if (listing && listing.landlordId) {
       const privateRef = doc(firestore, `users/${listing.landlordId}/listings`, listingId);
@@ -79,7 +79,6 @@ export default function AdminDashboard() {
     );
   }
 
-  // Restriction UI
   if (!user || !profile?.isAdmin) {
     return (
       <div className="min-h-screen bg-muted/30 flex flex-col">
@@ -92,7 +91,7 @@ export default function AdminDashboard() {
             <CardHeader className="p-0 mb-4">
               <CardTitle className="text-2xl font-headline font-bold">Restricted Access</CardTitle>
               <CardDescription>
-                You do not have the required permissions to view the Admin Dashboard. Please contact the system administrator if you believe this is an error.
+                You do not have the required permissions to view the Admin Dashboard.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -131,7 +130,6 @@ export default function AdminDashboard() {
           </Badge>
         </div>
 
-        {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {stats.map((stat) => (
             <Card key={stat.title} className="border-none shadow-sm hover:shadow-md transition-shadow">
@@ -198,7 +196,7 @@ export default function AdminDashboard() {
                               value={editingLocality.value} 
                               onChange={(e) => setEditingLocality({ ...editingLocality, value: e.target.value })}
                               className="h-8 text-xs max-w-[200px]"
-                              placeholder="Enter Locality (e.g. Koramangala)"
+                              placeholder="Enter Locality"
                             />
                           ) : (
                             <Badge variant={listing.locality ? "default" : "outline"} className={listing.locality ? "bg-primary/10 text-primary border-primary/20" : "text-muted-foreground"}>

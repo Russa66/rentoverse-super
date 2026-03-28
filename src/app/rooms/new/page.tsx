@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -13,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser, useAuth } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
-import { addDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
 import { composeSocialPost } from "@/ai/flows/ai-social-post-composer-flow";
 
@@ -61,15 +60,6 @@ export default function NewListing() {
       const listingId = doc(collection(firestore, "temp")).id;
       const now = new Date().toISOString();
 
-      // Ensure User Profile exists as Owner
-      setDocumentNonBlocking(doc(firestore, "users", user.uid), {
-        id: user.uid,
-        name: user.displayName || "RentoVerse User",
-        userType: "Owner",
-        updatedAt: now,
-        createdAt: now
-      }, { merge: true });
-
       const listingData = {
         id: listingId,
         landlordId: user.uid,
@@ -79,9 +69,8 @@ export default function NewListing() {
         areaSqFt: Number(formData.areaSqFt),
         bhkCount: formData.bhkCount,
         propertyType: formData.propertyType,
-        nearestCommunicationOptions: [formData.transport],
+        nearestCommunication: formData.transport,
         monthlyRent: Number(formData.rent),
-        currency: "INR",
         amenities: [formData.wifi && "WiFi", formData.ac && "AC", formData.powerBackup && "Inverter"].filter(Boolean),
         waterSupplyCondition: formData.waterSource,
         description: formData.description,
@@ -139,14 +128,8 @@ export default function NewListing() {
 
   const sendWhatsAppConfirmation = () => {
     if (!successData) return;
-    const message = `Thank you for listing your property on RentoVerse!\n\nProperty: ${successData.title}\nRent: ₹${successData.rent}\n\nYour listing is now live and our AI has prepared a social post for you:\n\n${successData.postContent}`;
+    const message = `Property: ${successData.title}\nRent: ₹${successData.rent}\n\nAI Prepared Social Post:\n\n${successData.postContent}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
-  };
-
-  const notifyAdmin = () => {
-    if (!successData) return;
-    const adminMsg = `New Listing Alert!\nID: ${successData.id}\nProperty: ${successData.title}\nOwner: ${user?.displayName || 'Unknown'}`;
-    window.open(`https://wa.me/919000000000?text=${encodeURIComponent(adminMsg)}`, "_blank");
   };
 
   if (successData) {
@@ -158,7 +141,7 @@ export default function NewListing() {
               <CheckCircle2 className="h-12 w-12" />
             </div>
             <h2 className="text-3xl font-headline font-bold mb-2">Listing Successful!</h2>
-            <p className="opacity-90">Your property is now listed in your profile and live on the site.</p>
+            <p className="opacity-90">Your property is live on RentoVerse.</p>
           </div>
           <CardContent className="p-8 space-y-6">
              <div className="p-4 bg-muted/50 rounded-xl border border-border">
@@ -168,14 +151,9 @@ export default function NewListing() {
                 <p className="text-sm italic text-gray-700 whitespace-pre-wrap">{successData.postContent}</p>
              </div>
 
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Button onClick={sendWhatsAppConfirmation} className="bg-green-600 hover:bg-green-700 h-12 gap-2">
-                  <MessageCircle className="h-4 w-4" /> WhatsApp Confirmation
-                </Button>
-                <Button onClick={notifyAdmin} variant="outline" className="border-primary text-primary hover:bg-primary/10 h-12 gap-2">
-                  <ShieldCheck className="h-4 w-4" /> Notify Admin
-                </Button>
-             </div>
+             <Button onClick={sendWhatsAppConfirmation} className="w-full bg-green-600 hover:bg-green-700 h-12 gap-2">
+                <MessageCircle className="h-4 w-4" /> Share to WhatsApp
+             </Button>
 
              <div className="flex flex-col gap-2">
                <Button onClick={() => router.push(`/rooms/${successData.id}`)} className="h-12 font-headline">
@@ -211,7 +189,7 @@ export default function NewListing() {
                 <div className="grid gap-6 sm:grid-cols-2">
                   <div className="space-y-2 sm:col-span-2">
                     <Label>Precise Location</Label>
-                    <Input required value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} placeholder="e.g. Poabagan, Heavir More etc." />
+                    <Input required value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} placeholder="e.g. Poabagan, Heavir More" />
                   </div>
                   
                   <div className="space-y-2">
@@ -228,11 +206,11 @@ export default function NewListing() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>BHK Number (If Room/Apt)</Label>
+                    <Label>BHK Number</Label>
                     <Select value={formData.bhkCount} onValueChange={(v) => setFormData({...formData, bhkCount: v})}>
                       <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="N/A">Not Applicable</SelectItem>
+                        <SelectItem value="N/A">N/A</SelectItem>
                         <SelectItem value="1">1 BHK</SelectItem>
                         <SelectItem value="2">2 BHK</SelectItem>
                         <SelectItem value="3">3 BHK</SelectItem>
@@ -241,7 +219,7 @@ export default function NewListing() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Area (Square Feet)</Label>
+                    <Label>Area (Sq Ft)</Label>
                     <Input required type="number" value={formData.areaSqFt} onChange={(e) => setFormData({...formData, areaSqFt: e.target.value})} placeholder="e.g. 1200" />
                   </div>
 
@@ -259,30 +237,18 @@ export default function NewListing() {
                         <SelectItem value="PG">PG Users</SelectItem>
                         <SelectItem value="Family">Family</SelectItem>
                         <SelectItem value="Commercial">Commercial</SelectItem>
-                        <SelectItem value="All purpose">All Purpose</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Water Supply Source</Label>
-                    <Input required value={formData.waterSource} onChange={(e) => setFormData({...formData, waterSource: e.target.value})} placeholder="e.g. Municipal / Borewell" />
+                    <Label>Water Source</Label>
+                    <Input required value={formData.waterSource} onChange={(e) => setFormData({...formData, waterSource: e.target.value})} placeholder="e.g. Municipal" />
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Nearest Transportation</Label>
+                    <Label>Transport</Label>
                     <Input required value={formData.transport} onChange={(e) => setFormData({...formData, transport: e.target.value})} placeholder="e.g. 5 mins from station" />
-                  </div>
-                  
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Detailed Description</Label>
-                    <textarea 
-                      required 
-                      className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      value={formData.description} 
-                      onChange={(e) => setFormData({...formData, description: e.target.value})} 
-                      placeholder="Describe the room, rules, etc." 
-                    />
                   </div>
                 </div>
 

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { use } from "react";
@@ -21,12 +20,11 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
 
   const roomRef = useMemoFirebase(() => {
     if (!firestore || !id) return null;
-    return doc(firestore, "published_room_listings", id);
+    return doc(firestore, "room_listings", id);
   }, [firestore, id]);
 
   const { data: firestoreRoom, isLoading } = useDoc(roomRef);
 
-  // Fallback to mock data if Firestore record not found (for demonstration)
   const room = firestoreRoom || MOCK_ROOMS.find((r) => r.id === id);
 
   if (isLoading) {
@@ -56,7 +54,6 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
     );
   }
 
-  // Handle differences between mock data and firestore schema
   const photos = room.photoUrls || room.photos || ["https://picsum.photos/seed/room/800/600"];
   const amenities = room.amenities || [];
   const hasWifi = amenities.includes("WiFi") || !!room.wifiAvailable;
@@ -65,8 +62,6 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
   const rentDisplay = typeof room.monthlyRent === 'number' ? `₹${room.monthlyRent}` : room.monthlyRent;
   const whatsapp = room.landlord?.whatsapp || "";
   const landlordName = room.landlord?.name || "Verified Landlord";
-
-  // Hide exact location, show general locality
   const publicLocation = room.locality || "Contact owner for exact address";
 
   return (
@@ -74,7 +69,6 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
       <Navbar />
       
       <div className="container px-4 mx-auto py-8">
-        {/* Gallery */}
         <div className="grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-3 h-[300px] md:h-[500px] mb-8 rounded-2xl overflow-hidden shadow-lg">
           <div className="md:col-span-2 md:row-span-2 relative">
             <Image src={photos[0]} alt={room.title} fill className="object-cover" />
@@ -94,7 +88,6 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Info */}
           <div className="lg:col-span-2 space-y-8">
             <div className="bg-white p-6 rounded-2xl shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
@@ -165,17 +158,6 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
                  {room.description}
                </p>
                
-               {(room.nearestCommunicationOptions?.length > 0 || room.nearestCommunication) && (
-                 <>
-                   <h3 className="text-xl font-headline font-bold mb-4 flex items-center gap-2">
-                     <Train className="h-5 w-5 text-primary" /> Transportation
-                   </h3>
-                   <p className="text-muted-foreground mb-6">
-                     Nearby transport: {room.nearestCommunicationOptions?.join(", ") || room.nearestCommunication}
-                   </p>
-                 </>
-               )}
-               
                <div className="bg-green-50 border border-green-100 rounded-xl p-4 flex items-center gap-3">
                  <ShieldCheck className="h-6 w-6 text-primary shrink-0" />
                  <div>
@@ -186,7 +168,6 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
             </div>
           </div>
 
-          {/* Sidebar - Contact & Actions */}
           <div className="space-y-6">
             <Card className="sticky top-24 border-none shadow-xl overflow-hidden">
               <div className="bg-primary p-6 text-primary-foreground">
@@ -194,35 +175,22 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
                 <div className="text-4xl font-headline font-bold">{rentDisplay}</div>
               </div>
               <CardContent className="p-6 space-y-4">
-                {whatsapp ? (
-                  <Button className="w-full h-12 text-lg font-headline bg-primary text-primary-foreground hover:bg-primary/90" asChild>
-                    <a href={`https://wa.me/${whatsapp}`} target="_blank">
-                      <MessageCircle className="mr-2 h-5 w-5" /> Chat on WhatsApp
-                    </a>
-                  </Button>
-                ) : (
-                  <Button className="w-full h-12 text-lg font-headline bg-primary text-primary-foreground hover:bg-primary/90">
-                    <MessageCircle className="mr-2 h-5 w-5" /> Contact Owner
-                  </Button>
-                )}
-                
+                <Button className="w-full h-12 text-lg font-headline bg-primary text-primary-foreground hover:bg-primary/90" asChild>
+                  <a href={`https://wa.me/${whatsapp}`} target="_blank">
+                    <MessageCircle className="mr-2 h-5 w-5" /> Chat on WhatsApp
+                  </a>
+                </Button>
                 <Button variant="outline" className="w-full h-12 border-primary text-primary hover:bg-primary/10 font-headline">
                   <Phone className="mr-2 h-5 w-5" /> Call {landlordName}
                 </Button>
-                
                 <Separator className="my-4" />
-                
-                <div className="space-y-4">
-                   <p className="text-sm font-semibold text-center text-muted-foreground italic">Share this listing to attract more interest:</p>
-                   <SocialPostDialog room={{
-                     ...room,
-                     monthlyRent: rentDisplay,
-                     wifiAvailable: hasWifi,
-                     acAvailable: hasAc,
-                     inverterAvailable: hasInverter
-                   }} />
-                </div>
-
+                <SocialPostDialog room={{
+                  ...room,
+                  monthlyRent: rentDisplay,
+                  wifiAvailable: hasWifi,
+                  acAvailable: hasAc,
+                  inverterAvailable: hasInverter
+                }} />
                 <div className="pt-4 border-t mt-4">
                    <Link href="/legal-form" className="flex items-center justify-center gap-2 text-sm text-primary font-bold hover:underline">
                      <ShieldCheck className="h-4 w-4" /> View Rental Agreement

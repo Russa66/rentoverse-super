@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -19,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { Chrome, CheckCircle2, ArrowRight, ShieldCheck, AlertCircle } from "lucide-react";
+import { Chrome, ArrowRight } from "lucide-react";
 import { doc } from "firebase/firestore";
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import Link from "next/link";
@@ -97,8 +96,8 @@ export default function RegisterPage() {
       });
     } catch (error: any) {
       console.error("SMS Registration Error:", error);
-      let message = "Failed to send code. Please ensure your domain is authorized in Firebase.";
-      if (error.code === 'auth/unauthorized-domain') message = "This domain is not authorized for SMS auth.";
+      let message = "Failed to send code. Ensure your domain is authorized in Firebase.";
+      if (error.code === 'auth/unauthorized-domain') message = "Domain not authorized for SMS auth.";
       if (error.code === 'auth/too-many-requests') message = "Too many attempts. Please wait.";
 
       toast({
@@ -121,14 +120,14 @@ export default function RegisterPage() {
       const user = credential.user;
 
       if (firestore) {
-        // Save user profile immediately upon successful verification
         setDocumentNonBlocking(doc(firestore, "users", user.uid), {
           id: user.uid,
           name: formData.name,
           phoneNumber: user.phoneNumber,
           email: formData.email || null,
           userType: formData.userType,
-          address: "", // Initialize empty address for later update
+          address: "",
+          isAdmin: false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           isVerified: true,
@@ -168,6 +167,7 @@ export default function RegisterPage() {
           email: user.email || null,
           userType: "Tenant",
           address: "",
+          isAdmin: false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           isVerified: !!user.phoneNumber,
