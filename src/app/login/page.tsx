@@ -1,27 +1,34 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { 
+  RecaptchaVerifier, 
+  signInWithPhoneNumber, 
+  ConfirmationResult
+} from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useAuth, useFirestore, useUser } from "@/firebase";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Sparkles, UserPlus, Chrome, ArrowRight } from "lucide-react";
+import { Sparkles, Phone, ArrowRight, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import Link from "next/link";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [step, setStep] = useState<"form" | "verify">("form");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const auth = useAuth(); // Corrected: useAuth returns the auth object directly
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  
+  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
+  const auth = useAuth();
   const { firestore } = useFirestore();
   const { user } = useUser();
   const router = useRouter();
@@ -33,6 +40,15 @@ export default function LoginPage() {
       checkAdminAndRedirect(user.uid);
     }
   }, [user, firestore]);
+
+  useEffect(() => {
+    return () => {
+      if (recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current.clear();
+        recaptchaVerifierRef.current = null;
+      }
+    };
+  }, []);
 
   const checkAdminAndRedirect = async (uid: string) => {
     try {
@@ -47,43 +63,70 @@ export default function LoginPage() {
     }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth) return;
 
+    const phoneDigits = phoneNumber.trim().replace(/\D/g, '');
+    if (phoneDigits.length !== 10) {
+      toast({ 
+        title: "Invalid Number", 
+        description: "Please enter a 10-digit mobile number.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    const fullPhoneNumber = `+91${phoneDigits}`;
     setIsLoading(true);
+
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      if (recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current.clear();
+      }
+
+      recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        'size': 'invisible'
+      });
+
+      const result = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifierRef.current);
+      setConfirmationResult(result);
+      setStep("verify");
       toast({
-        title: "Welcome back!",
-        description: "Checking your credentials...",
+        title: "OTP Sent",
+        description: `Verification code sent to +91 ${phoneDigits}`,
       });
     } catch (error: any) {
+      console.error("SMS Login Error:", error);
       toast({
         variant: "destructive",
-        title: "Login Failed",
-        description: error.message || "Please check your email and password.",
+        title: "Error Sending Code",
+        description: error.message || "Please check your network and try again.",
       });
+    } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
-    if (!auth) return;
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirmationResult || otp.length !== 6) return;
+
     setIsLoading(true);
     try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      await confirmationResult.confirm(otp);
       toast({
-        title: "Logged in with Google",
+        title: "Logged In Successfully",
         description: "Redirecting...",
       });
     } catch (error: any) {
+      console.error("OTP Verification Error:", error);
       toast({
         variant: "destructive",
-        title: "Google Login Failed",
-        description: error.message,
+        title: "Login Failed",
+        description: "The code is incorrect. Please try again.",
       });
+    } finally {
       setIsLoading(false);
     }
   };
@@ -91,7 +134,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-muted/30">
       <Navbar />
-      <div className="container flex items-center justify-center py-20 px-4">
+      <div className="container flex items-center justify-center py-20 px-4 mx-auto">
         <Card className="max-w-md w-full border-none shadow-2xl">
           <CardHeader className="text-center space-y-1">
             <div className="relative w-48 h-24 mx-auto mb-4">
@@ -106,74 +149,79 @@ export default function LoginPage() {
               )}
             </div>
             <CardTitle className="text-2xl font-headline font-bold">RentoVerse Login</CardTitle>
-            <CardDescription>Enter your credentials to access your dashboard.</CardDescription>
+            <CardDescription>
+              {step === "form" ? "Enter your phone number to receive an OTP." : "Verify your identity via SMS."}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="name@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10"
-                      required
-                    />
+            <div id="recaptcha-container"></div>
+
+            {step === "form" ? (
+              <div className="space-y-4">
+                <form onSubmit={handleSendOtp} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <div className="relative">
+                      <div className="absolute left-3 top-0 bottom-0 flex items-center gap-1 text-muted-foreground font-bold text-sm border-r pr-3 my-2 pointer-events-none">
+                        +91
+                      </div>
+                      <input
+                        id="phone"
+                        type="tel"
+                        placeholder="9876543210"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        className="flex h-12 w-full rounded-md border border-input bg-background pl-14 pr-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        required
+                        maxLength={10}
+                      />
+                    </div>
                   </div>
+                  <Button type="submit" className="w-full font-headline h-12" disabled={isLoading || phoneNumber.length !== 10}>
+                    {isLoading ? "Preparing..." : "Send OTP"}
+                  </Button>
+                </form>
+
+                <div className="mt-6 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Don't have an account?{" "}
+                    <Link href="/register" className="text-primary font-bold hover:underline inline-flex items-center gap-1">
+                      Register Now <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+              </div>
+            ) : (
+              <form onSubmit={handleVerifyOtp} className="space-y-6">
+                <div className="text-center p-4 bg-muted/50 rounded-xl border">
+                   <p className="text-sm font-medium mb-1">Code sent to:</p>
+                   <p className="font-bold text-primary">+91 {phoneNumber}</p>
+                </div>
+                <div className="space-y-2 text-center">
+                  <Label htmlFor="otp">Enter 6-Digit Code</Label>
+                  <input
+                    id="otp"
+                    placeholder="123456"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="flex h-14 w-full rounded-md border border-input bg-background px-3 py-2 text-2xl text-center tracking-widest focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    maxLength={6}
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full font-headline h-12" disabled={isLoading}>
-                  {isLoading ? "Signing in..." : "Login"}
+                <Button type="submit" className="w-full font-headline h-12" disabled={isLoading || otp.length !== 6}>
+                  {isLoading ? "Verifying..." : "Login"}
+                </Button>
+                <Button variant="ghost" className="w-full" onClick={() => setStep("form")} disabled={isLoading}>
+                  Change Phone Number
                 </Button>
               </form>
-
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t"></span>
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-muted-foreground font-bold">Or continue with</span>
-                </div>
-              </div>
-
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="w-full h-12 gap-2" 
-                onClick={handleGoogleLogin}
-                disabled={isLoading}
-              >
-                <Chrome className="h-4 w-4" /> Google
-              </Button>
-            </div>
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                Don't have an account?{" "}
-                <Link href="/register" className="text-primary font-bold hover:underline inline-flex items-center gap-1">
-                  Register Now <ArrowRight className="h-3 w-3" />
-                </Link>
-              </p>
-            </div>
+            )}
 
             <div className="mt-8 p-4 bg-primary/5 rounded-lg border border-primary/10 flex items-start gap-3">
-              <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+              <ShieldCheck className="h-4 w-4 text-primary shrink-0 mt-0.5" />
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                RentoVerse uses secure Firebase authentication. Make sure your phone number includes the country code for SMS verification.
+                RentoVerse uses secure Firebase Phone Authentication. OTP is delivered via SMS to your registered mobile number.
               </p>
             </div>
           </CardContent>

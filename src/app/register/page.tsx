@@ -6,9 +6,7 @@ import { useRouter } from "next/navigation";
 import { 
   RecaptchaVerifier, 
   signInWithPhoneNumber, 
-  ConfirmationResult, 
-  GoogleAuthProvider, 
-  signInWithPopup 
+  ConfirmationResult
 } from "firebase/auth";
 import { useAuth, useFirestore } from "@/firebase";
 import Navbar from "@/components/Navbar";
@@ -19,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { Chrome, ArrowRight, ShieldCheck } from "lucide-react";
+import { ArrowRight, ShieldCheck, Phone } from "lucide-react";
 import { doc } from "firebase/firestore";
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import Link from "next/link";
@@ -75,10 +73,7 @@ export default function RegisterPage() {
 
       // Initialize reCAPTCHA
       recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible',
-        'callback': () => {
-          console.log("reCAPTCHA solved");
-        }
+        'size': 'invisible'
       });
 
       const result = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifierRef.current);
@@ -146,44 +141,10 @@ export default function RegisterPage() {
     }
   };
 
-  const handleGoogleRegister = async () => {
-    setIsLoading(true);
-    try {
-      const provider = new GoogleAuthProvider();
-      const credential = await signInWithPopup(auth, provider);
-      const user = credential.user;
-
-      if (firestore) {
-        setDocumentNonBlocking(doc(firestore, "users", user.uid), {
-          id: user.uid,
-          name: user.displayName || "RentoVerse User",
-          phoneNumber: user.phoneNumber || null,
-          email: user.email || null,
-          userType: "Tenant",
-          address: "",
-          isAdmin: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isVerified: !!user.phoneNumber,
-        }, { merge: true });
-      }
-
-      toast({
-        title: "Google Login Successful",
-        description: "Redirecting to your profile...",
-      });
-      router.push("/profile");
-    } catch (error: any) {
-      console.error("Google Registration Error:", error);
-      toast({ variant: "destructive", title: "Registration Failed", description: error.message });
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-muted/30">
       <Navbar />
-      <div className="container flex items-center justify-center py-20 px-4">
+      <div className="container flex items-center justify-center py-20 px-4 mx-auto">
         <Card className="max-w-md w-full border-none shadow-2xl">
           <CardHeader className="text-center space-y-1">
             <div className="relative w-48 h-24 mx-auto mb-4">
@@ -264,26 +225,7 @@ export default function RegisterPage() {
                   </Button>
                 </form>
 
-                <div className="relative my-6">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t"></span>
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-white px-2 text-muted-foreground font-bold">Or</span>
-                  </div>
-                </div>
-
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  className="w-full h-12 gap-2" 
-                  onClick={handleGoogleRegister}
-                  disabled={isLoading}
-                >
-                  <Chrome className="h-4 w-4" /> Sign up with Google
-                </Button>
-
-                <div className="text-center mt-4">
+                <div className="text-center mt-6">
                   <p className="text-sm text-muted-foreground">
                     Already have an account?{" "}
                     <Link href="/login" className="text-primary font-bold hover:underline">
