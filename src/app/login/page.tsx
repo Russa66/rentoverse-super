@@ -6,7 +6,10 @@ import { useRouter } from "next/navigation";
 import { 
   RecaptchaVerifier, 
   signInWithPhoneNumber, 
-  ConfirmationResult
+  ConfirmationResult,
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useAuth, useFirestore, useUser } from "@/firebase";
@@ -14,8 +17,9 @@ import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles, Phone, ArrowRight, ShieldCheck } from "lucide-react";
+import { Phone, Mail, ArrowRight, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import Link from "next/link";
@@ -23,6 +27,7 @@ import Link from "next/link";
 export default function LoginPage() {
   const [step, setStep] = useState<"form" | "verify">("form");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
@@ -35,11 +40,41 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'logo');
 
+  // Handle successful login or admin check
   useEffect(() => {
     if (user && !user.isAnonymous && firestore) {
       checkAdminAndRedirect(user.uid);
     }
   }, [user, firestore]);
+
+  // Handle incoming Email Link authentication
+  useEffect(() => {
+    if (!auth) return;
+
+    if (isSignInWithEmailLink(auth, window.location.href)) {
+      const finishSignIn = async () => {
+        let storedEmail = window.localStorage.getItem('emailForSignIn');
+        if (!storedEmail) {
+          storedEmail = window.prompt('Please provide your email for confirmation');
+        }
+        
+        if (!storedEmail) return;
+
+        setIsLoading(true);
+        try {
+          await signInWithEmailLink(auth, storedEmail, window.location.href);
+          window.localStorage.removeItem('emailForSignIn');
+          toast({ title: "Logged in", description: "Email verified successfully." });
+          router.push('/profile');
+        } catch (error: any) {
+          toast({ variant: "destructive", title: "Verification Failed", description: error.message });
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      finishSignIn();
+    }
+  }, [auth]);
 
   useEffect(() => {
     return () => {
@@ -108,6 +143,33 @@ export default function LoginPage() {
     }
   };
 
+  const handleSendEmailLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth) return;
+
+    setIsLoading(true);
+    try {
+      const actionCodeSettings = {
+        url: window.location.origin + '/login',
+        handleCodeInApp: true,
+      };
+      await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+      window.localStorage.setItem('emailForSignIn', email);
+      toast({
+        title: "Login Link Sent",
+        description: `Check your inbox at ${email} for the secure login link.`,
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Email Error",
+        description: error.message,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!confirmationResult || otp.length !== 6) return;
@@ -150,37 +212,71 @@ export default function LoginPage() {
             </div>
             <CardTitle className="text-2xl font-headline font-bold">RentoVerse Login</CardTitle>
             <CardDescription>
-              {step === "form" ? "Enter your phone number to receive an OTP." : "Verify your identity via SMS."}
+              {step === "form" ? "Choose your preferred login method." : "Verify your identity via SMS."}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div id="recaptcha-container"></div>
 
             {step === "form" ? (
-              <div className="space-y-4">
-                <form onSubmit={handleSendOtp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <div className="relative">
-                      <div className="absolute left-3 top-0 bottom-0 flex items-center gap-1 text-muted-foreground font-bold text-sm border-r pr-3 my-2 pointer-events-none">
-                        +91
+              <Tabs defaultValue="phone" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-6 h-12">
+                  <TabsTrigger value="phone" className="gap-2 font-headline">
+                    <Phone className="h-4 w-4" /> Phone
+                  </TabsTrigger>
+                  <TabsTrigger value="email" className="gap-2 font-headline">
+                    <Mail className="h-4 w-4" /> Email
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="phone">
+                  <form onSubmit={handleSendOtp} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone Number</Label>
+                      <div className="relative">
+                        <div className="absolute left-3 top-0 bottom-0 flex items-center gap-1 text-muted-foreground font-bold text-sm border-r pr-3 my-2 pointer-events-none">
+                          +91
+                        </div>
+                        <input
+                          id="phone"
+                          type="tel"
+                          placeholder="9876543210"
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                          className="flex h-12 w-full rounded-md border border-input bg-background pl-14 pr-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          required
+                          maxLength={10}
+                        />
                       </div>
+                    </div>
+                    <Button type="submit" className="w-full font-headline h-12" disabled={isLoading || phoneNumber.length !== 10}>
+                      {isLoading ? "Preparing..." : "Send SMS OTP"}
+                    </Button>
+                  </form>
+                </TabsContent>
+
+                <TabsContent value="email">
+                  <form onSubmit={handleSendEmailLink} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email Address</Label>
                       <input
-                        id="phone"
-                        type="tel"
-                        placeholder="9876543210"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                        className="flex h-12 w-full rounded-md border border-input bg-background pl-14 pr-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        id="email"
+                        type="email"
+                        placeholder="your@email.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="flex h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         required
-                        maxLength={10}
                       />
                     </div>
-                  </div>
-                  <Button type="submit" className="w-full font-headline h-12" disabled={isLoading || phoneNumber.length !== 10}>
-                    {isLoading ? "Preparing..." : "Send OTP"}
-                  </Button>
-                </form>
+                    <Button type="submit" className="w-full font-headline h-12" disabled={isLoading || !email}>
+                      {isLoading ? "Sending Link..." : "Send Login Link"}
+                    </Button>
+                    <p className="text-[10px] text-muted-foreground text-center px-4 leading-relaxed">
+                      A secure login link will be sent to your inbox. Simply click the link to log in.
+                    </p>
+                  </form>
+                </TabsContent>
 
                 <div className="mt-6 text-center">
                   <p className="text-sm text-muted-foreground">
@@ -190,7 +286,7 @@ export default function LoginPage() {
                     </Link>
                   </p>
                 </div>
-              </div>
+              </Tabs>
             ) : (
               <form onSubmit={handleVerifyOtp} className="space-y-6">
                 <div className="text-center p-4 bg-muted/50 rounded-xl border">
@@ -213,7 +309,7 @@ export default function LoginPage() {
                   {isLoading ? "Verifying..." : "Login"}
                 </Button>
                 <Button variant="ghost" className="w-full" onClick={() => setStep("form")} disabled={isLoading}>
-                  Change Phone Number
+                  Back to Options
                 </Button>
               </form>
             )}
@@ -221,7 +317,7 @@ export default function LoginPage() {
             <div className="mt-8 p-4 bg-primary/5 rounded-lg border border-primary/10 flex items-start gap-3">
               <ShieldCheck className="h-4 w-4 text-primary shrink-0 mt-0.5" />
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                RentoVerse uses secure Firebase Phone Authentication. OTP is delivered via SMS to your registered mobile number.
+                RentoVerse uses secure Firebase Authentication. OTP is delivered via SMS, and login links are sent via encrypted email.
               </p>
             </div>
           </CardContent>
