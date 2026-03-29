@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -18,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { Chrome, ArrowRight } from "lucide-react";
+import { Chrome, ArrowRight, ShieldCheck } from "lucide-react";
 import { doc } from "firebase/firestore";
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import Link from "next/link";
@@ -53,11 +54,7 @@ export default function RegisterPage() {
 
   const handleRegisterInitiate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth) {
-      toast({ variant: "destructive", title: "Error", description: "Authentication system is unavailable." });
-      return;
-    }
-
+    
     const phoneDigits = formData.whatsapp.trim().replace(/\D/g, '');
     if (phoneDigits.length !== 10) {
       toast({ 
@@ -76,14 +73,11 @@ export default function RegisterPage() {
         recaptchaVerifierRef.current.clear();
       }
 
+      // Initialize reCAPTCHA
       recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
         'size': 'invisible',
         'callback': () => {
           console.log("reCAPTCHA solved");
-        },
-        'expired-callback': () => {
-          toast({ title: "Security Check Expired", description: "Please try again." });
-          setIsLoading(false);
         }
       });
 
@@ -92,7 +86,7 @@ export default function RegisterPage() {
       setStep("verify");
       toast({
         title: "OTP Sent",
-        description: `Verification code sent to ${fullPhoneNumber}`,
+        description: `Verification code sent to +91 ${phoneDigits}`,
       });
     } catch (error: any) {
       console.error("SMS Registration Error:", error);
@@ -141,6 +135,7 @@ export default function RegisterPage() {
       
       router.push("/profile");
     } catch (error: any) {
+      console.error("OTP Verification Error:", error);
       toast({ 
         variant: "destructive", 
         title: "Verification Failed", 
@@ -152,7 +147,6 @@ export default function RegisterPage() {
   };
 
   const handleGoogleRegister = async () => {
-    if (!auth) return;
     setIsLoading(true);
     try {
       const provider = new GoogleAuthProvider();
@@ -174,8 +168,13 @@ export default function RegisterPage() {
         }, { merge: true });
       }
 
+      toast({
+        title: "Google Login Successful",
+        description: "Redirecting to your profile...",
+      });
       router.push("/profile");
     } catch (error: any) {
+      console.error("Google Registration Error:", error);
       toast({ variant: "destructive", title: "Registration Failed", description: error.message });
       setIsLoading(false);
     }
@@ -261,7 +260,7 @@ export default function RegisterPage() {
                   </div>
                   
                   <Button type="submit" className="w-full font-headline h-12 mt-4" disabled={isLoading || formData.whatsapp.length !== 10}>
-                    {isLoading ? "Checking Security..." : "Send Verification Code"}
+                    {isLoading ? "Preparing..." : "Send Verification Code"}
                   </Button>
                 </form>
 
@@ -319,6 +318,13 @@ export default function RegisterPage() {
                 </Button>
               </form>
             )}
+
+            <div className="mt-6 p-3 bg-primary/5 rounded-lg border border-primary/10 flex items-start gap-3">
+              <ShieldCheck className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                RentoVerse secures your data. OTP is sent via SMS. Ensure you have network connectivity to receive the code.
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>

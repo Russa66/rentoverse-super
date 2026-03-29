@@ -28,6 +28,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("account");
+  const [address, setAddress] = useState("");
 
   // Fetch real profile from Firestore
   const profileRef = useMemoFirebase(() => {
@@ -36,8 +37,6 @@ export default function ProfilePage() {
   }, [firestore, user]);
 
   const { data: profile, isLoading: profileLoading } = useDoc(profileRef);
-
-  const [address, setAddress] = useState("");
 
   useEffect(() => {
     if (profile?.address) {
@@ -78,14 +77,13 @@ export default function ProfilePage() {
     setTimeout(() => {
       toast({
         title: "Profile Updated",
-        description: "Your address and settings have been successfully saved.",
+        description: "Your address has been successfully saved.",
       });
       setIsSaving(false);
     }, 500);
   };
 
   const handleLogout = async () => {
-    if (!auth) return;
     await signOut(auth);
     router.push("/");
     toast({
@@ -94,7 +92,8 @@ export default function ProfilePage() {
     });
   };
 
-  const displayName = profile?.name || user?.displayName || "User";
+  // Determine the display name: prioritize Firestore profile name, fallback to auth name
+  const displayName = profile?.name || user?.displayName || "Member";
   const firstName = displayName.split(' ')[0];
   const isVerified = profile?.isVerified || !!user?.phoneNumber;
 
@@ -173,33 +172,33 @@ export default function ProfilePage() {
                 <Card className="border-none shadow-md">
                   <CardHeader>
                     <CardTitle className="font-headline font-bold text-2xl">Profile Settings</CardTitle>
-                    <CardDescription>Verified account information cannot be modified. You can update your physical address below.</CardDescription>
+                    <CardDescription>Identity information is locked after verification. You can update your physical address below.</CardDescription>
                   </CardHeader>
                   <CardContent className="p-6">
                     <form onSubmit={handleUpdateProfile} className="space-y-8">
                       <div className="grid md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <Label htmlFor="fullname">Full Name</Label>
-                          <Input id="fullname" value={displayName} disabled className="bg-muted/50 cursor-not-allowed" />
+                          <Input id="fullname" value={displayName} disabled className="bg-muted/50 cursor-not-allowed font-medium" />
                           <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                            <Info className="h-3 w-3" /> Identity name is locked after registration.
+                            <Info className="h-3 w-3" /> Name is linked to your verified identity.
                           </p>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="whatsapp" className="flex items-center gap-1">
-                            <MessageCircle className="h-4 w-4 text-green-500" /> WhatsApp Number
+                            <MessageCircle className="h-4 w-4 text-green-500" /> Phone Number
                           </Label>
-                          <Input id="whatsapp" value={profile?.phoneNumber || user?.phoneNumber || ""} disabled className="bg-muted/50 cursor-not-allowed" />
+                          <Input id="whatsapp" value={profile?.phoneNumber || user?.phoneNumber || "N/A"} disabled className="bg-muted/50 cursor-not-allowed font-medium" />
                         </div>
                         <div className="space-y-2 md:col-span-2">
-                          <Label htmlFor="email">Registered Email ID</Label>
-                          <Input id="email" value={profile?.email || user?.email || "Not Provided"} disabled className="bg-muted/50 cursor-not-allowed" />
+                          <Label htmlFor="email">Email Address</Label>
+                          <Input id="email" value={profile?.email || user?.email || "Not Provided"} disabled className="bg-muted/50 cursor-not-allowed font-medium" />
                         </div>
                         <div className="space-y-2 md:col-span-2">
-                          <Label htmlFor="address">Full Physical Address</Label>
+                          <Label htmlFor="address">Physical Address</Label>
                           <Textarea 
                             id="address" 
-                            placeholder="Enter your complete home/business address" 
+                            placeholder="Enter your complete home/business address for rental agreements" 
                             value={address} 
                             onChange={(e) => setAddress(e.target.value)} 
                             className="min-h-[100px]"
@@ -210,15 +209,15 @@ export default function ProfilePage() {
                       <div className="bg-primary/5 p-4 rounded-lg flex items-start gap-3 border border-primary/10">
                         <Sparkles className="h-5 w-5 text-primary mt-0.5 shrink-0" />
                         <div>
-                           <p className="text-sm font-bold text-primary">Verification Status: {isVerified ? 'VERIFIED' : 'PENDING'}</p>
+                           <p className="text-sm font-bold text-primary">Identity Verified: {isVerified ? 'YES' : 'NO'}</p>
                            <p className="text-xs text-muted-foreground leading-relaxed">
-                             Your primary contact details are verified via SMS. If you need to change your registered mobile number, please contact RentoVerse support.
+                             RentoVerse uses secure verification to build trust. Your primary contact details are locked to protect the community.
                            </p>
                         </div>
                       </div>
 
                       <Button type="submit" disabled={isSaving} className="font-headline px-8 h-12">
-                        <Save className="mr-2 h-4 w-4" /> {isSaving ? "Saving..." : "Update Address"}
+                        <Save className="mr-2 h-4 w-4" /> {isSaving ? "Saving..." : "Save Address"}
                       </Button>
                     </form>
                   </CardContent>
@@ -229,13 +228,13 @@ export default function ProfilePage() {
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-xl font-headline font-bold">Your Posted Properties</h3>
-                      <p className="text-sm text-muted-foreground">Manage and share your listings to attract tenants.</p>
+                      <h3 className="text-xl font-headline font-bold">Your Properties</h3>
+                      <p className="text-sm text-muted-foreground">Manage and share your current listings.</p>
                     </div>
                   </div>
 
                   {listingsLoading ? (
-                    <div className="p-10 text-center">Loading your listings...</div>
+                    <div className="p-10 text-center">Loading listings...</div>
                   ) : !listings || listings.length === 0 ? (
                     <Card className="border-none py-12 text-center bg-white">
                       <Home className="h-10 w-10 text-muted mx-auto mb-4" />
@@ -251,42 +250,35 @@ export default function ProfilePage() {
 
                         return (
                           <Card key={listing.id} className="border-none shadow-sm bg-white overflow-hidden">
-                            <div className="flex flex-col md:flex-row">
-                              <div className="flex-1 p-6">
-                                <div className="flex items-start justify-between">
-                                  <div>
-                                    <h4 className="text-lg font-bold font-headline mb-1">{listing.title}</h4>
-                                    <div className="flex items-center text-sm text-muted-foreground gap-1 mb-3">
-                                      <MapPin className="h-3 w-3 text-destructive" /> {listing.location}
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-xl font-bold text-primary font-headline">{rentDisplay}</p>
-                                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Per Month</p>
-                                  </div>
+                            <div className="p-6">
+                              <div className="flex items-start justify-between mb-4">
+                                <div>
+                                  <h4 className="text-lg font-bold font-headline">{listing.title}</h4>
+                                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                    <MapPin className="h-3 w-3" /> {listing.location}
+                                  </p>
                                 </div>
-                                <div className="flex flex-wrap gap-2 mb-4">
-                                  {listing.amenities?.map((amenity: string) => (
-                                    <span key={amenity} className="text-[10px] bg-primary/5 text-primary px-2 py-0.5 rounded-full font-bold">{amenity}</span>
-                                  ))}
+                                <div className="text-right">
+                                  <p className="text-lg font-bold text-primary">{rentDisplay}</p>
+                                  <p className="text-[10px] text-muted-foreground font-bold uppercase">Rent/Mo</p>
                                 </div>
-                                <div className="flex items-center justify-end gap-2 pt-4 border-t">
-                                  <Button variant="outline" size="sm" onClick={() => router.push(`/rooms/${listing.id}`)}>
-                                    View Public Listing
-                                  </Button>
-                                  <SocialPostDialog 
-                                    room={{
-                                      ...listing,
-                                      monthlyRent: rentDisplay,
-                                      landlord: { name: displayName, whatsapp: profile?.phoneNumber || "" }
-                                    }} 
-                                    trigger={
-                                      <Button size="sm" className="bg-secondary text-secondary-foreground hover:bg-secondary/90">
-                                        <Sparkles className="mr-2 h-4 w-4" /> AI Share
-                                      </Button>
-                                    }
-                                  />
-                                </div>
+                              </div>
+                              <div className="flex items-center justify-end gap-2">
+                                <Button variant="outline" size="sm" onClick={() => router.push(`/rooms/${listing.id}`)}>
+                                  View
+                                </Button>
+                                <SocialPostDialog 
+                                  room={{
+                                    ...listing,
+                                    monthlyRent: rentDisplay,
+                                    landlord: { name: displayName, whatsapp: profile?.phoneNumber || "" }
+                                  }} 
+                                  trigger={
+                                    <Button size="sm" className="bg-secondary text-secondary-foreground hover:bg-secondary/90">
+                                      <Sparkles className="mr-2 h-4 w-4" /> AI Share
+                                    </Button>
+                                  }
+                                />
                               </div>
                             </div>
                           </Card>
@@ -302,7 +294,7 @@ export default function ProfilePage() {
                     <h3 className="text-xl font-headline font-bold flex items-center gap-2">
                       <Bell className="h-5 w-5 text-primary" /> Activity Log
                     </h3>
-                    <p className="text-sm text-muted-foreground mb-6">Real-time property matches and system notifications.</p>
+                    <p className="text-sm text-muted-foreground mb-6">Real-time alerts and property matches.</p>
                     
                     {notificationsLoading ? (
                       <div className="p-10 text-center">Loading activity...</div>
