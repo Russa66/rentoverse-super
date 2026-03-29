@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Phone, Mail, ArrowRight, ShieldCheck } from "lucide-react";
+import { Phone, Mail, ArrowRight, ShieldCheck, Info } from "lucide-react";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import Link from "next/link";
@@ -40,14 +40,12 @@ export default function LoginPage() {
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'logo');
 
-  // Handle successful login or admin check
   useEffect(() => {
     if (user && !user.isAnonymous && firestore) {
       checkAdminAndRedirect(user.uid);
     }
   }, [user, firestore]);
 
-  // Handle incoming Email Link authentication
   useEffect(() => {
     if (!auth) return;
 
@@ -104,11 +102,7 @@ export default function LoginPage() {
 
     const phoneDigits = phoneNumber.trim().replace(/\D/g, '');
     if (phoneDigits.length !== 10) {
-      toast({ 
-        title: "Invalid Number", 
-        description: "Please enter a 10-digit mobile number.", 
-        variant: "destructive" 
-      });
+      toast({ title: "Invalid Number", description: "Please enter a 10-digit mobile number.", variant: "destructive" });
       return;
     }
 
@@ -118,6 +112,7 @@ export default function LoginPage() {
     try {
       if (recaptchaVerifierRef.current) {
         recaptchaVerifierRef.current.clear();
+        recaptchaVerifierRef.current = null;
       }
 
       recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
@@ -127,17 +122,27 @@ export default function LoginPage() {
       const result = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifierRef.current);
       setConfirmationResult(result);
       setStep("verify");
-      toast({
-        title: "OTP Sent",
-        description: `Verification code sent to +91 ${phoneDigits}`,
-      });
+      toast({ title: "OTP Sent", description: `Verification code sent to +91 ${phoneDigits}` });
     } catch (error: any) {
       console.error("SMS Login Error:", error);
+      let errorMessage = "Error sending verification code.";
+      
+      if (error.code === 'auth/too-many-requests') {
+        errorMessage = "Security Block: Too many attempts. Please wait 10-15 minutes.";
+      } else if (error.code === 'auth/unauthorized-domain') {
+        errorMessage = "Unauthorized domain. Check Firebase Console settings.";
+      }
+
       toast({
         variant: "destructive",
-        title: "Error Sending Code",
-        description: error.message || "Please check your network and try again.",
+        title: "Login Attempt Blocked",
+        description: errorMessage,
       });
+
+      if (recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current.clear();
+        recaptchaVerifierRef.current = null;
+      }
     } finally {
       setIsLoading(false);
     }
@@ -155,16 +160,9 @@ export default function LoginPage() {
       };
       await sendSignInLinkToEmail(auth, email, actionCodeSettings);
       window.localStorage.setItem('emailForSignIn', email);
-      toast({
-        title: "Login Link Sent",
-        description: `Check your inbox at ${email} for the secure login link.`,
-      });
+      toast({ title: "Login Link Sent", description: `Check your inbox at ${email}.` });
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Email Error",
-        description: error.message,
-      });
+      toast({ variant: "destructive", title: "Email Error", description: error.message });
     } finally {
       setIsLoading(false);
     }
@@ -177,17 +175,10 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       await confirmationResult.confirm(otp);
-      toast({
-        title: "Logged In Successfully",
-        description: "Redirecting...",
-      });
+      toast({ title: "Logged In", description: "Redirecting..." });
     } catch (error: any) {
       console.error("OTP Verification Error:", error);
-      toast({
-        variant: "destructive",
-        title: "Login Failed",
-        description: "The code is incorrect. Please try again.",
-      });
+      toast({ variant: "destructive", title: "Login Failed", description: "Incorrect code." });
     } finally {
       setIsLoading(false);
     }
@@ -201,13 +192,7 @@ export default function LoginPage() {
           <CardHeader className="text-center space-y-1">
             <div className="relative w-48 h-24 mx-auto mb-4">
               {logo && (
-                <Image 
-                  src={logo.imageUrl} 
-                  alt="RentoVerse Logo" 
-                  fill 
-                  className="object-contain"
-                  priority
-                />
+                <Image src={logo.imageUrl} alt="RentoVerse" fill className="object-contain" priority />
               )}
             </div>
             <CardTitle className="text-2xl font-headline font-bold">RentoVerse Login</CardTitle>
@@ -234,9 +219,7 @@ export default function LoginPage() {
                     <div className="space-y-2">
                       <Label htmlFor="phone">Phone Number</Label>
                       <div className="relative">
-                        <div className="absolute left-3 top-0 bottom-0 flex items-center gap-1 text-muted-foreground font-bold text-sm border-r pr-3 my-2 pointer-events-none">
-                          +91
-                        </div>
+                        <div className="absolute left-3 top-0 bottom-0 flex items-center gap-1 text-muted-foreground font-bold text-sm border-r pr-3 my-2 pointer-events-none">+91</div>
                         <input
                           id="phone"
                           type="tel"
@@ -272,9 +255,6 @@ export default function LoginPage() {
                     <Button type="submit" className="w-full font-headline h-12" disabled={isLoading || !email}>
                       {isLoading ? "Sending Link..." : "Send Login Link"}
                     </Button>
-                    <p className="text-[10px] text-muted-foreground text-center px-4 leading-relaxed">
-                      A secure login link will be sent to your inbox. Simply click the link to log in.
-                    </p>
                   </form>
                 </TabsContent>
 
@@ -308,17 +288,13 @@ export default function LoginPage() {
                 <Button type="submit" className="w-full font-headline h-12" disabled={isLoading || otp.length !== 6}>
                   {isLoading ? "Verifying..." : "Login"}
                 </Button>
-                <Button variant="ghost" className="w-full" onClick={() => setStep("form")} disabled={isLoading}>
-                  Back to Options
-                </Button>
+                <Button variant="ghost" className="w-full" onClick={() => setStep("form")} disabled={isLoading}>Back</Button>
               </form>
             )}
 
             <div className="mt-8 p-4 bg-primary/5 rounded-lg border border-primary/10 flex items-start gap-3">
               <ShieldCheck className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                RentoVerse uses secure Firebase Authentication. OTP is delivered via SMS, and login links are sent via encrypted email.
-              </p>
+              <p className="text-[11px] text-muted-foreground">Secure verification powered by RentoVerse.</p>
             </div>
           </CardContent>
         </Card>

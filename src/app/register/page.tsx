@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -16,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { ArrowRight, ShieldCheck, Phone, AlertCircle } from "lucide-react";
+import { ArrowRight, ShieldCheck, Phone, AlertCircle, Info } from "lucide-react";
 import { doc } from "firebase/firestore";
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import Link from "next/link";
@@ -68,11 +69,11 @@ export default function RegisterPage() {
     try {
       if (recaptchaVerifierRef.current) {
         recaptchaVerifierRef.current.clear();
+        recaptchaVerifierRef.current = null;
       }
 
       recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible',
-        'callback': () => { console.log('✅ reCAPTCHA Verified'); }
+        'size': 'invisible'
       });
 
       console.log('📲 Attempting to send SMS to:', fullPhoneNumber);
@@ -82,19 +83,26 @@ export default function RegisterPage() {
       toast({ title: "OTP Sent", description: `Verification code sent to +91 ${phoneDigits}` });
     } catch (error: any) {
       console.error("SMS Registration Error:", error);
-      let errorMessage = error.message || "Failed to send code. Please try again.";
+      let errorMessage = "Failed to send code. Please try again.";
       
       if (error.code === 'auth/too-many-requests') {
-        errorMessage = "Too many requests. Please wait a few minutes before trying again.";
+        errorMessage = "Security Block: Too many attempts. Please wait 10-15 minutes before trying again.";
       } else if (error.code === 'auth/unauthorized-domain') {
-        errorMessage = "This domain is not authorized in the Firebase Console.";
+        errorMessage = "Domain not authorized. Please check your Firebase Console settings.";
+      } else if (error.message) {
+        errorMessage = error.message;
       }
 
       toast({
         variant: "destructive",
-        title: "Registration Error",
+        title: "Registration Blocked",
         description: errorMessage,
       });
+      
+      if (recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current.clear();
+        recaptchaVerifierRef.current = null;
+      }
     } finally {
       setIsLoading(false);
     }
@@ -125,10 +133,7 @@ export default function RegisterPage() {
 
       console.log('📁 Creating Firestore profile for UID:', user.uid);
       
-      // Primary User Doc
       setDocumentNonBlocking(doc(firestore, "users", user.uid), userData, { merge: true });
-      
-      // Sentinel Role Doc
       const sentinelPath = formData.userType === "Owner" ? "landlords" : "renters";
       setDocumentNonBlocking(doc(firestore, sentinelPath, user.uid), { active: true }, { merge: true });
       
@@ -241,6 +246,12 @@ export default function RegisterPage() {
                 </Button>
                 <Button variant="ghost" className="w-full" onClick={() => setStep("form")} disabled={isLoading}>Change Phone Number</Button>
               </form>
+            )}
+
+            {isLoading && (
+              <div className="mt-4 flex items-center justify-center gap-2 text-xs text-primary animate-pulse">
+                <Info className="h-3 w-3" /> Initializing secure connection...
+              </div>
             )}
           </CardContent>
         </Card>
