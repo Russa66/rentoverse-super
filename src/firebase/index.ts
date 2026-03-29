@@ -1,4 +1,3 @@
-
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
@@ -6,27 +5,34 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
+/**
+ * Initializes Firebase and returns the core SDK instances.
+ * Includes explicit logging for connectivity verification.
+ */
 export function initializeFirebase() {
+  let app: FirebaseApp;
+
   if (!getApps().length) {
-    let firebaseApp;
     try {
-      // Attempt to initialize via Firebase App Hosting environment variables
-      firebaseApp = initializeApp();
+      // Attempt initialization with explicit config for reliability
+      app = initializeApp(firebaseConfig);
     } catch (e) {
-      if (process.env.NODE_ENV === "production") {
-        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
-      }
-      firebaseApp = initializeApp(firebaseConfig);
+      console.error('Firebase initialization error:', e);
+      // Fallback attempt
+      app = initializeApp();
     }
-
-    // Diagnostic Heartbeat for the user
-    console.log(`%c RentoVerse Firebase Initialized: ${firebaseConfig.projectId} `, 'background: #22c55e; color: #fff; font-weight: bold;');
-
-    return getSdks(firebaseApp);
+  } else {
+    app = getApp();
   }
 
-  return getSdks(getApp());
+  // Diagnostic Heartbeat - This will show in your browser console (F12)
+  console.log(
+    `%c RentoVerse System Active %c Project: ${firebaseConfig.projectId} `,
+    'background: #22c55e; color: #fff; font-weight: bold; border-radius: 4px 0 0 4px; padding: 2px 6px;',
+    'background: #1e293b; color: #fff; border-radius: 0 4px 4px 0; padding: 2px 6px;'
+  );
+
+  return getSdks(app);
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {

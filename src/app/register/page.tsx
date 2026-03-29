@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -52,15 +51,14 @@ export default function RegisterPage() {
 
   const handleRegisterInitiate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth) return;
+    if (!auth) {
+      toast({ title: "Auth Unavailable", description: "Authentication system is still initializing.", variant: "destructive" });
+      return;
+    }
     
     const phoneDigits = formData.whatsapp.trim().replace(/\D/g, '');
     if (phoneDigits.length !== 10) {
-      toast({ 
-        title: "Invalid Number", 
-        description: "Please enter a valid 10-digit mobile number.", 
-        variant: "destructive" 
-      });
+      toast({ title: "Invalid Number", description: "Please enter a 10-digit mobile number.", variant: "destructive" });
       return;
     }
 
@@ -74,24 +72,22 @@ export default function RegisterPage() {
 
       recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
         'size': 'invisible',
-        'callback': () => {
-          console.log('reCAPTCHA verified');
-        }
+        'callback': () => { console.log('✅ reCAPTCHA Verified'); }
       });
 
+      console.log('📲 Attempting to send SMS to:', fullPhoneNumber);
       const result = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifierRef.current);
       setConfirmationResult(result);
       setStep("verify");
-      toast({
-        title: "OTP Sent",
-        description: `Verification code sent to +91 ${phoneDigits}`,
-      });
+      toast({ title: "OTP Sent", description: `Verification code sent to +91 ${phoneDigits}` });
     } catch (error: any) {
       console.error("SMS Registration Error:", error);
       toast({
         variant: "destructive",
-        title: "Authentication Error",
-        description: error.message || "Failed to send code. Please check your domain settings.",
+        title: "Registration Error",
+        description: error.code === 'auth/unauthorized-domain' 
+          ? "This domain is not authorized in Firebase Console."
+          : (error.message || "Failed to send code. Please try again."),
       });
     } finally {
       setIsLoading(false);
@@ -104,6 +100,7 @@ export default function RegisterPage() {
 
     setIsLoading(true);
     try {
+      console.log('🔐 Verifying OTP...');
       const credential = await confirmationResult.confirm(otp);
       const user = credential.user;
 
@@ -120,26 +117,20 @@ export default function RegisterPage() {
         isVerified: true,
       };
 
-      // Create primary user document
+      console.log('📁 Creating Firestore profile for UID:', user.uid);
+      
+      // Primary User Doc
       setDocumentNonBlocking(doc(firestore, "users", user.uid), userData, { merge: true });
       
-      // Create role-specific sentinel document for security rules
+      // Sentinel Role Doc
       const sentinelPath = formData.userType === "Owner" ? "landlords" : "renters";
       setDocumentNonBlocking(doc(firestore, sentinelPath, user.uid), { active: true }, { merge: true });
       
-      toast({
-        title: "Welcome to RentoVerse!",
-        description: "Your account is verified and ready.",
-      });
-      
+      toast({ title: "Account Created", description: "Your profile has been saved successfully." });
       router.push("/profile");
     } catch (error: any) {
       console.error("OTP Verification Error:", error);
-      toast({ 
-        variant: "destructive", 
-        title: "Verification Failed", 
-        description: "The code is incorrect. Please try again." 
-      });
+      toast({ variant: "destructive", title: "Verification Failed", description: "Incorrect code. Please check and try again." });
     } finally {
       setIsLoading(false);
     }
@@ -153,91 +144,74 @@ export default function RegisterPage() {
           <CardHeader className="text-center space-y-1">
             <div className="relative w-48 h-24 mx-auto mb-4">
               {logo && (
-                <Image 
-                  src={logo.imageUrl} 
-                  alt="RentoVerse Logo" 
-                  fill 
-                  className="object-contain"
-                  priority
-                />
+                <Image src={logo.imageUrl} alt="RentoVerse" fill className="object-contain" priority />
               )}
             </div>
-            <CardTitle className="text-2xl font-headline font-bold">Create Account</CardTitle>
+            <CardTitle className="text-2xl font-headline font-bold">Join RentoVerse</CardTitle>
             <CardDescription>
-              {step === "form" ? "Join RentoVerse to start searching or listing." : "Verify your identity via SMS."}
+              {step === "form" ? "Register with your mobile number." : "Verify your identity via SMS."}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div id="recaptcha-container"></div>
             
             {step === "form" ? (
-              <div className="space-y-4">
-                <form onSubmit={handleRegisterInitiate} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
-                    <input
-                      id="name"
-                      placeholder="Enter your name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      required
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="userType">Register as</Label>
-                    <Select value={formData.userType} onValueChange={(v) => setFormData({...formData, userType: v})}>
-                      <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Owner">Owner / Landlord</SelectItem>
-                        <SelectItem value="Tenant">Tenant / Renter</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="whatsapp">Phone Number</Label>
-                    <div className="relative">
-                      <div className="absolute left-3 top-0 bottom-0 flex items-center gap-1 text-muted-foreground font-bold text-sm border-r pr-3 my-2 pointer-events-none">
-                        +91
-                      </div>
-                      <input
-                        id="whatsapp"
-                        placeholder="9876543210"
-                        value={formData.whatsapp}
-                        onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value.replace(/\D/g, '').slice(0, 10) })}
-                        className="flex h-10 w-full rounded-md border border-input bg-background pl-14 pr-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        required
-                        type="tel"
-                        maxLength={10}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email (Optional)</Label>
-                    <input
-                      id="email"
-                      type="email"
-                      placeholder="email@example.com"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    />
-                  </div>
-                  
-                  <Button type="submit" className="w-full font-headline h-12 mt-4" disabled={isLoading || formData.whatsapp.length !== 10}>
-                    {isLoading ? "Preparing..." : "Send Verification Code"}
-                  </Button>
-                </form>
-
-                <div className="text-center mt-6">
-                  <p className="text-sm text-muted-foreground">
-                    Already have an account?{" "}
-                    <Link href="/login" className="text-primary font-bold hover:underline">
-                      Login
-                    </Link>
-                  </p>
+              <form onSubmit={handleRegisterInitiate} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full Name</Label>
+                  <input
+                    id="name"
+                    placeholder="Enter your name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
                 </div>
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="userType">I am a...</Label>
+                  <Select value={formData.userType} onValueChange={(v) => setFormData({...formData, userType: v})}>
+                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Owner">Landlord / Owner</SelectItem>
+                      <SelectItem value="Tenant">Renter / Tenant</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="whatsapp">Phone Number</Label>
+                  <div className="relative">
+                    <div className="absolute left-3 top-0 bottom-0 flex items-center gap-1 text-muted-foreground font-bold text-sm border-r pr-3 my-2 pointer-events-none">+91</div>
+                    <input
+                      id="whatsapp"
+                      placeholder="9876543210"
+                      value={formData.whatsapp}
+                      onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                      className="flex h-10 w-full rounded-md border border-input bg-background pl-14 pr-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      required
+                      type="tel"
+                      maxLength={10}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email (Optional)</Label>
+                  <input
+                    id="email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+                <Button type="submit" className="w-full font-headline h-12 mt-4" disabled={isLoading || formData.whatsapp.length !== 10}>
+                  {isLoading ? "Preparing..." : "Send Verification Code"}
+                </Button>
+                <p className="text-center text-sm text-muted-foreground mt-4">
+                  Already have an account? <Link href="/login" className="text-primary font-bold hover:underline">Login</Link>
+                </p>
+              </form>
             ) : (
               <form onSubmit={handleVerify} className="space-y-6">
                 <div className="text-center p-4 bg-muted/50 rounded-xl border">
@@ -259,18 +233,9 @@ export default function RegisterPage() {
                 <Button type="submit" className="w-full font-headline h-12" disabled={isLoading || otp.length !== 6}>
                   {isLoading ? "Verifying..." : "Complete Registration"}
                 </Button>
-                <Button variant="ghost" className="w-full" onClick={() => setStep("form")} disabled={isLoading}>
-                  Change Phone Number
-                </Button>
+                <Button variant="ghost" className="w-full" onClick={() => setStep("form")} disabled={isLoading}>Change Phone Number</Button>
               </form>
             )}
-
-            <div className="mt-6 p-3 bg-primary/5 rounded-lg border border-primary/10 flex items-start gap-3">
-              <ShieldCheck className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-              <p className="text-[10px] text-muted-foreground leading-relaxed">
-                RentoVerse secures your data with Firebase. If you experience delays, ensure your domain is authorized in the console.
-              </p>
-            </div>
           </CardContent>
         </Card>
       </div>
