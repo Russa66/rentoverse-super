@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { ArrowRight, ShieldCheck, Phone } from "lucide-react";
+import { ArrowRight, ShieldCheck, Phone, AlertCircle } from "lucide-react";
 import { doc } from "firebase/firestore";
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import Link from "next/link";
@@ -52,6 +52,7 @@ export default function RegisterPage() {
 
   const handleRegisterInitiate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth) return;
     
     const phoneDigits = formData.whatsapp.trim().replace(/\D/g, '');
     if (phoneDigits.length !== 10) {
@@ -71,9 +72,11 @@ export default function RegisterPage() {
         recaptchaVerifierRef.current.clear();
       }
 
-      // Initialize reCAPTCHA
       recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible'
+        'size': 'invisible',
+        'callback': () => {
+          console.log('reCAPTCHA verified');
+        }
       });
 
       const result = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifierRef.current);
@@ -85,14 +88,10 @@ export default function RegisterPage() {
       });
     } catch (error: any) {
       console.error("SMS Registration Error:", error);
-      let message = "Failed to send code. Ensure your domain is authorized in Firebase.";
-      if (error.code === 'auth/unauthorized-domain') message = "Domain not authorized for SMS auth.";
-      if (error.code === 'auth/too-many-requests') message = "Too many attempts. Please wait.";
-
       toast({
         variant: "destructive",
-        title: "Registration Error",
-        description: message,
+        title: "Authentication Error",
+        description: error.message || "Failed to send code. Please check your domain settings.",
       });
     } finally {
       setIsLoading(false);
@@ -101,27 +100,32 @@ export default function RegisterPage() {
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!confirmationResult || otp.length !== 6) return;
+    if (!confirmationResult || otp.length !== 6 || !firestore) return;
 
     setIsLoading(true);
     try {
       const credential = await confirmationResult.confirm(otp);
       const user = credential.user;
 
-      if (firestore) {
-        setDocumentNonBlocking(doc(firestore, "users", user.uid), {
-          id: user.uid,
-          name: formData.name,
-          phoneNumber: user.phoneNumber,
-          email: formData.email || null,
-          userType: formData.userType,
-          address: "",
-          isAdmin: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isVerified: true,
-        }, { merge: true });
-      }
+      const userData = {
+        id: user.uid,
+        name: formData.name,
+        phoneNumber: user.phoneNumber,
+        email: formData.email || null,
+        userType: formData.userType,
+        address: "",
+        isAdmin: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        isVerified: true,
+      };
+
+      // Create primary user document
+      setDocumentNonBlocking(doc(firestore, "users", user.uid), userData, { merge: true });
+      
+      // Create role-specific sentinel document for security rules
+      const sentinelPath = formData.userType === "Owner" ? "landlords" : "renters";
+      setDocumentNonBlocking(doc(firestore, sentinelPath, user.uid), { active: true }, { merge: true });
       
       toast({
         title: "Welcome to RentoVerse!",
@@ -183,7 +187,7 @@ export default function RegisterPage() {
                   <div className="space-y-2">
                     <Label htmlFor="userType">Register as</Label>
                     <Select value={formData.userType} onValueChange={(v) => setFormData({...formData, userType: v})}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Owner">Owner / Landlord</SelectItem>
                         <SelectItem value="Tenant">Tenant / Renter</SelectItem>
@@ -264,7 +268,7 @@ export default function RegisterPage() {
             <div className="mt-6 p-3 bg-primary/5 rounded-lg border border-primary/10 flex items-start gap-3">
               <ShieldCheck className="h-4 w-4 text-primary shrink-0 mt-0.5" />
               <p className="text-[10px] text-muted-foreground leading-relaxed">
-                RentoVerse secures your data. OTP is sent via SMS. Ensure you have network connectivity to receive the code.
+                RentoVerse secures your data with Firebase. If you experience delays, ensure your domain is authorized in the console.
               </p>
             </div>
           </CardContent>
