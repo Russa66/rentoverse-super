@@ -82,12 +82,18 @@ export default function RegisterPage() {
       toast({ title: "OTP Sent", description: `Verification code sent to +91 ${phoneDigits}` });
     } catch (error: any) {
       console.error("SMS Registration Error:", error);
+      let errorMessage = error.message || "Failed to send code. Please try again.";
+      
+      if (error.code === 'auth/too-many-requests') {
+        errorMessage = "Too many requests. Please wait a few minutes before trying again.";
+      } else if (error.code === 'auth/unauthorized-domain') {
+        errorMessage = "This domain is not authorized in the Firebase Console.";
+      }
+
       toast({
         variant: "destructive",
         title: "Registration Error",
-        description: error.code === 'auth/unauthorized-domain' 
-          ? "This domain is not authorized in Firebase Console."
-          : (error.message || "Failed to send code. Please try again."),
+        description: errorMessage,
       });
     } finally {
       setIsLoading(false);
