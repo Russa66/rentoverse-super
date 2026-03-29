@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, MessageCircle, Home, Bell, Mail, CheckCircle, Save, Sparkles, MapPin, XCircle, LogOut, Info } from "lucide-react";
+import { User, MessageCircle, Home, Bell, Mail, CheckCircle, Save, Sparkles, MapPin, XCircle, LogOut, Info, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser, useCollection, useMemoFirebase, useAuth, useDoc } from "@/firebase";
 import { collection, query, orderBy, doc } from "firebase/firestore";
@@ -100,8 +100,9 @@ export default function ProfilePage() {
     return (
       <div className="min-h-screen bg-muted/30">
         <Navbar />
-        <div className="container px-4 py-20 flex justify-center items-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="container px-4 py-20 flex flex-col justify-center items-center gap-4">
+          <Loader2 className="animate-spin h-8 w-8 text-primary" />
+          <p className="text-muted-foreground font-headline">Syncing your RentoVerse profile...</p>
         </div>
       </div>
     );

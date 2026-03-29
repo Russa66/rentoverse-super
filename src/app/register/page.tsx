@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -17,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { ArrowRight, ShieldCheck, Phone, AlertCircle, Info } from "lucide-react";
+import { ArrowRight, ShieldCheck, Phone, AlertCircle, Info, Loader2 } from "lucide-react";
 import { doc } from "firebase/firestore";
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import Link from "next/link";
@@ -52,10 +51,7 @@ export default function RegisterPage() {
 
   const handleRegisterInitiate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth) {
-      toast({ title: "Auth Unavailable", description: "Authentication system is still initializing.", variant: "destructive" });
-      return;
-    }
+    if (!auth) return;
     
     const phoneDigits = formData.whatsapp.trim().replace(/\D/g, '');
     if (phoneDigits.length !== 10) {
@@ -76,26 +72,24 @@ export default function RegisterPage() {
         'size': 'invisible'
       });
 
-      console.log('📲 Attempting to send SMS to:', fullPhoneNumber);
+      console.log('📲 Requesting OTP for:', fullPhoneNumber);
       const result = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifierRef.current);
       setConfirmationResult(result);
       setStep("verify");
       toast({ title: "OTP Sent", description: `Verification code sent to +91 ${phoneDigits}` });
     } catch (error: any) {
-      console.error("SMS Registration Error:", error);
-      let errorMessage = "Failed to send code. Please try again.";
+      console.error("SMS Error:", error);
+      let errorMessage = "Failed to send code.";
       
       if (error.code === 'auth/too-many-requests') {
-        errorMessage = "Security Block: Too many attempts. Please wait 10-15 minutes before trying again.";
+        errorMessage = "Security Block: Too many attempts. Please wait 15 minutes.";
       } else if (error.code === 'auth/unauthorized-domain') {
-        errorMessage = "Domain not authorized. Please check your Firebase Console settings.";
-      } else if (error.message) {
-        errorMessage = error.message;
+        errorMessage = "Domain not authorized. Check Firebase Console.";
       }
 
       toast({
         variant: "destructive",
-        title: "Registration Blocked",
+        title: "Registration Error",
         description: errorMessage,
       });
       
@@ -110,13 +104,17 @@ export default function RegisterPage() {
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!confirmationResult || otp.length !== 6 || !firestore) return;
+    if (!confirmationResult || otp.length !== 6 || !firestore) {
+      console.error('❌ Verification prerequisites not met:', { hasResult: !!confirmationResult, otpLength: otp.length, hasFirestore: !!firestore });
+      return;
+    }
 
     setIsLoading(true);
     try {
-      console.log('🔐 Verifying OTP...');
+      console.log('🔐 Verifying code...');
       const credential = await confirmationResult.confirm(otp);
       const user = credential.user;
+      console.log('✅ User authenticated:', user.uid);
 
       const userData = {
         id: user.uid,
@@ -131,17 +129,26 @@ export default function RegisterPage() {
         isVerified: true,
       };
 
-      console.log('📁 Creating Firestore profile for UID:', user.uid);
+      console.log('📁 Syncing profile to Firestore...');
       
+      // Save primary user profile
       setDocumentNonBlocking(doc(firestore, "users", user.uid), userData, { merge: true });
+      
+      // Save role sentinel
       const sentinelPath = formData.userType === "Owner" ? "landlords" : "renters";
       setDocumentNonBlocking(doc(firestore, sentinelPath, user.uid), { active: true }, { merge: true });
       
-      toast({ title: "Account Created", description: "Your profile has been saved successfully." });
-      router.push("/profile");
+      console.log('🚀 Profile queued. Redirecting to dashboard...');
+      toast({ title: "Welcome to RentoVerse", description: "Your account is ready." });
+      
+      // We give a tiny delay to ensure non-blocking writes are initiated
+      setTimeout(() => {
+        router.push("/profile");
+      }, 100);
+      
     } catch (error: any) {
-      console.error("OTP Verification Error:", error);
-      toast({ variant: "destructive", title: "Verification Failed", description: "Incorrect code. Please check and try again." });
+      console.error("Verification Error:", error);
+      toast({ variant: "destructive", title: "Invalid Code", description: "Please check the OTP and try again." });
     } finally {
       setIsLoading(false);
     }
@@ -217,7 +224,7 @@ export default function RegisterPage() {
                   />
                 </div>
                 <Button type="submit" className="w-full font-headline h-12 mt-4" disabled={isLoading || formData.whatsapp.length !== 10}>
-                  {isLoading ? "Preparing..." : "Send Verification Code"}
+                  {isLoading ? <Loader2 className="animate-spin" /> : "Send Verification Code"}
                 </Button>
                 <p className="text-center text-sm text-muted-foreground mt-4">
                   Already have an account? <Link href="/login" className="text-primary font-bold hover:underline">Login</Link>
@@ -242,17 +249,18 @@ export default function RegisterPage() {
                   />
                 </div>
                 <Button type="submit" className="w-full font-headline h-12" disabled={isLoading || otp.length !== 6}>
-                  {isLoading ? "Verifying..." : "Complete Registration"}
+                  {isLoading ? <Loader2 className="animate-spin" /> : "Complete Registration"}
                 </Button>
                 <Button variant="ghost" className="w-full" onClick={() => setStep("form")} disabled={isLoading}>Change Phone Number</Button>
               </form>
             )}
 
-            {isLoading && (
-              <div className="mt-4 flex items-center justify-center gap-2 text-xs text-primary animate-pulse">
-                <Info className="h-3 w-3" /> Initializing secure connection...
-              </div>
-            )}
+            <div className="mt-8 p-4 bg-primary/5 rounded-lg border border-primary/10 flex items-start gap-3">
+              <ShieldCheck className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                By registering, you agree to RentoVerse's terms. We secure your data using industry-standard Firebase encryption.
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>

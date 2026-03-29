@@ -13,24 +13,14 @@ export function initializeFirebase() {
   let app: FirebaseApp;
 
   if (!getApps().length) {
-    try {
-      // Attempt initialization with explicit config for reliability
-      app = initializeApp(firebaseConfig);
-    } catch (e) {
-      console.error('Firebase initialization error:', e);
-      // Fallback attempt
-      app = initializeApp();
-    }
+    console.log('[Firebase] Initializing with Project ID:', firebaseConfig.projectId);
+    app = initializeApp(firebaseConfig);
   } else {
     app = getApp();
   }
 
-  // Diagnostic Heartbeat - This will show in your browser console (F12)
-  console.log(
-    `%c RentoVerse System Active %c Project: ${firebaseConfig.projectId} `,
-    'background: #22c55e; color: #fff; font-weight: bold; border-radius: 4px 0 0 4px; padding: 2px 6px;',
-    'background: #1e293b; color: #fff; border-radius: 0 4px 4px 0; padding: 2px 6px;'
-  );
+  // Diagnostic log that appears in the browser console (F12)
+  console.log('✅ RentoVerse Firebase Connected:', firebaseConfig.projectId);
 
   return getSdks(app);
 }
