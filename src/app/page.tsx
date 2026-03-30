@@ -6,17 +6,19 @@ import Navbar from "@/components/Navbar";
 import RoomCard from "@/components/RoomCard";
 import { MOCK_ROOMS } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
-import { Search, MapPin, Home } from "lucide-react";
+import { Search, MapPin, Home, Database, CheckCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, limit } from "firebase/firestore";
+import { collection, query, limit, addDoc } from "firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
 
 export default function HomePage() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
-  const logo = PlaceHolderImages.find(img => img.id === 'logo');
   const { firestore } = useFirestore();
+  const { toast } = useToast();
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
 
   const featuredQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -35,11 +37,50 @@ export default function HomePage() {
     setRandomizedListings(shuffled.slice(0, 10));
   }, [listings]);
 
+  const handleTestConnection = async () => {
+    if (!firestore) {
+      toast({
+        title: "Firestore not initialized",
+        description: "The database service is not yet available.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsTestingConnection(true);
+    try {
+      const testData = {
+        name: "Connectivity Test User",
+        address: "123 Firebase St, Cloud City",
+        phoneNumber: "+919999999999",
+        email: "test@rentoverse.com",
+        timestamp: new Date().toISOString(),
+        userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : 'Server'
+      };
+
+      const docRef = await addDoc(collection(firestore, "connectivity_tests"), testData);
+      
+      toast({
+        title: "Connection Success! ✅",
+        description: `Sample data saved to 'connectivity_tests' with ID: ${docRef.id}`,
+      });
+    } catch (error: any) {
+      console.error("Connectivity Test Failed:", error);
+      toast({
+        title: "Connection Failed ❌",
+        description: error.message || "Could not write to the database. Check console for details.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
       
-      <section className="relative h-[650px] md:h-[600px] flex items-center justify-center overflow-hidden">
+      <section className="relative h-[700px] md:h-[650px] flex items-center justify-center overflow-hidden">
         <Image 
           src={heroImage?.imageUrl || "https://picsum.photos/seed/city/1200/800"} 
           alt="Hero" 
@@ -48,6 +89,20 @@ export default function HomePage() {
           priority
         />
         <div className="container relative z-10 px-4 text-center text-white">
+          {/* Connectivity Test Button */}
+          <div className="mb-8 flex justify-center">
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              onClick={handleTestConnection}
+              disabled={isTestingConnection}
+              className="bg-white/10 hover:bg-white/20 border-white/20 text-white backdrop-blur-sm transition-all gap-2 px-6 h-10 rounded-full"
+            >
+              {isTestingConnection ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+              {isTestingConnection ? "Testing Connection..." : "Verify DB Connectivity"}
+            </Button>
+          </div>
+
           <h1 className="text-4xl md:text-7xl font-headline font-bold mb-6 tracking-tight">
             Find your <span className="text-secondary italic">perfect</span> room and property.
           </h1>
@@ -59,12 +114,8 @@ export default function HomePage() {
             <div className="flex-1 flex items-start md:items-center px-4 md:px-6 gap-3">
               <MapPin className="h-5 w-5 text-destructive shrink-0 mt-3 md:mt-0" />
               <div className="flex-1 w-full text-left">
-                <textarea 
-                  className="block md:hidden w-full border-none focus:ring-0 text-gray-900 placeholder:text-gray-400 bg-transparent text-lg resize-none min-h-[80px] py-2 outline-none" 
-                  placeholder="Where do you want to live?" 
-                />
                 <input 
-                  className="hidden md:block border-none focus-visible:ring-0 text-gray-900 placeholder:text-gray-400 h-12 text-lg w-full bg-transparent outline-none" 
+                  className="border-none focus-visible:ring-0 text-gray-900 placeholder:text-gray-400 h-12 text-lg w-full bg-transparent outline-none" 
                   placeholder="Where do you want to live?" 
                 />
               </div>
