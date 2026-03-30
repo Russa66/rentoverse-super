@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc, updateDocumentNonBlocking } from "@/firebase";
@@ -37,7 +36,7 @@ export default function AdminDashboard() {
 
   const requestsQuery = useMemoFirebase(() => {
     if (!firestore || !profile?.isAdmin) return null;
-    return collection(firestore, "room_requirements");
+    return collection(firestore, "saved_search_requests");
   }, [firestore, profile]);
   const { data: requests, isLoading: requestsLoading } = useCollection(requestsQuery);
 

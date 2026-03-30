@@ -1,53 +1,59 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.1 - Security Rules for RentoVerse
+    // Version: 1.0.2 - Security Rules for RentoVerse
     
     function isSignedIn() { return request.auth != null; }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
-    function isLandlord() { return exists(/databases/$(database)/documents/landlords/$(request.auth.uid)); }
+    
+    // Robust Admin check: doesn't recurse because reading own profile is allowed by isOwner
+    function isAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
 
     match /users/{userId} {
-      allow get: if isOwner(userId) || (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
+      allow get: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
     }
 
     match /landlords/{userId} {
-      allow get, write: if isOwner(userId);
+      allow get, write: if isOwner(userId) || isAdmin();
     }
 
     match /renters/{userId} {
-      allow get, write: if isOwner(userId);
+      allow get, write: if isOwner(userId) || isAdmin();
     }
 
     match /room_listings/{listingId} {
       allow read: if true;
       allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && resource.data.landlordId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.landlordId == request.auth.uid || isAdmin());
     }
 
     match /users/{userId}/listings/{listingId} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if isOwner(userId) || isAdmin();
     }
 
     match /users/{userId}/notifications/{notifId} {
-      allow read: if isOwner(userId);
+      allow read: if isOwner(userId) || isAdmin();
       allow create: if true; // Allow system to create notifications
     }
 
     match /social_posts/{postId} {
       allow read: if true;
       allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
     }
 
     match /saved_search_requests/{requestId} {
       allow read: if true;
       allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
     }
 
     match /users/{userId}/saved_search_requests/{requestId} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if isOwner(userId) || isAdmin();
     }
 
     // Publicly accessible collection for connectivity testing
