@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -11,7 +10,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { useFirestore, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from "@/firebase";
-import { collection, query, limit, addDoc } from "firebase/firestore";
+import { collection, query, limit, doc, setDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
 export default function HomePage() {
@@ -57,19 +56,22 @@ export default function HomePage() {
       userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : 'Server'
     };
 
+    // Create a specific doc reference to have a stable path for error reporting
+    const testDocRef = doc(collection(firestore, "connectivity_tests"));
+
     // Follow non-blocking Firestore write guidelines
-    addDoc(collection(firestore, "connectivity_tests"), testData)
-      .then((docRef) => {
+    setDoc(testDocRef, testData)
+      .then(() => {
         toast({
           title: "Connection Success! ✅",
-          description: `Sample data saved to 'connectivity_tests' with ID: ${docRef.id}`,
+          description: `Sample data saved to 'connectivity_tests' with ID: ${testDocRef.id}`,
         });
         setIsTestingConnection(false);
       })
       .catch(async (error) => {
-        // Construct rich, contextual error for debugging
+        // Construct rich, contextual error for debugging using the precise doc path
         const permissionError = new FirestorePermissionError({
-          path: "connectivity_tests",
+          path: testDocRef.path,
           operation: "create",
           requestResourceData: testData
         });
@@ -79,7 +81,7 @@ export default function HomePage() {
         
         toast({
           title: "Connection Failed ❌",
-          description: "Permission denied. Please check Firestore Security Rules.",
+          description: "Permission denied. Check the overlay for security rule details.",
           variant: "destructive",
         });
         setIsTestingConnection(false);
