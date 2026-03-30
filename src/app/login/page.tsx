@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -34,7 +33,7 @@ export default function LoginPage() {
   
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
   const auth = useAuth();
-  const { firestore } = useFirestore();
+  const firestore = useFirestore();
   const { user } = useUser();
   const router = useRouter();
   const { toast } = useToast();

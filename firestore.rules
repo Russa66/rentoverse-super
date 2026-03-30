@@ -1,6 +1,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Version: 1.0.1 - Security Rules for RentoVerse
+    
     function isSignedIn() { return request.auth != null; }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
     function isLandlord() { return exists(/databases/$(database)/documents/landlords/$(request.auth.uid)); }
@@ -21,7 +23,7 @@ service cloud.firestore {
 
     match /room_listings/{listingId} {
       allow read: if true;
-      allow create: if isSignedIn() && request.resource.data.landlordId == request.auth.uid;
+      allow create: if isSignedIn();
       allow update, delete: if isSignedIn() && resource.data.landlordId == request.auth.uid;
     }
 
@@ -31,7 +33,7 @@ service cloud.firestore {
 
     match /users/{userId}/notifications/{notifId} {
       allow read: if isOwner(userId);
-      allow create: if isSignedIn();
+      allow create: if true; // Allow system to create notifications
     }
 
     match /social_posts/{postId} {
@@ -39,10 +41,18 @@ service cloud.firestore {
       allow create: if isSignedIn();
     }
 
+    match /saved_search_requests/{requestId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+    }
+
+    match /users/{userId}/saved_search_requests/{requestId} {
+      allow read, write: if isOwner(userId);
+    }
+
     // Publicly accessible collection for connectivity testing
     match /connectivity_tests/{testId} {
-      allow create: if true;
-      allow read: if true;
+      allow read, create: if true;
     }
   }
 }

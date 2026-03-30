@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { MapPin, Wifi, Zap, Wind, Droplets, Train, MessageCircle, Phone, Users, ShieldCheck, Lock, Maximize2 } from "lucide-react";
+import { MapPin, Wifi, Zap, Wind, Droplets, MessageCircle, Phone, Users, ShieldCheck, Lock, Maximize2 } from "lucide-react";
 import Image from "next/image";
 import SocialPostDialog from "@/components/SocialPostDialog";
 import Link from "next/link";
@@ -16,7 +16,7 @@ import { doc } from "firebase/firestore";
 
 export default function RoomDetails({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { firestore } = useFirestore();
+  const firestore = useFirestore();
 
   const roomRef = useMemoFirebase(() => {
     if (!firestore || !id) return null;

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -36,7 +35,7 @@ export default function RegisterPage() {
   
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
   const auth = useAuth();
-  const { firestore } = useFirestore();
+  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'logo');
@@ -142,7 +141,6 @@ export default function RegisterPage() {
       console.log('🚀 Profile queued. Redirecting to dashboard...');
       toast({ title: "Welcome to RentoVerse", description: "Your account is ready." });
       
-      // We give a tiny delay to ensure non-blocking writes are initiated
       setTimeout(() => {
         router.push("/profile");
       }, 100);
