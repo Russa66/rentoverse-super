@@ -22,7 +22,7 @@ export default function PostRequirement() {
   const [loadingStep, setLoadingStep] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
-  const { firestore } = useFirestore();
+  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
 
@@ -43,7 +43,6 @@ export default function PostRequirement() {
       initiateAnonymousSignIn(auth);
     }
     if (user?.phoneNumber) {
-      // Strip +91 for the display field
       const displayPhone = user.phoneNumber.startsWith('+91') 
         ? user.phoneNumber.substring(3) 
         : user.phoneNumber;

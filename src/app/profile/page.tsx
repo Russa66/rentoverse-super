@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -21,7 +22,7 @@ import { useRouter } from "next/navigation";
 
 export default function ProfilePage() {
   const { toast } = useToast();
-  const { firestore } = useFirestore();
+  const firestore = useFirestore();
   const { user } = useUser();
   const auth = useAuth();
   const router = useRouter();
@@ -29,7 +30,6 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState("account");
   const [address, setAddress] = useState("");
 
-  // Fetch real profile from Firestore
   const profileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, "users", user.uid);
@@ -43,7 +43,6 @@ export default function ProfilePage() {
     }
   }, [profile]);
 
-  // Notifications / Activity
   const notificationsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
@@ -54,7 +53,6 @@ export default function ProfilePage() {
 
   const { data: notifications, isLoading: notificationsLoading } = useCollection(notificationsQuery);
 
-  // User Listings
   const listingsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return collection(firestore, `users/${user.uid}/listings`);
@@ -91,7 +89,6 @@ export default function ProfilePage() {
     });
   };
 
-  // Determine the display name: prioritize Firestore profile name, fallback to auth name
   const displayName = profile?.name || user?.displayName || "Member";
   const firstName = displayName.split(' ')[0];
   const isVerified = profile?.isVerified || !!user?.phoneNumber;
@@ -113,7 +110,6 @@ export default function ProfilePage() {
       <Navbar />
       <div className="container px-4 py-12 mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Sidebar */}
           <Card className="lg:col-span-1 border-none shadow-md h-fit">
             <CardContent className="p-6">
               <div className="flex flex-col items-center text-center">
@@ -159,7 +155,6 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
 
-          {/* Main Content */}
           <div className="lg:col-span-3 space-y-8">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="bg-white border-none shadow-sm mb-6 w-full justify-start h-12 p-1 gap-2">

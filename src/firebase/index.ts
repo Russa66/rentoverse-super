@@ -1,3 +1,4 @@
+
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
@@ -5,24 +6,21 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-/**
- * Initializes Firebase and returns the core SDK instances.
- * Includes explicit logging for connectivity verification.
- */
 export function initializeFirebase() {
   let app: FirebaseApp;
 
   if (!getApps().length) {
-    console.log('[Firebase] Initializing with Project ID:', firebaseConfig.projectId);
     app = initializeApp(firebaseConfig);
+    console.log('[Firebase] ✅ New Instance Initialized:', firebaseConfig.projectId);
   } else {
     app = getApp();
+    console.log('[Firebase] 🔄 Using Existing Instance:', firebaseConfig.projectId);
   }
 
-  // Diagnostic log that appears in the browser console (F12)
-  console.log('✅ RentoVerse Firebase Connected:', firebaseConfig.projectId);
-
-  return getSdks(app);
+  const sdks = getSdks(app);
+  console.log('[Firebase] 🚀 Services Ready (Firestore + Auth)');
+  
+  return sdks;
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {

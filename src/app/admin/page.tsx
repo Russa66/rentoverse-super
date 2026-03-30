@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc, updateDocumentNonBlocking } from "@/firebase";
@@ -16,12 +17,11 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminDashboard() {
-  const { firestore } = useFirestore();
+  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const [editingLocality, setEditingLocality] = useState<{ id: string, value: string } | null>(null);
 
-  // Fetch the current user's profile to check for admin status
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, "users", user.uid);
@@ -29,22 +29,18 @@ export default function AdminDashboard() {
   
   const { data: profile, isLoading: profileLoading } = useDoc(userProfileRef);
 
-  // Fetch all listings
   const listingsQuery = useMemoFirebase(() => {
     if (!firestore || !profile?.isAdmin) return null;
     return collection(firestore, "room_listings");
   }, [firestore, profile]);
   const { data: listings, isLoading: listingsLoading } = useCollection(listingsQuery);
 
-  // Fetch all requirements (root level if possible, but rules match nested /users/{userId}/room_requirements)
-  // For prototyping, we'll look for a root collection if it exists
   const requestsQuery = useMemoFirebase(() => {
     if (!firestore || !profile?.isAdmin) return null;
     return collection(firestore, "room_requirements");
   }, [firestore, profile]);
   const { data: requests, isLoading: requestsLoading } = useCollection(requestsQuery);
 
-  // Fetch all social posts
   const postsQuery = useMemoFirebase(() => {
     if (!firestore || !profile?.isAdmin) return null;
     return collection(firestore, "social_posts");
@@ -57,7 +53,6 @@ export default function AdminDashboard() {
     const listingRef = doc(firestore, "room_listings", listingId);
     updateDocumentNonBlocking(listingRef, { locality: editingLocality.value });
     
-    // Also update the private copy if nested storage is used
     const listing = listings?.find(l => l.id === listingId);
     if (listing && listing.landlordId) {
       const privateRef = doc(firestore, `users/${listing.landlordId}/listings`, listingId);

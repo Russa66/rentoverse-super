@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function HomePage() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
-  const { firestore } = useFirestore();
+  const firestore = useFirestore();
   const { toast } = useToast();
   const [isTestingConnection, setIsTestingConnection] = useState(false);
 
@@ -87,9 +87,9 @@ export default function HomePage() {
           fill 
           className="object-cover brightness-[0.4]"
           priority
+          data-ai-hint="city apartment"
         />
         <div className="container relative z-10 px-4 text-center text-white">
-          {/* Connectivity Test Button */}
           <div className="mb-8 flex justify-center">
             <Button 
               variant="secondary" 

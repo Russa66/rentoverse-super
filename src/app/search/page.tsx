@@ -1,3 +1,4 @@
+
 "use client";
 
 import Navbar from "@/components/Navbar";
@@ -17,7 +18,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function SearchPage() {
   const [priceRange, setPriceRange] = useState([5000, 50000]);
-  const { firestore } = useFirestore();
+  const firestore = useFirestore();
 
   const listingsQuery = useMemoFirebase(() => {
     if (!firestore) return null;

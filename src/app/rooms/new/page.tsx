@@ -23,11 +23,10 @@ export default function NewListing() {
   const [successData, setSuccessData] = useState<{ id: string; postContent: string; title: string; rent: string } | null>(null);
   const { toast } = useToast();
   const router = useRouter();
-  const { firestore } = useFirestore();
+  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
 
-  // Image state: Array of 5 slots, can be null or base64 string
   const [images, setImages] = useState<(string | null)[]>([null, null, null, null, null]);
   const fileInputRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
 
@@ -82,7 +81,6 @@ export default function NewListing() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validation: Min 2 images
     const uploadedCount = images.filter(img => img !== null).length;
     if (uploadedCount < 2) {
       toast({ 
@@ -121,17 +119,14 @@ export default function NewListing() {
         description: formData.description,
         idealFor: formData.idealFor,
         isActive: true,
-        photoUrls: validImages, // Added photos to listing data
+        photoUrls: validImages,
         createdAt: now,
         updatedAt: now,
       };
 
       setLoadingStep("Publishing to RentoVerse Database...");
 
-      // Write to User's private subcollection
       setDocumentNonBlocking(doc(firestore, `users/${user.uid}/listings/${listingId}`), listingData, { merge: true });
-      
-      // Write to Public Root Collection
       setDocumentNonBlocking(doc(firestore, `room_listings/${listingId}`), listingData, { merge: true });
 
       setLoadingStep("AI is Crafting Your Social Posts...");
@@ -232,7 +227,6 @@ export default function NewListing() {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-10">
-                {/* Image Upload Section */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <Label className="text-lg font-headline font-bold">Property Photos</Label>
@@ -242,7 +236,6 @@ export default function NewListing() {
                   </div>
                   
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {/* Featured Slot (Larger) */}
                     <div className="col-span-2 row-span-2 relative group aspect-square md:aspect-auto">
                       <input 
                         type="file" 
@@ -277,7 +270,6 @@ export default function NewListing() {
                       )}
                     </div>
 
-                    {/* Smaller Slots */}
                     {[1, 2, 3, 4].map((idx) => (
                       <div key={idx} className="relative aspect-square">
                         <input 
