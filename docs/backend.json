@@ -38,6 +38,19 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "landlordId", "title", "location", "monthlyRent"]
+    },
+    "ConnectivityTest": {
+      "title": "ConnectivityTest",
+      "type": "object",
+      "description": "Data for testing Firestore connectivity.",
+      "properties": {
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "email": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "userAgent": { "type": "string" }
+      }
     }
   },
   "auth": {
@@ -59,6 +72,10 @@
     "/renters/{userId}": {
       "schema": { "type": "object" },
       "description": "Sentinel for renter role."
+    },
+    "/connectivity_tests/{testId}": {
+      "schema": { "$ref": "#/backend/entities/ConnectivityTest" },
+      "description": "Publicly accessible collection for connectivity testing."
     }
   }
 }

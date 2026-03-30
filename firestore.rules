@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.2 - Security Rules for RentoVerse
+    // Version: 1.0.3 - Explicit permissions for connectivity testing
     
     function isSignedIn() { return request.auth != null; }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
@@ -58,7 +58,7 @@ service cloud.firestore {
 
     // Publicly accessible collection for connectivity testing
     match /connectivity_tests/{testId} {
-      allow read, create: if true;
+      allow read, write: if true;
     }
   }
 }

@@ -6,11 +6,11 @@ import Navbar from "@/components/Navbar";
 import RoomCard from "@/components/RoomCard";
 import { MOCK_ROOMS } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
-import { Search, MapPin, Home, Database, CheckCircle, Loader2 } from "lucide-react";
+import { Search, MapPin, Home, Database, Loader2 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { useFirestore, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from "@/firebase";
 import { collection, query, limit, addDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
@@ -37,7 +37,7 @@ export default function HomePage() {
     setRandomizedListings(shuffled.slice(0, 10));
   }, [listings]);
 
-  const handleTestConnection = async () => {
+  const handleTestConnection = () => {
     if (!firestore) {
       toast({
         title: "Firestore not initialized",
@@ -48,32 +48,42 @@ export default function HomePage() {
     }
 
     setIsTestingConnection(true);
-    try {
-      const testData = {
-        name: "Connectivity Test User",
-        address: "123 Firebase St, Cloud City",
-        phoneNumber: "+919999999999",
-        email: "test@rentoverse.com",
-        timestamp: new Date().toISOString(),
-        userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : 'Server'
-      };
+    const testData = {
+      name: "Connectivity Test User",
+      address: "123 Firebase St, Cloud City",
+      phoneNumber: "+919999999999",
+      email: "test@rentoverse.com",
+      timestamp: new Date().toISOString(),
+      userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : 'Server'
+    };
 
-      const docRef = await addDoc(collection(firestore, "connectivity_tests"), testData);
-      
-      toast({
-        title: "Connection Success! ✅",
-        description: `Sample data saved to 'connectivity_tests' with ID: ${docRef.id}`,
+    // Follow non-blocking Firestore write guidelines
+    addDoc(collection(firestore, "connectivity_tests"), testData)
+      .then((docRef) => {
+        toast({
+          title: "Connection Success! ✅",
+          description: `Sample data saved to 'connectivity_tests' with ID: ${docRef.id}`,
+        });
+        setIsTestingConnection(false);
+      })
+      .catch(async (error) => {
+        // Construct rich, contextual error for debugging
+        const permissionError = new FirestorePermissionError({
+          path: "connectivity_tests",
+          operation: "create",
+          requestResourceData: testData
+        });
+        
+        // Emit for the global error listener to display contextual overlay
+        errorEmitter.emit('permission-error', permissionError);
+        
+        toast({
+          title: "Connection Failed ❌",
+          description: "Permission denied. Please check Firestore Security Rules.",
+          variant: "destructive",
+        });
+        setIsTestingConnection(false);
       });
-    } catch (error: any) {
-      console.error("Connectivity Test Failed:", error);
-      toast({
-        title: "Connection Failed ❌",
-        description: error.message || "Could not write to the database. Check console for details.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsTestingConnection(false);
-    }
   };
 
   return (
