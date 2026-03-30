@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Phone, Mail, ArrowRight, ShieldCheck, Info } from "lucide-react";
+import { Phone, Mail, ArrowRight, ShieldCheck, Info, AlertCircle } from "lucide-react";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import Link from "next/link";
@@ -125,16 +125,18 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error("SMS Login Error:", error);
       let errorMessage = "Error sending verification code.";
+      let errorTitle = "Login Attempt Blocked";
       
       if (error.code === 'auth/too-many-requests') {
-        errorMessage = "Security Block: Too many attempts. Please wait 10-15 minutes.";
+        errorMessage = "Security Block: Too many attempts. Please wait 10-15 minutes before trying again.";
       } else if (error.code === 'auth/unauthorized-domain') {
-        errorMessage = "Unauthorized domain. Check Firebase Console settings.";
+        errorTitle = "Domain Not Authorized";
+        errorMessage = `Domain '${window.location.hostname}' is not authorized. Please add it to 'Authorized Domains' in the Firebase Console (Authentication > Settings).`;
       }
 
       toast({
         variant: "destructive",
-        title: "Login Attempt Blocked",
+        title: errorTitle,
         description: errorMessage,
       });
 

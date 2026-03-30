@@ -80,16 +80,18 @@ export default function RegisterPage() {
     } catch (error: any) {
       console.error("SMS Error:", error);
       let errorMessage = "Failed to send code.";
+      let errorTitle = "Registration Error";
       
       if (error.code === 'auth/too-many-requests') {
-        errorMessage = "Security Block: Too many attempts. Please wait 15 minutes.";
+        errorMessage = "Security Block: Too many attempts. Please wait 15 minutes before trying again.";
       } else if (error.code === 'auth/unauthorized-domain') {
-        errorMessage = "Domain not authorized. Check Firebase Console.";
+        errorTitle = "Domain Not Authorized";
+        errorMessage = `Domain '${window.location.hostname}' is not authorized. Add it to 'Authorized Domains' in the Firebase Console (Authentication > Settings).`;
       }
 
       toast({
         variant: "destructive",
-        title: "Registration Error",
+        title: errorTitle,
         description: errorMessage,
       });
       
