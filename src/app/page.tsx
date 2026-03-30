@@ -56,10 +56,10 @@ export default function HomePage() {
       userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : 'Server'
     };
 
-    // Create a specific doc reference to have a stable path for error reporting
+    // Create a document reference with a unique ID in the connectivity_tests collection
     const testDocRef = doc(collection(firestore, "connectivity_tests"));
 
-    // Follow non-blocking Firestore write guidelines
+    // Initiating mutation without 'await' as per non-blocking guidelines
     setDoc(testDocRef, testData)
       .then(() => {
         toast({
@@ -69,7 +69,7 @@ export default function HomePage() {
         setIsTestingConnection(false);
       })
       .catch(async (error) => {
-        // Construct rich, contextual error for debugging using the precise doc path
+        // Construct rich, contextual error for debugging
         const permissionError = new FirestorePermissionError({
           path: testDocRef.path,
           operation: "create",
