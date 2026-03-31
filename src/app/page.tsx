@@ -19,12 +19,17 @@ export default function HomePage() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
   const firestore = useFirestore();
   const auth = useAuth();
-  const { user, isUserLoading, userError } = useUser();
+  const { user, isUserLoading } = useUser();
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Ensure an anonymous session is active so that guests can browse auth-protected collections
   useEffect(() => {
     if (!isUserLoading && !user && auth) {
-      initiateAnonymousSignIn(auth);
+      initiateAnonymousSignIn(auth).catch((err: any) => {
+        if (err.code === 'auth/admin-restricted-operation') {
+          setAuthError("restricted");
+        }
+      });
     }
   }, [user, isUserLoading, auth]);
 
@@ -48,7 +53,7 @@ export default function HomePage() {
   }, [listings, isLoading]);
 
   // Determine if there's an auth restriction issue
-  const isAuthRestricted = listingsError?.message?.includes("permissions") && !user && !isUserLoading;
+  const isAuthRestricted = authError === "restricted" || (listingsError?.message?.includes("permissions") && !user && !isUserLoading);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -95,9 +100,16 @@ export default function HomePage() {
         {isAuthRestricted && (
           <Alert variant="destructive" className="mb-12 border-destructive/50 bg-destructive/5">
             <ShieldAlert className="h-4 w-4" />
-            <AlertTitle className="font-headline font-bold">Authentication Required</AlertTitle>
-            <AlertDescription className="text-sm">
-              To browse live properties, please ensure <strong>Anonymous Authentication</strong> is enabled in your Firebase Console (Authentication &gt; Sign-in method).
+            <AlertTitle className="font-headline font-bold">Action Required: Enable Anonymous Auth</AlertTitle>
+            <AlertDescription className="text-sm space-y-2">
+              <p>To allow guests to browse properties without logging in, you must enable <strong>Anonymous Authentication</strong> in your Firebase project.</p>
+              <p className="font-bold">Instructions:</p>
+              <ol className="list-decimal ml-5 space-y-1">
+                <li>Go to the <a href="https://console.firebase.google.com/" target="_blank" className="underline font-bold">Firebase Console</a>.</li>
+                <li>Navigate to <strong>Authentication</strong> > <strong>Sign-in method</strong>.</li>
+                <li>Click <strong>Add new provider</strong> and select <strong>Anonymous</strong>.</li>
+                <li>Enable it and click <strong>Save</strong>.</li>
+              </ol>
             </AlertDescription>
           </Alert>
         )}

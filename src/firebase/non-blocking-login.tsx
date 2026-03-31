@@ -7,12 +7,20 @@ import {
 } from 'firebase/auth';
 
 /** Initiate anonymous sign-in (non-blocking). */
-export function initiateAnonymousSignIn(authInstance: Auth): void {
-  // CRITICAL: Call signInAnonymously directly. 
-  // We catch the error to prevent "admin-restricted-operation" from crashing the app.
-  signInAnonymously(authInstance).catch(err => {
-    console.error("[RentoVerse Auth] Anonymous sign-in failed. Please check if 'Anonymous' provider is enabled in Firebase Console:", err);
-  });
+export function initiateAnonymousSignIn(authInstance: Auth): Promise<void> {
+  // We return the promise here so callers can handle specific errors like 'admin-restricted-operation'
+  return signInAnonymously(authInstance)
+    .then(() => {
+      console.log("[RentoVerse Auth] Guest session started.");
+    })
+    .catch(err => {
+      if (err.code === 'auth/admin-restricted-operation') {
+        console.warn("[RentoVerse Auth] Anonymous auth is disabled in Firebase Console. Guests will see limited data.");
+      } else {
+        console.error("[RentoVerse Auth] Anonymous sign-in failed:", err);
+      }
+      throw err; // Re-throw so the UI can respond if needed
+    });
 }
 
 /** Initiate email/password sign-up (non-blocking). */
