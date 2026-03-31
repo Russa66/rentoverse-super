@@ -1,8 +1,8 @@
 
 rules_version = '2';
-service cloud.firestore {
+service firebase.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.10 - Consolidated Proprietor and Tenant Separation
+    // Version: 1.0.11 - Enforced Collection Separation
     
     function isSignedIn() { return request.auth != null; }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
@@ -17,7 +17,7 @@ service cloud.firestore {
       allow update: if isOwner(userId) || isAdmin();
     }
 
-    // Proprietor Listings
+    // Proprietor Listings (Landlords)
     match /room_listings/{listingId} {
       allow read: if true;
       allow create: if isSignedIn();
@@ -28,7 +28,7 @@ service cloud.firestore {
       allow read, write: if isOwner(userId) || isAdmin();
     }
 
-    // Tenant Requirements
+    // Tenant Requirements (Renters)
     match /saved_search_requests/{requestId} {
       allow read: if true;
       allow create: if isSignedIn();
@@ -42,17 +42,6 @@ service cloud.firestore {
     // System Paths
     match /connectivity_tests/{testId} {
       allow read, write: if true;
-    }
-    
-    match /social_posts/{postId} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
-    }
-
-    match /users/{userId}/notifications/{notifId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create: if true;
     }
   }
 }

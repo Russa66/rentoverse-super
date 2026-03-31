@@ -47,6 +47,7 @@ export default function NewListing() {
     description: ""
   });
 
+  // Calculate uploaded count for validation
   const uploadedCount = imageFiles.filter(img => img !== null).length;
 
   useEffect(() => {
@@ -102,7 +103,7 @@ export default function NewListing() {
     }
 
     if (!user || !firestore || !storage) {
-      toast({ title: "Secure Connection Required", description: "Waiting for your secure session to initialize.", variant: "default" });
+      toast({ title: "Initializing Session", description: "Waiting for your secure connection to stabilize.", variant: "default" });
       return;
     }
 
@@ -184,7 +185,7 @@ export default function NewListing() {
               <CheckCircle2 className="h-12 w-12" />
             </div>
             <h2 className="text-3xl font-headline font-bold mb-2">Property Published!</h2>
-            <p className="opacity-90">Your property is now active and listed in your profile.</p>
+            <p className="opacity-90">Your property is now live on the marketplace.</p>
           </div>
           <CardContent className="p-8 space-y-6">
              <div className="p-4 bg-muted/50 rounded-xl border border-border">
@@ -197,7 +198,7 @@ export default function NewListing() {
                  View Listing
                </Button>
                <Button variant="ghost" onClick={() => router.push('/profile')} className="h-12">
-                 My Dashboard
+                 Return to Dashboard
                </Button>
              </div>
           </CardContent>
@@ -212,8 +213,8 @@ export default function NewListing() {
       <div className="container max-w-4xl px-4 py-8 mx-auto">
         <Card className="border-none shadow-lg overflow-hidden">
           <CardHeader className="text-center bg-primary/5 rounded-t-xl py-10">
-            <CardTitle className="text-3xl font-headline font-bold text-primary">Post Property Listing</CardTitle>
-            <CardDescription>Upload photos and details for your rental property.</CardDescription>
+            <CardTitle className="text-3xl font-headline font-bold text-primary">List Your Property</CardTitle>
+            <CardDescription>Upload photos and details to start finding tenants.</CardDescription>
           </CardHeader>
           <CardContent className="p-8">
             {loadingStep ? (
@@ -221,7 +222,7 @@ export default function NewListing() {
                  <Loader2 className="h-20 w-20 text-primary animate-spin" />
                  <div>
                    <p className="text-xl font-headline font-bold text-primary">{loadingStep}</p>
-                   <p className="text-sm text-muted-foreground mt-2">Please wait while we secure your data...</p>
+                   <p className="text-sm text-muted-foreground mt-2">Connecting to RentoVerse Secure Storage...</p>
                  </div>
               </div>
             ) : (
@@ -230,7 +231,7 @@ export default function NewListing() {
                   <div className="flex items-center justify-between">
                     <Label className="text-lg font-headline font-bold">Property Photos</Label>
                     <span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                      <ImageIcon className="h-3 w-3" /> Min 2, Max 5 photos
+                      <ImageIcon className="h-3 w-3" /> Min 2 photos required
                     </span>
                   </div>
                   
@@ -305,7 +306,7 @@ export default function NewListing() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="font-bold">Property Category</Label>
+                    <Label className="font-bold">Property Type</Label>
                     <Select required value={formData.propertyType} onValueChange={(v) => setFormData({...formData, propertyType: v})}>
                       <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                       <SelectContent>
@@ -342,7 +343,7 @@ export default function NewListing() {
                   </div>
 
                   <div className="space-y-2 sm:col-span-2">
-                    <Label className="font-bold">Target Tenants</Label>
+                    <Label className="font-bold">Ideal For</Label>
                     <Select required onValueChange={(v) => setFormData({...formData, idealFor: v})}>
                       <SelectTrigger><SelectValue placeholder="Select target audience" /></SelectTrigger>
                       <SelectContent>
@@ -352,16 +353,6 @@ export default function NewListing() {
                         <SelectItem value="Commercial">Commercial Clients</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="font-bold">Water Facility</Label>
-                    <Input required value={formData.waterSource} onChange={(e) => setFormData({...formData, waterSource: e.target.value})} placeholder="e.g. 24/7 Municipal" />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="font-bold">Distance to Transport</Label>
-                    <Input required value={formData.transport} onChange={(e) => setFormData({...formData, transport: e.target.value})} placeholder="e.g. 5 min walk to Station" />
                   </div>
                 </div>
 
@@ -385,7 +376,7 @@ export default function NewListing() {
                   <div>
                     <p className="font-headline font-bold text-primary">Secure Marketplace Access</p>
                     <p className="text-sm text-muted-foreground">
-                      Your listing will be saved securely to your profile and the public marketplace.
+                      Property images are stored securely on Firebase Storage for 100% reliability.
                     </p>
                   </div>
                 </div>
@@ -393,9 +384,9 @@ export default function NewListing() {
                 <Button 
                   type="submit" 
                   disabled={!!loadingStep || uploadedCount < 2 || !user} 
-                  className="w-full h-16 text-xl font-headline shadow-xl"
+                  className="w-full h-16 text-xl font-headline shadow-xl hover:shadow-primary/20 transition-all"
                 >
-                  {loadingStep || (user ? "Publish Listing" : "Connecting...")}
+                  {loadingStep || (user ? "Publish Listing" : "Connecting Securely...")}
                 </Button>
               </form>
             )}

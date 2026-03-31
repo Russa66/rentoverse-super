@@ -8,7 +8,7 @@
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
+        "email": { "type": "string", "format": "email", "description": "Read-only email address." },
         "phoneNumber": { "type": "string" },
         "address": { "type": "string" },
         "isAdmin": { "type": "boolean" },
@@ -62,19 +62,19 @@
     },
     "/room_listings/{listingId}": {
       "schema": { "$ref": "#/backend/entities/RoomListing" },
-      "description": "Public property listings posted by proprietors."
+      "description": "Proprietor (Landlord) public listings."
     },
     "/saved_search_requests/{requestId}": {
       "schema": { "$ref": "#/backend/entities/SavedSearchRequest" },
-      "description": "Public tenant requirements."
+      "description": "Tenant (Renter) public search requirements."
     },
     "/users/{userId}/listings/{listingId}": {
       "schema": { "$ref": "#/backend/entities/RoomListing" },
-      "description": "Private proprietor listings tracking."
+      "description": "Private tracking of proprietor's own listings."
     },
     "/users/{userId}/saved_search_requests/{requestId}": {
       "schema": { "$ref": "#/backend/entities/SavedSearchRequest" },
-      "description": "Private tenant requirements tracking."
+      "description": "Private tracking of tenant's own requirements."
     }
   }
 }
