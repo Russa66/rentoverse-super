@@ -12,11 +12,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser, useAuth } from "@/firebase";
-import { collection, doc, query, getDocs, where } from "firebase/firestore";
-import { setDocumentNonBlocking, updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { collection, doc } from "firebase/firestore";
+import { setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
-import { composeSocialPost } from "@/ai/flows/ai-social-post-composer-flow";
-import { Search, Sparkles, Phone, ShieldCheck, MapPin } from "lucide-react";
+import { Search, ShieldCheck, MapPin, Loader2, Phone } from "lucide-react";
 
 export default function PostRequirement() {
   const [loadingStep, setLoadingStep] = useState<string | null>(null);
@@ -89,6 +88,7 @@ export default function PostRequirement() {
         createdAt: new Date().toISOString(),
       };
 
+      // Save to public and private collections
       setDocumentNonBlocking(doc(firestore, `users/${user.uid}/saved_search_requests/${requestId}`), requestData, { merge: true });
       setDocumentNonBlocking(doc(firestore, `saved_search_requests/${requestId}`), requestData, { merge: true });
 
@@ -97,47 +97,7 @@ export default function PostRequirement() {
         updatedAt: new Date().toISOString()
       });
 
-      setLoadingStep("AI is Formatting for Social Groups...");
-      const aiPost = await composeSocialPost({
-        type: "requirement",
-        location: combinedLocation,
-        monthlyRent: `₹${formData.budget}`,
-        socialMediaType: "facebook",
-        acAvailable: formData.acRequired,
-        wifiAvailable: formData.wifiRequired,
-        inverterAvailable: formData.powerBackupRequired
-      });
-
-      addDocumentNonBlocking(collection(firestore, "social_posts"), {
-        authorId: user.uid,
-        savedSearchRequestId: requestId,
-        platform: "facebook",
-        postContent: aiPost.postContent,
-        status: "POSTED",
-        createdAt: new Date().toISOString()
-      });
-
-      setLoadingStep("Alerting Property Owners...");
-      const q = query(collection(firestore, "room_listings"), where("locality", "==", formData.location1.split(',')[0].trim()));
-      const querySnapshot = await getDocs(q);
-      
-      querySnapshot.forEach((listingDoc) => {
-        const listing = listingDoc.data();
-        const msg = `Match! A tenant is looking for a ${formData.propertyType} in ${combinedLocation} (Budget: ₹${formData.budget}). Contact: ${fullPhone}`;
-        
-        ["InApp", "WhatsApp", "Email"].forEach(method => {
-          addDocumentNonBlocking(collection(firestore, `users/${listing.landlordId}/notifications`), {
-            recipientId: listing.landlordId,
-            message: msg,
-            notificationType: "ListingMatch",
-            deliveryMethod: method,
-            status: "Pending",
-            createdAt: new Date().toISOString()
-          });
-        });
-      });
-
-      toast({ title: "Success!", description: "Requirement posted and AI-shared to social groups." });
+      toast({ title: "Requirement Posted", description: "Your search is now active in RentoVerse." });
       router.push("/profile");
     } catch (error) {
       toast({ title: "Error", description: "Failed to post requirement.", variant: "destructive" });
@@ -153,7 +113,7 @@ export default function PostRequirement() {
         <Card className="border-none shadow-xl overflow-hidden">
           <div className="bg-primary h-2 w-full" />
           <CardHeader className="text-center space-y-2 pb-8">
-            <div className="bg-primary/10 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-2 rotate-3 hover:rotate-0 transition-transform">
+            <div className="bg-primary/10 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-2">
               <Search className="h-8 w-8 text-primary" />
             </div>
             <CardTitle className="text-3xl font-headline font-bold">Post Your Requirement</CardTitle>
@@ -162,13 +122,10 @@ export default function PostRequirement() {
           <CardContent className="p-8">
             {loadingStep ? (
               <div className="flex flex-col items-center justify-center py-12 space-y-6">
-                 <div className="relative">
-                   <div className="h-20 w-20 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
-                   <Sparkles className="absolute inset-0 m-auto h-8 w-8 text-primary animate-pulse" />
-                 </div>
+                 <Loader2 className="h-12 w-12 text-primary animate-spin" />
                  <div className="text-center">
                     <p className="text-xl font-headline font-bold text-primary">{loadingStep}</p>
-                    <p className="text-sm text-muted-foreground mt-2">RentoVerse AI is matching your request...</p>
+                    <p className="text-sm text-muted-foreground mt-2">Saving your request to the cloud...</p>
                  </div>
               </div>
             ) : (
@@ -248,7 +205,7 @@ export default function PostRequirement() {
                         value={formData.phoneNumber} 
                         onChange={(e) => setFormData({...formData, phoneNumber: e.target.value.replace(/\D/g, '').slice(0, 10)})} 
                         placeholder="9876543210" 
-                        className="flex h-12 w-full rounded-md border border-input bg-background pl-14 pr-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex h-12 w-full rounded-md border border-input bg-background pl-14 pr-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         type="tel"
                         maxLength={10}
                       />
@@ -288,21 +245,15 @@ export default function PostRequirement() {
                 
                 <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 space-y-3">
                    <div className="flex items-start gap-3">
-                     <Sparkles className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                     <ShieldCheck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
                      <p className="text-[11px] text-muted-foreground leading-relaxed">
-                       RentoVerse will automatically post this requirement to relevant social groups and alert matching property owners.
-                     </p>
-                   </div>
-                   <div className="flex items-start gap-3">
-                     <ShieldCheck className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
-                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                       You can verify this phone number in your profile settings later to get the <strong>Verified Member</strong> badge and increase trust.
+                       Your requirement will be saved to your profile and visible to landlords on RentoVerse.
                      </p>
                    </div>
                 </div>
 
                 <Button type="submit" className="w-full h-14 text-lg font-headline shadow-lg hover:shadow-primary/20 transition-all">
-                   Find My Matching Room
+                   Post Requirement
                 </Button>
               </form>
             )}

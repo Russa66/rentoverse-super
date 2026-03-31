@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles, CheckCircle2, MessageCircle, ShieldCheck, Camera, X, Image as ImageIcon, Loader2 } from "lucide-react";
+import { CheckCircle2, ShieldCheck, Camera, X, Image as ImageIcon, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser, useAuth, useStorage } from "@/firebase";
@@ -16,12 +16,11 @@ import { collection, doc } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
-import { composeSocialPost } from "@/ai/flows/ai-social-post-composer-flow";
 import Image from "next/image";
 
 export default function NewListing() {
   const [loadingStep, setLoadingStep] = useState<string | null>(null);
-  const [successData, setSuccessData] = useState<{ id: string; postContent: string; title: string; rent: string } | null>(null);
+  const [successData, setSuccessData] = useState<{ id: string; title: string; rent: string } | null>(null);
   const { toast } = useToast();
   const router = useRouter();
   const firestore = useFirestore();
@@ -107,7 +106,7 @@ export default function NewListing() {
       return;
     }
 
-    setLoadingStep("Uploading Photos to Firebase Storage...");
+    setLoadingStep("Uploading Photos...");
 
     try {
       const listingId = doc(collection(firestore, "temp")).id;
@@ -121,7 +120,6 @@ export default function NewListing() {
           
           await new Promise((resolve, reject) => {
             uploadTask.on('state_changed', null, (error) => {
-               console.error("Storage Upload error:", error);
                reject(error);
             }, async () => {
               const url = await getDownloadURL(uploadTask.snapshot.ref);
@@ -132,12 +130,12 @@ export default function NewListing() {
         }
       }
 
-      setLoadingStep("Publishing Proprietor Listing...");
+      setLoadingStep("Publishing Listing...");
 
       const now = new Date().toISOString();
       const listingData = {
         id: listingId,
-        landlordId: user.uid, // Proprietor context
+        landlordId: user.uid,
         title: `${formData.bhkCount !== 'N/A' ? formData.bhkCount + ' BHK ' : ''}${formData.propertyType} in ${formData.location}`,
         location: formData.location,
         locality: formData.location.split(',')[0].trim(),
@@ -160,39 +158,13 @@ export default function NewListing() {
       setDocumentNonBlocking(doc(firestore, `users/${user.uid}/listings/${listingId}`), listingData, { merge: true });
       setDocumentNonBlocking(doc(firestore, `room_listings/${listingId}`), listingData, { merge: true });
 
-      setLoadingStep("AI is Crafting Your Social Posts...");
-      
-      let postContent = `New Listing: ${listingData.title}\nRent: ₹${formData.rent}\nArea: ${formData.areaSqFt} sq ft\nLocation: ${formData.location}`;
-      
-      try {
-        const aiPost = await composeSocialPost({
-          type: "listing",
-          location: formData.location,
-          propertyType: formData.propertyType,
-          areaSqFt: Number(formData.areaSqFt),
-          bhkCount: formData.bhkCount !== 'N/A' ? formData.bhkCount : undefined,
-          nearestCommunication: formData.transport,
-          monthlyRent: `₹${formData.rent}`,
-          socialMediaType: "facebook",
-          waterSupplyCondition: formData.waterSource,
-          wifiAvailable: formData.wifi,
-          acAvailable: formData.ac,
-          inverterAvailable: formData.powerBackup
-        });
-        postContent = aiPost.postContent;
-      } catch (aiError) {
-        console.warn("AI Generation failed", aiError);
-      }
-
       setSuccessData({ 
         id: listingId, 
-        postContent, 
         title: listingData.title, 
         rent: formData.rent 
       });
       
     } catch (error: any) {
-      console.error("Submission error:", error);
       toast({ 
         title: "Submission Error", 
         description: error.message || "Could not save listing.", 
@@ -203,12 +175,6 @@ export default function NewListing() {
     }
   };
 
-  const sendWhatsAppConfirmation = () => {
-    if (!successData) return;
-    const message = `Property: ${successData.title}\nRent: ₹${successData.rent}\n\nAI Prepared Social Post:\n\n${successData.postContent}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
-  };
-
   if (successData) {
     return (
       <div className="min-h-screen bg-muted/30 pb-12 flex items-center justify-center p-4">
@@ -217,20 +183,14 @@ export default function NewListing() {
             <div className="bg-white/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle2 className="h-12 w-12" />
             </div>
-            <h2 className="text-3xl font-headline font-bold mb-2">Proprietor Post Published!</h2>
-            <p className="opacity-90">Your property is now active in the RentoVerse marketplace.</p>
+            <h2 className="text-3xl font-headline font-bold mb-2">Property Published!</h2>
+            <p className="opacity-90">Your property is now active and listed in your profile.</p>
           </div>
           <CardContent className="p-8 space-y-6">
              <div className="p-4 bg-muted/50 rounded-xl border border-border">
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1">
-                  <Sparkles className="h-3 w-3 text-primary" /> AI Prepared Social Post
-                </p>
-                <p className="text-sm italic text-gray-700 whitespace-pre-wrap">{successData.postContent}</p>
+                <p className="text-sm font-bold">{successData.title}</p>
+                <p className="text-sm text-primary font-bold">Rent: ₹{successData.rent}</p>
              </div>
-
-             <Button onClick={sendWhatsAppConfirmation} className="w-full bg-green-600 hover:bg-green-700 h-12 gap-2">
-                <MessageCircle className="h-4 w-4" /> Share to WhatsApp
-             </Button>
 
              <div className="flex flex-col gap-2">
                <Button onClick={() => router.push(`/rooms/${successData.id}`)} className="h-12 font-headline">
@@ -252,16 +212,16 @@ export default function NewListing() {
       <div className="container max-w-4xl px-4 py-8 mx-auto">
         <Card className="border-none shadow-lg overflow-hidden">
           <CardHeader className="text-center bg-primary/5 rounded-t-xl py-10">
-            <CardTitle className="text-3xl font-headline font-bold text-primary">Post Property (Proprietor)</CardTitle>
-            <CardDescription>Upload photos and details. AI will handle the social media marketing.</CardDescription>
+            <CardTitle className="text-3xl font-headline font-bold text-primary">Post Property Listing</CardTitle>
+            <CardDescription>Upload photos and details for your rental property.</CardDescription>
           </CardHeader>
           <CardContent className="p-8">
             {loadingStep ? (
               <div className="flex flex-col items-center justify-center py-20 space-y-6 text-center">
-                 <div className="h-20 w-20 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+                 <Loader2 className="h-20 w-20 text-primary animate-spin" />
                  <div>
                    <p className="text-xl font-headline font-bold text-primary">{loadingStep}</p>
-                   <p className="text-sm text-muted-foreground mt-2">Please do not refresh or close the tab.</p>
+                   <p className="text-sm text-muted-foreground mt-2">Please wait while we secure your data...</p>
                  </div>
               </div>
             ) : (
@@ -275,7 +235,7 @@ export default function NewListing() {
                   </div>
                   
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="col-span-2 row-span-2 relative group aspect-square md:aspect-auto">
+                    <div className="col-span-2 row-span-2 relative aspect-square md:aspect-auto">
                       <input 
                         type="file" 
                         accept="image/*" 
@@ -289,20 +249,17 @@ export default function NewListing() {
                           <button 
                             type="button" 
                             onClick={() => removeImage(0)}
-                            className="absolute top-2 right-2 bg-destructive text-white p-1.5 rounded-full shadow-lg hover:bg-destructive/90"
+                            className="absolute top-2 right-2 bg-destructive text-white p-1.5 rounded-full shadow-lg"
                           >
                             <X className="h-4 w-4" />
                           </button>
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] font-bold uppercase py-1 text-center">Cover Photo</div>
                         </div>
                       ) : (
                         <div 
                           onClick={() => fileInputRefs[0].current?.click()}
-                          className="w-full h-full border-2 border-dashed border-primary/30 rounded-2xl flex flex-col items-center justify-center bg-primary/5 hover:bg-primary/10 cursor-pointer group"
+                          className="w-full h-full border-2 border-dashed border-primary/30 rounded-2xl flex flex-col items-center justify-center bg-primary/5 hover:bg-primary/10 cursor-pointer"
                         >
-                          <div className="bg-primary/20 p-4 rounded-full mb-3 group-hover:scale-110 transition-transform">
-                            <Camera className="h-8 w-8 text-primary" />
-                          </div>
+                          <Camera className="h-8 w-8 text-primary mb-3" />
                           <span className="text-sm font-bold text-primary">Add Cover Photo</span>
                         </div>
                       )}
@@ -323,7 +280,7 @@ export default function NewListing() {
                             <button 
                               type="button" 
                               onClick={() => removeImage(idx)}
-                              className="absolute top-1 right-1 bg-destructive text-white p-1 rounded-full shadow-md"
+                              className="absolute top-1 right-1 bg-destructive text-white p-1 rounded-full"
                             >
                               <X className="h-3 w-3" />
                             </button>
@@ -331,7 +288,7 @@ export default function NewListing() {
                         ) : (
                           <div 
                             onClick={() => fileInputRefs[idx].current?.click()}
-                            className="w-full h-full border-2 border-dashed border-muted-foreground/20 bg-muted/30 rounded-xl flex flex-col items-center justify-center hover:bg-muted/50 cursor-pointer"
+                            className="w-full h-full border-2 border-dashed border-muted-foreground/20 bg-muted/30 rounded-xl flex flex-col items-center justify-center cursor-pointer"
                           >
                             <Camera className="h-5 w-5 text-muted-foreground/40" />
                           </div>
@@ -391,7 +348,7 @@ export default function NewListing() {
                       <SelectContent>
                         <SelectItem value="Bachelor">Bachelors / Students</SelectItem>
                         <SelectItem value="Family">Families</SelectItem>
-                        <SelectItem value="Anyone">All Purpose (Bachelor/Family)</SelectItem>
+                        <SelectItem value="Anyone">All Purpose</SelectItem>
                         <SelectItem value="Commercial">Commercial Clients</SelectItem>
                       </SelectContent>
                     </Select>
@@ -410,25 +367,25 @@ export default function NewListing() {
 
                 <div className="grid grid-cols-3 gap-4">
                    <div className="flex items-center gap-2 border p-3 rounded-lg hover:bg-muted/50 cursor-pointer">
-                      <input type="checkbox" id="wifi" checked={formData.wifi} onChange={(e) => setFormData({...formData, wifi: e.target.checked})} className="h-4 w-4 rounded border-gray-300 text-primary" />
+                      <input type="checkbox" id="wifi" checked={formData.wifi} onChange={(e) => setFormData({...formData, wifi: e.target.checked})} className="h-4 w-4" />
                       <Label htmlFor="wifi" className="cursor-pointer font-medium">WiFi</Label>
                    </div>
                    <div className="flex items-center gap-2 border p-3 rounded-lg hover:bg-muted/50 cursor-pointer">
-                      <input type="checkbox" id="ac" checked={formData.ac} onChange={(e) => setFormData({...formData, ac: e.target.checked})} className="h-4 w-4 rounded border-gray-300 text-primary" />
+                      <input type="checkbox" id="ac" checked={formData.ac} onChange={(e) => setFormData({...formData, ac: e.target.checked})} className="h-4 w-4" />
                       <Label htmlFor="ac" className="cursor-pointer font-medium">AC</Label>
                    </div>
                    <div className="flex items-center gap-2 border p-3 rounded-lg hover:bg-muted/50 cursor-pointer">
-                      <input type="checkbox" id="backup" checked={formData.powerBackup} onChange={(e) => setFormData({...formData, powerBackup: e.target.checked})} className="h-4 w-4 rounded border-gray-300 text-primary" />
-                      <Label htmlFor="backup" className="cursor-pointer font-medium">Power Backup</Label>
+                      <input type="checkbox" id="backup" checked={formData.powerBackup} onChange={(e) => setFormData({...formData, powerBackup: e.target.checked})} className="h-4 w-4" />
+                      <Label htmlFor="backup" className="cursor-pointer font-medium">Inverter</Label>
                    </div>
                 </div>
 
                 <div className="bg-primary/5 p-6 rounded-2xl border border-primary/10 flex items-start gap-4">
-                  <ShieldCheck className="h-6 w-6 text-primary shrink-0 mt-0.5" />
+                  <ShieldCheck className="h-6 w-6 text-primary shrink-0" />
                   <div>
                     <p className="font-headline font-bold text-primary">Secure Marketplace Access</p>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      Your listing will be instantly shared across RentoVerse and stored in our secure database.
+                    <p className="text-sm text-muted-foreground">
+                      Your listing will be saved securely to your profile and the public marketplace.
                     </p>
                   </div>
                 </div>
@@ -436,9 +393,9 @@ export default function NewListing() {
                 <Button 
                   type="submit" 
                   disabled={!!loadingStep || uploadedCount < 2 || !user} 
-                  className="w-full h-16 text-xl font-headline shadow-xl hover:shadow-primary/20 transition-all"
+                  className="w-full h-16 text-xl font-headline shadow-xl"
                 >
-                  {loadingStep || (user ? "Publish Listing" : "Connecting Securely...")}
+                  {loadingStep || (user ? "Publish Listing" : "Connecting...")}
                 </Button>
               </form>
             )}
