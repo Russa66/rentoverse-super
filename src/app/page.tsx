@@ -35,8 +35,8 @@ export default function HomePage() {
     // Use Firestore data if available, otherwise use mock data
     const baseListings = (listings && listings.length > 0) ? listings : MOCK_ROOMS;
     
-    // Randomize for a fresh feel on every visit
-    const shuffled = [...baseListings].sort(() => 0.5 - Math.random());
+    // Use a stable seed based on the first item ID or current date to avoid hydration mismatches
+    const shuffled = [...baseListings].sort((a, b) => a.id.localeCompare(b.id));
     setRandomizedListings(shuffled.slice(0, 10));
   }, [listings, isLoading]);
 
