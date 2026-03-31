@@ -1,7 +1,7 @@
 rules_version = '2';
 service firebase.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.18 - Explicit sub-collection matches for query reliability and safer admin logic
+    // Version: 1.0.21 - Explicit public marketplace access and robust owner checks
     
     function isSignedIn() { return request.auth != null; }
     
@@ -10,19 +10,18 @@ service firebase.firestore {
     }
     
     function isAdmin() {
-      // Safely check for admin status using exists() check first to avoid errors if doc missing
+      // Safety check for admin status
       return isSignedIn() && 
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
-    // Root user profiles
+    // Root user profiles - Private
     match /users/{userId} {
       // Prioritize owner check to prevent unnecessary get() calls or recursion
       allow read, write: if isOwner(userId) || isAdmin();
       
       // Explicitly match sub-collections for 'list' operations (queries)
-      // This is more reliable for real-time listeners on sub-collections
       match /listings/{id} {
         allow read, write: if isOwner(userId) || isAdmin();
       }
@@ -36,14 +35,14 @@ service firebase.firestore {
 
     // Public Marketplace Listings (Landlords)
     match /room_listings/{listingId} {
-      allow read: if true;
+      allow read: if true; // Allows public browsing (get and list)
       allow create: if isSignedIn();
       allow update, delete: if isSignedIn() && (resource.data.landlordId == request.auth.uid || isAdmin());
     }
 
     // Public Marketplace Requirements (Tenants)
     match /saved_search_requests/{requestId} {
-      allow read: if true;
+      allow read: if true; // Allows public browsing (get and list)
       allow create: if isSignedIn();
       allow update, delete: if isSignedIn() && (resource.data.renterId == request.auth.uid || isAdmin());
     }

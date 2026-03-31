@@ -41,6 +41,8 @@ export default function ProfilePage() {
       setAddress(profile.address || "");
       // Email is read-only, pulled from Firestore profile or Auth state
       setEmail(profile.email || user?.email || "");
+    } else if (user?.email) {
+      setEmail(user.email);
     }
   }, [profile, user]);
 
