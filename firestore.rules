@@ -1,8 +1,7 @@
-
 rules_version = '2';
 service firebase.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.13 - Nested User Sub-collections for improved inheritance
+    // Version: 1.0.14 - Cleaned up connectivity tests
     
     function isSignedIn() { return request.auth != null; }
     
@@ -48,11 +47,6 @@ service firebase.firestore {
       allow read: if true;
       allow create: if isSignedIn();
       allow update, delete: if isSignedIn() && (resource.data.renterId == request.auth.uid || isAdmin());
-    }
-
-    // System Paths
-    match /connectivity_tests/{testId} {
-      allow read, write: if true;
     }
   }
 }
