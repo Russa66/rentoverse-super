@@ -2,7 +2,7 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Version: 1.0.4 - Public Access for Development
+    // Version: 1.0.5 - Unrestricted Access for Development
     // Allowing global access to ensure property images can be uploaded and viewed without permission errors.
     match /{allPaths=**} {
       allow read, write: if true;
