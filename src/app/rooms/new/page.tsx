@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -48,7 +47,7 @@ export default function NewListing() {
     description: ""
   });
 
-  // Explicitly calculate uploadedCount for the JSX to avoid ReferenceErrors
+  // Calculate uploadedCount for the UI logic
   const uploadedCount = imageFiles.filter(img => img !== null).length;
 
   useEffect(() => {
@@ -104,7 +103,7 @@ export default function NewListing() {
     }
 
     if (!user || !firestore || !storage) {
-      toast({ title: "Connecting...", description: "Setting up your secure workspace.", variant: "default" });
+      toast({ title: "Connecting...", description: "Setting up your secure workspace. Please wait a moment.", variant: "default" });
       return;
     }
 
@@ -122,7 +121,7 @@ export default function NewListing() {
           
           await new Promise((resolve, reject) => {
             uploadTask.on('state_changed', null, (error) => {
-               console.error("Upload error:", error);
+               console.error("Storage Upload error:", error);
                reject(error);
             }, async () => {
               const url = await getDownloadURL(uploadTask.snapshot.ref);
@@ -195,7 +194,7 @@ export default function NewListing() {
       console.error("Submission error:", error);
       toast({ 
         title: "Submission Error", 
-        description: error.message || "Could not save listing.", 
+        description: error.message || "Could not save listing. Please check your connection.", 
         variant: "destructive" 
       });
     } finally {
@@ -435,10 +434,10 @@ export default function NewListing() {
 
                 <Button 
                   type="submit" 
-                  disabled={!!loadingStep || uploadedCount < 2} 
+                  disabled={!!loadingStep || uploadedCount < 2 || !user} 
                   className="w-full h-16 text-xl font-headline shadow-xl hover:shadow-primary/20 transition-all"
                 >
-                  {loadingStep || "Publish Listing"}
+                  {loadingStep || (user ? "Publish Listing" : "Connecting Securely...")}
                 </Button>
               </form>
             )}
