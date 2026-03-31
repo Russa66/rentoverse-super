@@ -77,7 +77,7 @@ export default function ProfilePage() {
     
     updateDocumentNonBlocking(doc(firestore, "users", user.uid), {
       address,
-      email,
+      // Email is now read-only, so we don't update it from the form state here
       updatedAt: new Date().toISOString()
     });
 
@@ -195,14 +195,14 @@ export default function ProfilePage() {
                         </div>
                         <div className="space-y-2 md:col-span-2">
                           <Label htmlFor="email" className="flex items-center gap-1">
-                            <Mail className="h-4 w-4 text-primary" /> Email Address
+                            <Mail className="h-4 w-4 text-primary" /> Email Address (Read Only)
                           </Label>
                           <Input 
                             id="email" 
                             type="email" 
-                            placeholder="your@email.com" 
                             value={email} 
-                            onChange={(e) => setEmail(e.target.value)} 
+                            disabled
+                            className="bg-muted/50 cursor-not-allowed font-medium"
                           />
                         </div>
                         <div className="space-y-2 md:col-span-2">
