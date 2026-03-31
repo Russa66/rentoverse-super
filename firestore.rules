@@ -1,7 +1,7 @@
 rules_version = '2';
 service firebase.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.35 - Absolute Public Access for Marketplace
+    // Version: 1.0.36 - Absolute Public Access for Browsing
     
     function isSignedIn() { return request.auth != null; }
     
@@ -10,7 +10,7 @@ service firebase.firestore {
     }
 
     // Public Marketplace Listings (Landlords)
-    // Explicitly allowing READ (get and list) for everyone (auth == null)
+    // Explicitly allow GET and LIST for unauthenticated users
     match /room_listings/{listingId} {
       allow read: if true; 
       allow create: if isSignedIn();
@@ -24,7 +24,7 @@ service firebase.firestore {
       allow update, delete: if isOwner(resource.data.renterId);
     }
 
-    // Private User Profiles
+    // Private User Profiles & Sub-collections
     match /users/{userId} {
       allow read, write: if isOwner(userId);
       
