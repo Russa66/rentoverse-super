@@ -1,10 +1,31 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Version: 1.0.6 - Unrestricted Access for Development
-    // Ensuring global access to unblock property image uploads and views during testing.
+    // Version: 1.0.7 - Public Assets, Authenticated Uploads
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isRegistered() {
+      return isSignedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    // Property Images
+    match /listings/{listingId}/{fileName} {
+      // Anyone can view property images
+      allow read: if true;
+      
+      // Only registered users can upload images (limit size to 5MB)
+      allow write: if isRegistered() 
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Default catch-all
     match /{allPaths=**} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isRegistered();
     }
   }
 }

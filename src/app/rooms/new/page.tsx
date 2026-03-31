@@ -45,7 +45,6 @@ export default function NewListing() {
     description: ""
   });
 
-  const isAnonymous = user?.isAnonymous;
   const isRegistered = user && !user.isAnonymous;
 
   const handleImageUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,6 +147,7 @@ export default function NewListing() {
         updatedAt: now,
       };
 
+      // Atomic-style updates to both private and public locations
       setDocumentNonBlocking(doc(firestore!, `users/${user.uid}/listings/${listingId}`), listingData, { merge: true });
       setDocumentNonBlocking(doc(firestore!, `room_listings/${listingId}`), listingData, { merge: true });
 
@@ -401,7 +401,7 @@ export default function NewListing() {
                     <div>
                       <p className="font-headline font-bold text-primary">Secure Marketplace Access</p>
                       <p className="text-sm text-muted-foreground">
-                        Property images are stored securely on Firebase Storage for 100% reliability.
+                        Property images are stored securely on Firebase Storage for 100% reliability and fast loading.
                       </p>
                     </div>
                   </div>

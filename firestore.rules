@@ -1,10 +1,9 @@
 rules_version = '2';
 service firebase.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.42 - Unified Public Marketplace Access
-    // This version explicitly allows unrestricted READ access to marketplace collections
-    // to resolve "Missing or insufficient permissions" errors for guest users.
+    // Version: 1.0.43 - Robust Public Marketplace & Admin Moderation
     
+    // Helpers
     function isSignedIn() {
       return request.auth != null;
     }
@@ -23,20 +22,16 @@ service firebase.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
-    // Public Marketplace Collections
-    // Both room_listings and saved_search_requests are part of the open marketplace
+    // Public Marketplace: Properties
     match /room_listings/{listingId} {
-      allow read: if true; // Unrestricted browsing for guests and users
-      
-      // Mutations require a verified account
+      allow read: if true; // Open browsing for all
       allow create: if isRegistered();
       allow update, delete: if isOwner(resource.data.landlordId) || isAdmin();
     }
 
+    // Public Marketplace: Requirements
     match /saved_search_requests/{requestId} {
-      allow read: if true; // Unrestricted browsing for everyone
-      
-      // Mutations require a verified account
+      allow read: if true; // Open browsing for all
       allow create: if isRegistered();
       allow update, delete: if isOwner(resource.data.renterId) || isAdmin();
     }
@@ -46,10 +41,17 @@ service firebase.firestore {
       // Profiles are private to the owner and admins
       allow read, write: if isOwner(userId) || isAdmin();
       
-      // Sub-collections like private listings tracking
+      // Private sub-collections (e.g., /users/{uid}/listings/{id})
       match /{allSubcollections=**} {
         allow read, write: if isOwner(userId) || isAdmin();
       }
+    }
+
+    // Social Post Audit Log (Admin Only)
+    match /social_posts/{postId} {
+      allow read: if isAdmin();
+      allow create: if isRegistered(); // Users create logs when they use AI
+      allow update, delete: if isAdmin();
     }
   }
 }
