@@ -17,7 +17,7 @@ export default function HomePage() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
   const firestore = useFirestore();
 
-  // Public query: does not depend on 'user' or 'auth' state
+  // Public query for the marketplace
   const featuredQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(
@@ -30,11 +30,11 @@ export default function HomePage() {
   const [displayListings, setDisplayListings] = useState<any[]>([]);
 
   useEffect(() => {
-    // If we have an error (like permission denied while rules propagate), 
-    // or if we aren't loading and have no data, fallback to mock data.
+    // If rules are still propagating or there's a permission hitch,
+    // we fallback to mock data so the user never sees a broken page.
     if (!isLoading) {
-      const baseListings = (listings && listings.length > 0) ? listings : MOCK_ROOMS;
-      setDisplayListings(baseListings.slice(0, 10));
+      const hasData = listings && listings.length > 0;
+      setDisplayListings(hasData ? listings : MOCK_ROOMS.slice(0, 10));
     }
   }, [listings, isLoading, error]);
 

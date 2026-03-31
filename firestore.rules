@@ -1,7 +1,7 @@
 rules_version = '2';
 service firebase.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.43 - Robust Public Marketplace & Admin Moderation
+    // Version: 1.0.44 - Explicit Public Marketplace Access (Split Get/List)
     
     // Helpers
     function isSignedIn() {
@@ -24,33 +24,42 @@ service firebase.firestore {
 
     // Public Marketplace: Properties
     match /room_listings/{listingId} {
-      allow read: if true; // Open browsing for all
+      // Explicitly allow browsing for anyone (authenticated or not)
+      allow get, list: if true; 
+      
+      // Only registered users (phone/email) can create new listings
       allow create: if isRegistered();
+      
+      // Only the landlord who created it or an admin can edit/delete
       allow update, delete: if isOwner(resource.data.landlordId) || isAdmin();
     }
 
-    // Public Marketplace: Requirements
+    // Public Marketplace: Requirements (Tenant Search)
     match /saved_search_requests/{requestId} {
-      allow read: if true; // Open browsing for all
+      // Open for anyone to browse
+      allow get, list: if true;
+      
+      // Only registered tenants can post their requirements
       allow create: if isRegistered();
+      
+      // Only the owner or an admin can manage the requirement
       allow update, delete: if isOwner(resource.data.renterId) || isAdmin();
     }
 
-    // User Profiles & Private Data
+    // User Profiles & Private Tracking Data
     match /users/{userId} {
-      // Profiles are private to the owner and admins
+      // Profiles and their internal sub-collections are private to the owner and admins
       allow read, write: if isOwner(userId) || isAdmin();
       
-      // Private sub-collections (e.g., /users/{uid}/listings/{id})
       match /{allSubcollections=**} {
         allow read, write: if isOwner(userId) || isAdmin();
       }
     }
 
-    // Social Post Audit Log (Admin Only)
+    // Admin-only Audit Logs for Social Posts
     match /social_posts/{postId} {
       allow read: if isAdmin();
-      allow create: if isRegistered(); // Users create logs when they use AI
+      allow create: if isRegistered(); // Log is created when a user generates an AI post
       allow update, delete: if isAdmin();
     }
   }
