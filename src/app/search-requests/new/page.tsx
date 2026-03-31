@@ -11,11 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { useFirestore, useUser, useAuth } from "@/firebase";
+import { useFirestore, useUser, useAuth, useDoc, useMemoFirebase } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
-import { setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
-import { Search, ShieldCheck, MapPin, Loader2, Phone } from "lucide-react";
+import { Search, ShieldCheck, MapPin, Loader2, Phone, User as UserIcon } from "lucide-react";
 
 export default function PostRequirement() {
   const [loadingStep, setLoadingStep] = useState<string | null>(null);
@@ -25,7 +25,15 @@ export default function PostRequirement() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
 
+  const profileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, "users", user.uid);
+  }, [firestore, user]);
+
+  const { data: profile } = useDoc(profileRef);
+
   const [formData, setFormData] = useState({
+    name: "",
     location1: "",
     location2: "",
     location3: "",
@@ -41,13 +49,20 @@ export default function PostRequirement() {
     if (!isUserLoading && !user && auth) {
       initiateAnonymousSignIn(auth);
     }
-    if (user?.phoneNumber) {
-      const displayPhone = user.phoneNumber.startsWith('+91') 
-        ? user.phoneNumber.substring(3) 
-        : user.phoneNumber;
+  }, [user, isUserLoading, auth]);
+
+  useEffect(() => {
+    if (user?.phoneNumber || profile?.phoneNumber) {
+      const phone = user?.phoneNumber || profile?.phoneNumber || "";
+      const displayPhone = phone.startsWith('+91') 
+        ? phone.substring(3) 
+        : phone;
       setFormData(prev => ({ ...prev, phoneNumber: displayPhone }));
     }
-  }, [user, isUserLoading, auth]);
+    if (profile?.name) {
+      setFormData(prev => ({ ...prev, name: profile.name }));
+    }
+  }, [user, profile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,6 +75,11 @@ export default function PostRequirement() {
     const phoneDigits = formData.phoneNumber.trim().replace(/\D/g, '');
     if (phoneDigits.length !== 10) {
       toast({ title: "Phone Required", description: "Please enter a 10-digit mobile number.", variant: "destructive" });
+      return;
+    }
+
+    if (!formData.name.trim()) {
+      toast({ title: "Name Required", description: "Please enter your name.", variant: "destructive" });
       return;
     }
 
@@ -79,6 +99,7 @@ export default function PostRequirement() {
       const requestData = {
         id: requestId,
         renterId: user.uid,
+        renterName: formData.name,
         locationFilter: combinedLocation,
         maxRent: Number(formData.budget),
         propertyType: formData.propertyType,
@@ -88,14 +109,22 @@ export default function PostRequirement() {
         createdAt: new Date().toISOString(),
       };
 
-      // Save to public and private collections
+      // 1. Save to private user sub-collection
       setDocumentNonBlocking(doc(firestore, `users/${user.uid}/saved_search_requests/${requestId}`), requestData, { merge: true });
+      
+      // 2. Save to public marketplace
       setDocumentNonBlocking(doc(firestore, `saved_search_requests/${requestId}`), requestData, { merge: true });
 
-      updateDocumentNonBlocking(doc(firestore, "users", user.uid), { 
+      // 3. Update or Create user profile (Robust for anonymous users)
+      setDocumentNonBlocking(doc(firestore, "users", user.uid), { 
+        id: user.uid,
+        name: formData.name,
         phoneNumber: fullPhone,
-        updatedAt: new Date().toISOString()
-      });
+        updatedAt: new Date().toISOString(),
+        createdAt: profile?.createdAt || new Date().toISOString(),
+        isVerified: profile?.isVerified || false,
+        isAdmin: profile?.isAdmin || false,
+      }, { merge: true });
 
       toast({ title: "Requirement Posted", description: "Your search is now active in RentoVerse." });
       router.push("/profile");
@@ -105,6 +134,8 @@ export default function PostRequirement() {
       setLoadingStep(null);
     }
   };
+
+  const isAnonymous = !profile?.name;
 
   return (
     <div className="min-h-screen bg-muted/30 pb-12">
@@ -117,7 +148,9 @@ export default function PostRequirement() {
               <Search className="h-8 w-8 text-primary" />
             </div>
             <CardTitle className="text-3xl font-headline font-bold">Post Your Requirement</CardTitle>
-            <CardDescription>Tell us what you need and let the right property find you.</CardDescription>
+            <CardDescription>
+              {isAnonymous ? "No account needed! Just fill the details to start." : "Tell us what you need and let the right property find you."}
+            </CardDescription>
           </CardHeader>
           <CardContent className="p-8">
             {loadingStep ? (
@@ -130,6 +163,20 @@ export default function PostRequirement() {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
+                
+                <div className="space-y-2">
+                  <Label className="font-bold flex items-center gap-2">
+                    <UserIcon className="h-4 w-4 text-primary" /> Your Full Name
+                  </Label>
+                  <Input 
+                    required 
+                    value={formData.name} 
+                    onChange={(e) => setFormData({...formData, name: e.target.value})} 
+                    placeholder="Enter your name" 
+                    className="h-12"
+                  />
+                </div>
+
                 <div className="space-y-4">
                   <Label className="font-bold">Preferred Locations (Up to 3)</Label>
                   <div className="space-y-3">
