@@ -1,7 +1,7 @@
 rules_version = '2';
 service firebase.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.40 - Absolute Public Browsing
+    // Version: 1.0.41 - Explicit Public Marketplace Access
     
     function isSignedIn() {
       return request.auth != null;
@@ -23,17 +23,19 @@ service firebase.firestore {
 
     // Public Marketplace Listings (Landlords)
     match /room_listings/{listingId} {
-      // Browsing allowed for everyone - NO AUTH REQUIRED
-      allow read: if true;
-      // Posting requires a registered account (Phone or Email)
+      // Explicitly allow both document read (get) and collection query (list) for everyone
+      allow get, list: if true;
+      
+      // Posting and management requires a registered account
       allow create: if isRegistered();
       allow update, delete: if isOwner(resource.data.landlordId) || isAdmin();
     }
 
     // Public Marketplace Requirements (Tenants)
     match /saved_search_requests/{requestId} {
-      // Browsing allowed for everyone - NO AUTH REQUIRED
-      allow read: if true;
+      // Explicitly allow browsing for everyone
+      allow get, list: if true;
+      
       // Requirements also require registration to post
       allow create: if isRegistered();
       allow update, delete: if isOwner(resource.data.renterId) || isAdmin();

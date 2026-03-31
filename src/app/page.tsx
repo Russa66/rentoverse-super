@@ -5,7 +5,7 @@ import Navbar from "@/components/Navbar";
 import RoomCard from "@/components/RoomCard";
 import { MOCK_ROOMS } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
-import { Search, MapPin, Home, Sparkles } from "lucide-react";
+import { Search, MapPin, Home, Sparkles, Loader2 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
@@ -17,7 +17,7 @@ export default function HomePage() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
   const firestore = useFirestore();
 
-  // Query for featured listings from Firestore - runs for guests and logged-in users alike
+  // Public query: does not depend on 'user' or 'auth' state
   const featuredQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(
@@ -31,7 +31,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (isLoading) return;
-    // Use Firestore data if available, otherwise use mock data as fallback
+    // Use Firestore data if available, otherwise fallback to mock data for a full UI
     const baseListings = (listings && listings.length > 0) ? listings : MOCK_ROOMS;
     setDisplayListings(baseListings.slice(0, 10));
   }, [listings, isLoading]);
@@ -51,7 +51,7 @@ export default function HomePage() {
         />
         <div className="container relative z-10 px-4 text-center text-white">
           <Badge className="mb-4 bg-secondary text-secondary-foreground hover:bg-secondary font-headline py-1 px-4 text-xs uppercase tracking-widest">
-            <Sparkles className="h-3 w-3 mr-2" /> AI-Powered Marketplace
+            <Sparkles className="h-3 w-3 mr-2" /> Verified Marketplace
           </Badge>
           <h1 className="text-5xl md:text-7xl font-headline font-bold mb-6 tracking-tight">
             Find Your <span className="text-primary">Perfect</span> Stay.
@@ -81,7 +81,7 @@ export default function HomePage() {
         <div className="flex items-end justify-between mb-12 border-b pb-6">
           <div>
             <h2 className="text-3xl font-headline font-bold mb-2">Featured Properties</h2>
-            <p className="text-muted-foreground">Handpicked rooms and apartments verified by RentoVerse.</p>
+            <p className="text-muted-foreground">Handpicked rooms and apartments available for rent.</p>
           </div>
           <Link href="/search">
             <Button variant="link" className="text-primary font-bold text-lg p-0">
@@ -93,7 +93,7 @@ export default function HomePage() {
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-8">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-72 bg-muted animate-pulse rounded-3xl" />
+              <div key={i} className="aspect-[4/5] bg-muted animate-pulse rounded-3xl" />
             ))}
           </div>
         ) : (
