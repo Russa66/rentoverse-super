@@ -10,13 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, MessageCircle, Home, Bell, CheckCircle, Save, Sparkles, MapPin, XCircle, LogOut, Info, Loader2, Search, Mail } from "lucide-react";
+import { User, MessageCircle, Home, Bell, CheckCircle, Save, Sparkles, MapPin, XCircle, LogOut, Loader2, Search, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser, useCollection, useMemoFirebase, useAuth, useDoc } from "@/firebase";
 import { collection, query, orderBy, doc } from "firebase/firestore";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { format } from "date-fns";
-import SocialPostDialog from "@/components/SocialPostDialog";
 import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
 
@@ -77,7 +76,6 @@ export default function ProfilePage() {
     
     updateDocumentNonBlocking(doc(firestore, "users", user.uid), {
       address,
-      // Email is now read-only, so we don't update it from the form state here
       updatedAt: new Date().toISOString()
     });
 
@@ -250,7 +248,7 @@ export default function ProfilePage() {
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="text-right mr-4">
-                              <p className="text-sm font-bold text-primary">₹{listing.monthlyRent.toLocaleString('en-IN')}</p>
+                              <p className="text-sm font-bold text-primary">₹{(listing.monthlyRent || 0).toLocaleString('en-IN')}</p>
                               <p className="text-[10px] text-muted-foreground uppercase">Rent/mo</p>
                             </div>
                             <Button size="sm" variant="outline" onClick={() => router.push(`/rooms/${listing.id}`)}>View</Button>
@@ -287,7 +285,7 @@ export default function ProfilePage() {
                             </p>
                           </div>
                           <div className="text-right">
-                             <p className="text-sm font-bold text-secondary-foreground bg-secondary/20 px-2 py-1 rounded">Budget: ₹{req.maxRent.toLocaleString('en-IN')}</p>
+                             <p className="text-sm font-bold text-secondary-foreground bg-secondary/20 px-2 py-1 rounded">Budget: ₹{(req.maxRent || 0).toLocaleString('en-IN')}</p>
                              <p className="text-[10px] text-muted-foreground mt-1 uppercase">Active Match</p>
                           </div>
                         </Card>
@@ -310,7 +308,7 @@ export default function ProfilePage() {
                         <p className="text-muted-foreground">No new match alerts.</p>
                       </Card>
                     ) : (
-                      notifications?.map((notif) => (
+                      notifications?.map((notif: any) => (
                         <Card key={notif.id} className="border-none shadow-sm flex items-center p-4 gap-4 bg-white">
                            <div className={`p-2 rounded-full bg-primary/10 text-primary`}>
                               <Sparkles className="h-5 w-5" />
