@@ -11,7 +11,9 @@ interface FirebaseClientProviderProps {
 export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
   const firebaseServices = useMemo(() => {
     // Initialize Firebase on the client side, once per component mount.
-    return initializeFirebase();
+    const sdks = initializeFirebase();
+    console.log('[RentoVerse] 🚀 Firebase Client Services Initialized:', sdks.firebaseApp.options.projectId);
+    return sdks;
   }, []); // Empty dependency array ensures this runs only once on mount
 
   return (
@@ -19,6 +21,7 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
       firebaseApp={firebaseServices.firebaseApp}
       auth={firebaseServices.auth}
       firestore={firebaseServices.firestore}
+      storage={firebaseServices.storage}
     >
       {children}
     </FirebaseProvider>

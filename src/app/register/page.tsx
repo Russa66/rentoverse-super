@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -12,11 +13,10 @@ import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { ArrowRight, ShieldCheck, Phone, AlertCircle, Info, Loader2 } from "lucide-react";
+import { ArrowRight, ShieldCheck, Phone, Info, Loader2 } from "lucide-react";
 import { doc } from "firebase/firestore";
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import Link from "next/link";
@@ -26,8 +26,7 @@ export default function RegisterPage() {
   const [formData, setFormData] = useState({
     name: "",
     whatsapp: "",
-    email: "",
-    userType: "Tenant"
+    email: ""
   });
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -72,7 +71,6 @@ export default function RegisterPage() {
         'size': 'invisible'
       });
 
-      console.log('📲 Requesting OTP for:', fullPhoneNumber);
       const result = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifierRef.current);
       setConfirmationResult(result);
       setStep("verify");
@@ -80,25 +78,10 @@ export default function RegisterPage() {
     } catch (error: any) {
       console.error("SMS Error:", error);
       let errorMessage = "Failed to send code.";
-      let errorTitle = "Registration Error";
-      
       if (error.code === 'auth/too-many-requests') {
-        errorMessage = "Security Block: Too many attempts. Please wait 15 minutes before trying again.";
-      } else if (error.code === 'auth/unauthorized-domain') {
-        errorTitle = "Domain Not Authorized";
-        errorMessage = `Domain '${window.location.hostname}' is not authorized. Add it to 'Authorized Domains' in the Firebase Console (Authentication > Settings).`;
+        errorMessage = "Too many attempts. Please try again in 15 minutes.";
       }
-
-      toast({
-        variant: "destructive",
-        title: errorTitle,
-        description: errorMessage,
-      });
-      
-      if (recaptchaVerifierRef.current) {
-        recaptchaVerifierRef.current.clear();
-        recaptchaVerifierRef.current = null;
-      }
+      toast({ variant: "destructive", title: "Registration Error", description: errorMessage });
     } finally {
       setIsLoading(false);
     }
@@ -106,24 +89,18 @@ export default function RegisterPage() {
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!confirmationResult || otp.length !== 6 || !firestore) {
-      console.error('❌ Verification prerequisites not met:', { hasResult: !!confirmationResult, otpLength: otp.length, hasFirestore: !!firestore });
-      return;
-    }
+    if (!confirmationResult || otp.length !== 6 || !firestore) return;
 
     setIsLoading(true);
     try {
-      console.log('🔐 Verifying code...');
       const credential = await confirmationResult.confirm(otp);
       const user = credential.user;
-      console.log('✅ User authenticated:', user.uid);
 
       const userData = {
         id: user.uid,
         name: formData.name,
         phoneNumber: user.phoneNumber,
         email: formData.email || null,
-        userType: formData.userType,
         address: "",
         isAdmin: false,
         createdAt: new Date().toISOString(),
@@ -131,21 +108,10 @@ export default function RegisterPage() {
         isVerified: true,
       };
 
-      console.log('📁 Syncing profile to Firestore...');
-      
-      // Save primary user profile
       setDocumentNonBlocking(doc(firestore, "users", user.uid), userData, { merge: true });
       
-      // Save role sentinel
-      const sentinelPath = formData.userType === "Owner" ? "landlords" : "renters";
-      setDocumentNonBlocking(doc(firestore, sentinelPath, user.uid), { active: true }, { merge: true });
-      
-      console.log('🚀 Profile queued. Redirecting to dashboard...');
       toast({ title: "Welcome to RentoVerse", description: "Your account is ready." });
-      
-      setTimeout(() => {
-        router.push("/profile");
-      }, 100);
+      router.push("/profile");
       
     } catch (error: any) {
       console.error("Verification Error:", error);
@@ -168,7 +134,7 @@ export default function RegisterPage() {
             </div>
             <CardTitle className="text-2xl font-headline font-bold">Join RentoVerse</CardTitle>
             <CardDescription>
-              {step === "form" ? "Register with your mobile number." : "Verify your identity via SMS."}
+              {step === "form" ? "Quick registration with mobile number." : "Verify your identity via SMS."}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -186,16 +152,6 @@ export default function RegisterPage() {
                     required
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="userType">I am a...</Label>
-                  <Select value={formData.userType} onValueChange={(v) => setFormData({...formData, userType: v})}>
-                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Owner">Landlord / Owner</SelectItem>
-                      <SelectItem value="Tenant">Renter / Tenant</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="whatsapp">Phone Number</Label>
@@ -259,7 +215,7 @@ export default function RegisterPage() {
             <div className="mt-8 p-4 bg-primary/5 rounded-lg border border-primary/10 flex items-start gap-3">
               <ShieldCheck className="h-4 w-4 text-primary shrink-0 mt-0.5" />
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                By registering, you agree to RentoVerse's terms. We secure your data using industry-standard Firebase encryption.
+                RentoVerse secures your data using industry-standard Firebase encryption.
               </p>
             </div>
           </CardContent>

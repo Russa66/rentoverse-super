@@ -5,29 +5,27 @@ import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 export function initializeFirebase() {
   let app: FirebaseApp;
 
   if (!getApps().length) {
     app = initializeApp(firebaseConfig);
-    console.log('[Firebase] ✅ New Instance Initialized:', firebaseConfig.projectId);
+    console.log('[Firebase] ✅ Instance Initialized');
   } else {
     app = getApp();
-    console.log('[Firebase] 🔄 Using Existing Instance:', firebaseConfig.projectId);
   }
 
-  const sdks = getSdks(app);
-  console.log('[Firebase] 🚀 Services Ready (Firestore + Auth)');
-  
-  return sdks;
+  return getSdks(app);
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
   return {
     firebaseApp,
     auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp)
+    firestore: getFirestore(firebaseApp),
+    storage: getStorage(firebaseApp)
   };
 }
 

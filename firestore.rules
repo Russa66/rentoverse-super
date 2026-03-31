@@ -1,12 +1,12 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.5 - Refined connectivity and admin permissions
+    // Version: 1.0.6 - Unified User Rules & Storage Optimized permissions
     
     function isSignedIn() { return request.auth != null; }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
     
-    // Admin check: Reads the user profile to check the isAdmin flag
     function isAdmin() {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
@@ -17,14 +17,6 @@ service cloud.firestore {
       allow update: if isOwner(userId) || isAdmin();
     }
 
-    match /landlords/{userId} {
-      allow get, write: if isOwner(userId) || isAdmin();
-    }
-
-    match /renters/{userId} {
-      allow get, write: if isOwner(userId) || isAdmin();
-    }
-
     match /room_listings/{listingId} {
       allow read: if true;
       allow create: if isSignedIn();
@@ -32,6 +24,16 @@ service cloud.firestore {
     }
 
     match /users/{userId}/listings/{listingId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+
+    match /saved_search_requests/{requestId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (resource.data.renterId == request.auth.uid || isAdmin());
+    }
+
+    match /users/{userId}/saved_search_requests/{requestId} {
       allow read, write: if isOwner(userId) || isAdmin();
     }
 
@@ -46,20 +48,11 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    match /saved_search_requests/{requestId} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
-    }
-
-    match /users/{userId}/saved_search_requests/{requestId} {
-      allow read, write: if isOwner(userId) || isAdmin();
-    }
-
-    // Publicly accessible collection for connectivity testing
-    // Placed at the end to ensure it doesn't conflict with more specific matches
     match /connectivity_tests/{testId} {
       allow read, write: if true;
     }
+    
+    match /landlords/{userId} { allow read, write: if isOwner(userId) || isAdmin(); }
+    match /renters/{userId} { allow read, write: if isOwner(userId) || isAdmin(); }
   }
 }
