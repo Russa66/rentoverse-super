@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, MessageCircle, Home, Bell, CheckCircle, Save, Sparkles, MapPin, XCircle, LogOut, Info, Loader2, Search } from "lucide-react";
+import { User, MessageCircle, Home, Bell, CheckCircle, Save, Sparkles, MapPin, XCircle, LogOut, Info, Loader2, Search, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser, useCollection, useMemoFirebase, useAuth, useDoc } from "@/firebase";
 import { collection, query, orderBy, doc } from "firebase/firestore";
@@ -29,6 +29,7 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("account");
   const [address, setAddress] = useState("");
+  const [email, setEmail] = useState("");
 
   const profileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -38,10 +39,11 @@ export default function ProfilePage() {
   const { data: profile, isLoading: profileLoading } = useDoc(profileRef);
 
   useEffect(() => {
-    if (profile?.address) {
-      setAddress(profile.address);
+    if (profile) {
+      setAddress(profile.address || "");
+      setEmail(profile.email || user?.email || "");
     }
-  }, [profile]);
+  }, [profile, user]);
 
   const notificationsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -75,6 +77,7 @@ export default function ProfilePage() {
     
     updateDocumentNonBlocking(doc(firestore, "users", user.uid), {
       address,
+      email,
       updatedAt: new Date().toISOString()
     });
 
@@ -189,6 +192,18 @@ export default function ProfilePage() {
                             <MessageCircle className="h-4 w-4 text-green-500" /> WhatsApp Contact
                           </Label>
                           <Input id="whatsapp" value={profile?.phoneNumber || user?.phoneNumber || "N/A"} disabled className="bg-muted/50 cursor-not-allowed font-medium" />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <Label htmlFor="email" className="flex items-center gap-1">
+                            <Mail className="h-4 w-4 text-primary" /> Email Address
+                          </Label>
+                          <Input 
+                            id="email" 
+                            type="email" 
+                            placeholder="your@email.com" 
+                            value={email} 
+                            onChange={(e) => setEmail(e.target.value)} 
+                          />
                         </div>
                         <div className="space-y-2 md:col-span-2">
                           <Label htmlFor="address">Default Address</Label>
