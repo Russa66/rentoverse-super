@@ -11,38 +11,22 @@ import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { useFirestore, useCollection, useMemoFirebase, useUser, useAuth } from "@/firebase";
 import { collection, query, limit } from "firebase/firestore";
-import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function HomePage() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
   const firestore = useFirestore();
-  const auth = useAuth();
-  const { user, isUserLoading } = useUser();
-  const [authError, setAuthError] = useState<string | null>(null);
 
-  // Ensure an anonymous session is active so that guests can browse auth-protected collections
-  useEffect(() => {
-    if (!isUserLoading && !user && auth) {
-      initiateAnonymousSignIn(auth).catch((err: any) => {
-        if (err.code === 'auth/admin-restricted-operation') {
-          setAuthError("restricted");
-        }
-      });
-    }
-  }, [user, isUserLoading, auth]);
-
-  // Query for featured listings from Firestore
+  // Query for featured listings from Firestore - now runs without auth requirement
   const featuredQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore) return null;
     return query(
       collection(firestore, "room_listings"),
       limit(20)
     );
-  }, [firestore, user]);
+  }, [firestore]);
 
-  const { data: listings, isLoading, error: listingsError } = useCollection(featuredQuery);
+  const { data: listings, isLoading } = useCollection(featuredQuery);
   const [displayListings, setDisplayListings] = useState<any[]>([]);
 
   useEffect(() => {
@@ -51,9 +35,6 @@ export default function HomePage() {
     const baseListings = (listings && listings.length > 0) ? listings : MOCK_ROOMS;
     setDisplayListings(baseListings.slice(0, 10));
   }, [listings, isLoading]);
-
-  // Determine if there's an auth restriction issue
-  const isAuthRestricted = authError === "restricted" || (listingsError?.message?.includes("permissions") && !user && !isUserLoading);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -97,23 +78,6 @@ export default function HomePage() {
       </section>
 
       <section className="py-20 container px-4 mx-auto flex-1">
-        {isAuthRestricted && (
-          <Alert variant="destructive" className="mb-12 border-destructive/50 bg-destructive/5">
-            <ShieldAlert className="h-4 w-4" />
-            <AlertTitle className="font-headline font-bold">Action Required: Enable Anonymous Auth</AlertTitle>
-            <AlertDescription className="text-sm space-y-2">
-              <p>To allow guests to browse properties without logging in, you must enable <strong>Anonymous Authentication</strong> in your Firebase project.</p>
-              <p className="font-bold">Instructions:</p>
-              <ol className="list-decimal ml-5 space-y-1">
-                <li>Go to the <a href="https://console.firebase.google.com/" target="_blank" className="underline font-bold">Firebase Console</a>.</li>
-                <li>Navigate to <strong>Authentication</strong> > <strong>Sign-in method</strong>.</li>
-                <li>Click <strong>Add new provider</strong> and select <strong>Anonymous</strong>.</li>
-                <li>Enable it and click <strong>Save</strong>.</li>
-              </ol>
-            </AlertDescription>
-          </Alert>
-        )}
-
         <div className="flex items-end justify-between mb-12 border-b pb-6">
           <div>
             <h2 className="text-3xl font-headline font-bold mb-2">Featured Properties</h2>

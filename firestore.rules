@@ -1,7 +1,7 @@
 rules_version = '2';
 service firebase.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.38 - Registration-Enforced Posting
+    // Version: 1.0.39 - Public Browsing Allowed
     
     function isSignedIn() {
       return request.auth != null;
@@ -23,8 +23,8 @@ service firebase.firestore {
 
     // Public Marketplace Listings (Landlords)
     match /room_listings/{listingId} {
-      // Browsing allowed for any authenticated session (including anonymous)
-      allow read: if isSignedIn();
+      // Browsing allowed for everyone, no auth required
+      allow read: if true;
       // Posting requires a registered account
       allow create: if isRegistered();
       allow update, delete: if isOwner(resource.data.landlordId) || isAdmin();
@@ -32,7 +32,8 @@ service firebase.firestore {
 
     // Public Marketplace Requirements (Tenants)
     match /saved_search_requests/{requestId} {
-      allow read: if isSignedIn();
+      // Browsing allowed for everyone, no auth required
+      allow read: if true;
       // Requirements also require registration to post
       allow create: if isRegistered();
       allow update, delete: if isOwner(resource.data.renterId) || isAdmin();
