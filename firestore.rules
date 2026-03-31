@@ -1,7 +1,7 @@
 rules_version = '2';
 service firebase.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.14 - Cleaned up connectivity tests
+    // Version: 1.0.15 - Fixed sub-collection list permissions using recursive wildcards
     
     function isSignedIn() { return request.auth != null; }
     
@@ -16,21 +16,12 @@ service firebase.firestore {
     }
 
     match /users/{userId} {
-      // Allow users to read and manage their own profile
+      // Allow users to read and manage their own profile document
       allow read, write: if isOwner(userId) || isAdmin();
 
-      // Private tracking of proprietor's own listings
-      match /listings/{listingId} {
-        allow read, write: if isOwner(userId) || isAdmin();
-      }
-
-      // Private tracking of tenant's own requirements
-      match /saved_search_requests/{requestId} {
-        allow read, write: if isOwner(userId) || isAdmin();
-      }
-
-      // Private notifications/alerts
-      match /notifications/{notifId} {
+      // Use a recursive wildcard to capture all sub-collections (listings, saved_search_requests, notifications).
+      // This ensures that 'list' operations (queries) are permitted for the owner on these paths.
+      match /{allSubcollections=**} {
         allow read, write: if isOwner(userId) || isAdmin();
       }
     }
