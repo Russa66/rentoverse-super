@@ -1,7 +1,7 @@
 rules_version = '2';
 service firebase.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.16 - Explicit sub-collection rules to resolve list permission issues
+    // Version: 1.0.17 - Recursion-safe Admin logic and recursive wildcards for user data
     
     function isSignedIn() { return request.auth != null; }
     
@@ -10,37 +10,33 @@ service firebase.firestore {
     }
     
     function isAdmin() {
+      // Note: This check relies on a document fetch. 
+      // We must ensure the 'users' match block handles owners first to prevent infinite loops.
       return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
     match /users/{userId} {
-      // Allow users to read and manage their own profile document
-      allow read, write: if isOwner(userId) || isAdmin();
+      // 1. Owner check ALWAYS comes first. If this is true, isAdmin is never called, preventing recursion.
+      allow read, write: if isOwner(userId);
+      
+      // 2. Admin access for moderation/dashboard
+      allow read, write: if isAdmin();
 
-      // Explicitly define sub-collections to ensure 'list' operations are permitted for the owner
-      match /listings/{id} {
-        allow read, write: if isOwner(userId) || isAdmin();
-      }
-      
-      match /saved_search_requests/{id} {
-        allow read, write: if isOwner(userId) || isAdmin();
-      }
-      
-      match /notifications/{id} {
+      // 3. Recursive wildcard handles all sub-collections (listings, saved_search_requests, notifications, etc.)
+      match /{allPaths=**} {
         allow read, write: if isOwner(userId) || isAdmin();
       }
     }
 
-    // Proprietor Listings (Landlords) - Public
+    // Proprietor Listings (Landlords) - Public Marketplace
     match /room_listings/{listingId} {
       allow read: if true;
       allow create: if isSignedIn();
       allow update, delete: if isSignedIn() && (resource.data.landlordId == request.auth.uid || isAdmin());
     }
 
-    // Tenant Requirements (Renters) - Public
+    // Tenant Requirements (Renters) - Public Marketplace
     match /saved_search_requests/{requestId} {
       allow read: if true;
       allow create: if isSignedIn();
