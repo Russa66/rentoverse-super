@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -40,6 +39,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (profile) {
       setAddress(profile.address || "");
+      // Email is read-only, pulled from Firestore profile or Auth state
       setEmail(profile.email || user?.email || "");
     }
   }, [profile, user]);
