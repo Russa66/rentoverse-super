@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -7,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles, CheckCircle2, MessageCircle, ShieldCheck, Camera, X, Image as ImageIcon, AlertCircle } from "lucide-react";
+import { Sparkles, CheckCircle2, MessageCircle, ShieldCheck, Camera, X, Image as ImageIcon, AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser, useAuth, useStorage } from "@/firebase";
@@ -47,7 +48,7 @@ export default function NewListing() {
     description: ""
   });
 
-  // Calculate uploadedCount at component scope so it's available for the JSX
+  // Explicitly calculate uploadedCount for the JSX to avoid ReferenceErrors
   const uploadedCount = imageFiles.filter(img => img !== null).length;
 
   useEffect(() => {
@@ -120,7 +121,10 @@ export default function NewListing() {
           const uploadTask = uploadBytesResumable(storageRef, file);
           
           await new Promise((resolve, reject) => {
-            uploadTask.on('state_changed', null, reject, async () => {
+            uploadTask.on('state_changed', null, (error) => {
+               console.error("Upload error:", error);
+               reject(error);
+            }, async () => {
               const url = await getDownloadURL(uploadTask.snapshot.ref);
               photoUrls.push(url);
               resolve(url);
@@ -187,9 +191,13 @@ export default function NewListing() {
         rent: formData.rent 
       });
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Submission error:", error);
-      toast({ title: "Submission Error", description: "Could not save listing.", variant: "destructive" });
+      toast({ 
+        title: "Submission Error", 
+        description: error.message || "Could not save listing.", 
+        variant: "destructive" 
+      });
     } finally {
       setLoadingStep(null);
     }

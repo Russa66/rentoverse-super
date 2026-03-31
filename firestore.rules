@@ -2,7 +2,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.6 - Unified User Rules & Storage Optimized permissions
+    // Version: 1.0.7 - Unified User Rules & Storage Optimized permissions
     
     function isSignedIn() { return request.auth != null; }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
