@@ -1,50 +1,36 @@
 rules_version = '2';
 service firebase.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.22 - Public marketplace access and robust owner-only user data
+    // Version: 1.0.35 - Absolute Public Access for Marketplace
     
     function isSignedIn() { return request.auth != null; }
     
     function isOwner(userId) { 
       return isSignedIn() && request.auth.uid == userId; 
     }
-    
-    function isAdmin() {
-      // Safety check for admin status - avoids recursion by prioritizing owner check
-      return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-    }
 
     // Public Marketplace Listings (Landlords)
+    // Explicitly allowing READ (get and list) for everyone (auth == null)
     match /room_listings/{listingId} {
-      allow read: if true; // Allows public browsing (get and list)
+      allow read: if true; 
       allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && (resource.data.landlordId == request.auth.uid || isAdmin());
+      allow update, delete: if isOwner(resource.data.landlordId);
     }
 
     // Public Marketplace Requirements (Tenants)
     match /saved_search_requests/{requestId} {
-      allow read: if true; // Allows public browsing (get and list)
+      allow read: if true;
       allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && (resource.data.renterId == request.auth.uid || isAdmin());
+      allow update, delete: if isOwner(resource.data.renterId);
     }
 
-    // Private User Profiles and their internal sub-collections
+    // Private User Profiles
     match /users/{userId} {
-      // Prioritize owner check to prevent unnecessary get() calls or recursion
-      allow read, write: if isOwner(userId) || isAdmin();
+      allow read, write: if isOwner(userId);
       
-      // Match all sub-collections (listings, saved_search_requests, notifications)
       match /{allSubcollections=**} {
-        allow read, write: if isOwner(userId) || isAdmin();
+        allow read, write: if isOwner(userId);
       }
-    }
-    
-    // Support for public tracking of social posting activity if needed by admin dashboard
-    match /social_posts/{postId} {
-       allow read: if isAdmin();
-       allow create: if isSignedIn();
     }
   }
 }
