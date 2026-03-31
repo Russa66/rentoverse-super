@@ -5,11 +5,11 @@ import Navbar from "@/components/Navbar";
 import RoomCard from "@/components/RoomCard";
 import { MOCK_ROOMS } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
-import { Search, MapPin, Home, Sparkles, ShieldAlert, Info } from "lucide-react";
+import { Search, MapPin, Home, Sparkles } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { useFirestore, useCollection, useMemoFirebase, useUser, useAuth } from "@/firebase";
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, limit } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 
@@ -17,7 +17,7 @@ export default function HomePage() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
   const firestore = useFirestore();
 
-  // Query for featured listings from Firestore - now runs without auth requirement
+  // Query for featured listings from Firestore - runs for guests and logged-in users alike
   const featuredQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(
@@ -31,7 +31,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (isLoading) return;
-    // Use Firestore data if available, otherwise use mock data
+    // Use Firestore data if available, otherwise use mock data as fallback
     const baseListings = (listings && listings.length > 0) ? listings : MOCK_ROOMS;
     setDisplayListings(baseListings.slice(0, 10));
   }, [listings, isLoading]);
