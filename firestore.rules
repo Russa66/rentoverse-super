@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.8 - Storage Access Refinement
+    // Version: 1.0.9 - Triggering redeploy for storage sync
     
     function isSignedIn() { return request.auth != null; }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }

@@ -47,7 +47,6 @@ export default function NewListing() {
     description: ""
   });
 
-  // Calculate uploadedCount for the UI logic
   const uploadedCount = imageFiles.filter(img => img !== null).length;
 
   useEffect(() => {
@@ -103,7 +102,7 @@ export default function NewListing() {
     }
 
     if (!user || !firestore || !storage) {
-      toast({ title: "Connecting...", description: "Setting up your secure workspace. Please wait a moment.", variant: "default" });
+      toast({ title: "Secure Connection Required", description: "Waiting for your secure session to initialize. Please try again in 2 seconds.", variant: "default" });
       return;
     }
 
