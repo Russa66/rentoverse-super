@@ -1,10 +1,14 @@
 rules_version = '2';
 service firebase.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.37 - Restored Auth-Compliant Rules
+    // Version: 1.0.38 - Registration-Enforced Posting
     
     function isSignedIn() {
       return request.auth != null;
+    }
+    
+    function isRegistered() {
+      return isSignedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
     
     function isOwner(userId) {
@@ -13,25 +17,28 @@ service firebase.firestore {
     
     function isAdmin() {
       return isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
     // Public Marketplace Listings (Landlords)
     match /room_listings/{listingId} {
-      // Browsing requires at least an anonymous session (Auth Compliance)
+      // Browsing allowed for any authenticated session (including anonymous)
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
+      // Posting requires a registered account
+      allow create: if isRegistered();
       allow update, delete: if isOwner(resource.data.landlordId) || isAdmin();
     }
 
     // Public Marketplace Requirements (Tenants)
     match /saved_search_requests/{requestId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
+      // Requirements also require registration to post
+      allow create: if isRegistered();
       allow update, delete: if isOwner(resource.data.renterId) || isAdmin();
     }
 
-    // Private User Profiles & Sub-collections
+    // User Profiles & Private Sub-collections
     match /users/{userId} {
       allow read, write: if isOwner(userId) || isAdmin();
       

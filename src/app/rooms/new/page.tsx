@@ -1,22 +1,21 @@
-
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, ShieldCheck, Camera, X, Image as ImageIcon, Loader2 } from "lucide-react";
+import { CheckCircle2, ShieldCheck, Camera, X, Image as ImageIcon, Loader2, Lock, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { useFirestore, useUser, useAuth, useStorage } from "@/firebase";
+import { useFirestore, useUser, useStorage } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
-import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function NewListing() {
   const [loadingStep, setLoadingStep] = useState<string | null>(null);
@@ -26,7 +25,6 @@ export default function NewListing() {
   const firestore = useFirestore();
   const storage = useStorage();
   const { user, isUserLoading } = useUser();
-  const auth = useAuth();
 
   const [imageFiles, setImageFiles] = useState<(File | null)[]>([null, null, null, null, null]);
   const [imagePreviews, setImagePreviews] = useState<(string | null)[]>([null, null, null, null, null]);
@@ -47,14 +45,8 @@ export default function NewListing() {
     description: ""
   });
 
-  // Calculate uploaded count for validation
-  const uploadedCount = imageFiles.filter(img => img !== null).length;
-
-  useEffect(() => {
-    if (!isUserLoading && !user && auth) {
-      initiateAnonymousSignIn(auth);
-    }
-  }, [user, isUserLoading, auth]);
+  const isAnonymous = user?.isAnonymous;
+  const isRegistered = user && !user.isAnonymous;
 
   const handleImageUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -93,6 +85,12 @@ export default function NewListing() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!isRegistered) {
+      toast({ title: "Registration Required", description: "You must be logged in with a verified account to post.", variant: "destructive" });
+      return;
+    }
+
+    const uploadedCount = imageFiles.filter(img => img !== null).length;
     if (uploadedCount < 2) {
       toast({ 
         title: "Photos Required", 
@@ -102,21 +100,16 @@ export default function NewListing() {
       return;
     }
 
-    if (!user || !firestore || !storage) {
-      toast({ title: "Initializing Session", description: "Waiting for your secure connection to stabilize.", variant: "default" });
-      return;
-    }
-
     setLoadingStep("Uploading Photos...");
 
     try {
-      const listingId = doc(collection(firestore, "temp")).id;
+      const listingId = doc(collection(firestore!, "temp")).id;
       const photoUrls: string[] = [];
 
       for (let i = 0; i < imageFiles.length; i++) {
         const file = imageFiles[i];
         if (file) {
-          const storageRef = ref(storage, `listings/${listingId}/${Date.now()}_${i}`);
+          const storageRef = ref(storage!, `listings/${listingId}/${Date.now()}_${i}`);
           const uploadTask = uploadBytesResumable(storageRef, file);
           
           await new Promise((resolve, reject) => {
@@ -155,9 +148,8 @@ export default function NewListing() {
         updatedAt: now,
       };
 
-      // Save to proprietor specific paths
-      setDocumentNonBlocking(doc(firestore, `users/${user.uid}/listings/${listingId}`), listingData, { merge: true });
-      setDocumentNonBlocking(doc(firestore, `room_listings/${listingId}`), listingData, { merge: true });
+      setDocumentNonBlocking(doc(firestore!, `users/${user.uid}/listings/${listingId}`), listingData, { merge: true });
+      setDocumentNonBlocking(doc(firestore!, `room_listings/${listingId}`), listingData, { merge: true });
 
       setSuccessData({ 
         id: listingId, 
@@ -175,6 +167,14 @@ export default function NewListing() {
       setLoadingStep(null);
     }
   };
+
+  if (isUserLoading) {
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (successData) {
     return (
@@ -211,187 +211,213 @@ export default function NewListing() {
     <div className="min-h-screen bg-muted/30 pb-12">
       <Navbar />
       <div className="container max-w-4xl px-4 py-8 mx-auto">
-        <Card className="border-none shadow-lg overflow-hidden">
-          <CardHeader className="text-center bg-primary/5 rounded-t-xl py-10">
-            <CardTitle className="text-3xl font-headline font-bold text-primary">List Your Property</CardTitle>
-            <CardDescription>Upload photos and details to start finding tenants.</CardDescription>
-          </CardHeader>
-          <CardContent className="p-8">
-            {loadingStep ? (
-              <div className="flex flex-col items-center justify-center py-20 space-y-6 text-center">
-                 <Loader2 className="h-20 w-20 text-primary animate-spin" />
-                 <div>
-                   <p className="text-xl font-headline font-bold text-primary">{loadingStep}</p>
-                   <p className="text-sm text-muted-foreground mt-2">Connecting to RentoVerse Secure Storage...</p>
-                 </div>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-10">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-lg font-headline font-bold">Property Photos</Label>
-                    <span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                      <ImageIcon className="h-3 w-3" /> Min 2 photos required
-                    </span>
+        {!isRegistered ? (
+          <Card className="border-none shadow-xl text-center p-12 space-y-6 bg-white">
+            <div className="bg-destructive/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto">
+              <Lock className="h-10 w-10 text-destructive" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-3xl font-headline font-bold">Registration Required</h1>
+              <p className="text-muted-foreground max-w-sm mx-auto">
+                To list a property on RentoVerse, you must have a verified account. This helps us maintain a secure and trustworthy marketplace.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+              <Link href="/login">
+                <Button className="font-headline h-12 px-8 gap-2">
+                  Log In Now <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="/register">
+                <Button variant="outline" className="font-headline h-12 px-8">
+                  Create Free Account
+                </Button>
+              </Link>
+            </div>
+          </Card>
+        ) : (
+          <Card className="border-none shadow-lg overflow-hidden">
+            <CardHeader className="text-center bg-primary/5 rounded-t-xl py-10">
+              <CardTitle className="text-3xl font-headline font-bold text-primary">List Your Property</CardTitle>
+              <CardDescription>Upload photos and details to start finding tenants.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-8">
+              {loadingStep ? (
+                <div className="flex flex-col items-center justify-center py-20 space-y-6 text-center">
+                  <Loader2 className="h-20 w-20 text-primary animate-spin" />
+                  <div>
+                    <p className="text-xl font-headline font-bold text-primary">{loadingStep}</p>
+                    <p className="text-sm text-muted-foreground mt-2">Connecting to RentoVerse Secure Storage...</p>
                   </div>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="col-span-2 row-span-2 relative aspect-square md:aspect-auto">
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        className="hidden" 
-                        ref={fileInputRefs[0]} 
-                        onChange={(e) => handleImageUpload(0, e)} 
-                      />
-                      {imagePreviews[0] ? (
-                        <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-md">
-                          <Image src={imagePreviews[0]} alt="Featured" fill className="object-cover" />
-                          <button 
-                            type="button" 
-                            onClick={() => removeImage(0)}
-                            className="absolute top-2 right-2 bg-destructive text-white p-1.5 rounded-full shadow-lg"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div 
-                          onClick={() => fileInputRefs[0].current?.click()}
-                          className="w-full h-full border-2 border-dashed border-primary/30 rounded-2xl flex flex-col items-center justify-center bg-primary/5 hover:bg-primary/10 cursor-pointer"
-                        >
-                          <Camera className="h-8 w-8 text-primary mb-3" />
-                          <span className="text-sm font-bold text-primary">Add Cover Photo</span>
-                        </div>
-                      )}
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-10">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-lg font-headline font-bold">Property Photos</Label>
+                      <span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                        <ImageIcon className="h-3 w-3" /> Min 2 photos required
+                      </span>
                     </div>
-
-                    {[1, 2, 3, 4].map((idx) => (
-                      <div key={idx} className="relative aspect-square">
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="col-span-2 row-span-2 relative aspect-square md:aspect-auto">
                         <input 
                           type="file" 
                           accept="image/*" 
                           className="hidden" 
-                          ref={fileInputRefs[idx]} 
-                          onChange={(e) => handleImageUpload(idx, e)} 
+                          ref={fileInputRefs[0]} 
+                          onChange={(e) => handleImageUpload(0, e)} 
                         />
-                        {imagePreviews[idx] ? (
-                          <div className="relative w-full h-full rounded-xl overflow-hidden shadow-sm">
-                            <Image src={imagePreviews[idx]!} alt={`Property ${idx}`} fill className="object-cover" />
+                        {imagePreviews[0] ? (
+                          <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-md">
+                            <Image src={imagePreviews[0]} alt="Featured" fill className="object-cover" />
                             <button 
                               type="button" 
-                              onClick={() => removeImage(idx)}
-                              className="absolute top-1 right-1 bg-destructive text-white p-1 rounded-full"
+                              onClick={() => removeImage(0)}
+                              className="absolute top-2 right-2 bg-destructive text-white p-1.5 rounded-full shadow-lg"
                             >
-                              <X className="h-3 w-3" />
+                              <X className="h-4 w-4" />
                             </button>
                           </div>
                         ) : (
                           <div 
-                            onClick={() => fileInputRefs[idx].current?.click()}
-                            className="w-full h-full border-2 border-dashed border-muted-foreground/20 bg-muted/30 rounded-xl flex flex-col items-center justify-center cursor-pointer"
+                            onClick={() => fileInputRefs[0].current?.click()}
+                            className="w-full h-full border-2 border-dashed border-primary/30 rounded-2xl flex flex-col items-center justify-center bg-primary/5 hover:bg-primary/10 cursor-pointer"
                           >
-                            <Camera className="h-5 w-5 text-muted-foreground/40" />
+                            <Camera className="h-8 w-8 text-primary mb-3" />
+                            <span className="text-sm font-bold text-primary">Add Cover Photo</span>
                           </div>
                         )}
                       </div>
-                    ))}
-                  </div>
-                </div>
 
-                <div className="grid gap-6 sm:grid-cols-2">
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label className="font-bold">Full Address / Location</Label>
-                    <Input required value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} placeholder="e.g. 12B, Green Park, South Block" />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label className="font-bold">Property Type</Label>
-                    <Select required value={formData.propertyType} onValueChange={(v) => setFormData({...formData, propertyType: v})}>
-                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Room">Single Room</SelectItem>
-                        <SelectItem value="Apartment">Apartment / Flat</SelectItem>
-                        <SelectItem value="PG">PG / Hostel</SelectItem>
-                        <SelectItem value="Commercial">Commercial Shop/Office</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="font-bold">BHK Configuration</Label>
-                    <Select value={formData.bhkCount} onValueChange={(v) => setFormData({...formData, bhkCount: v})}>
-                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="N/A">N/A (Single Room/PG)</SelectItem>
-                        <SelectItem value="1">1 BHK</SelectItem>
-                        <SelectItem value="2">2 BHK</SelectItem>
-                        <SelectItem value="3">3 BHK</SelectItem>
-                        <SelectItem value="4+">4+ BHK</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      {[1, 2, 3, 4].map((idx) => (
+                        <div key={idx} className="relative aspect-square">
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            ref={fileInputRefs[idx]} 
+                            onChange={(e) => handleImageUpload(idx, e)} 
+                          />
+                          {imagePreviews[idx] ? (
+                            <div className="relative w-full h-full rounded-xl overflow-hidden shadow-sm">
+                              <Image src={imagePreviews[idx]!} alt={`Property ${idx}`} fill className="object-cover" />
+                              <button 
+                                type="button" 
+                                onClick={() => removeImage(idx)}
+                                className="absolute top-1 right-1 bg-destructive text-white p-1 rounded-full"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div 
+                              onClick={() => fileInputRefs[idx].current?.click()}
+                              className="w-full h-full border-2 border-dashed border-muted-foreground/20 bg-muted/30 rounded-xl flex flex-col items-center justify-center cursor-pointer"
+                            >
+                              <Camera className="h-5 w-5 text-muted-foreground/40" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="font-bold">Area (Sq Ft)</Label>
-                    <Input required type="number" value={formData.areaSqFt} onChange={(e) => setFormData({...formData, areaSqFt: e.target.value})} placeholder="e.g. 1200" />
+                  <div className="grid gap-6 sm:grid-cols-2">
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label className="font-bold">Full Address / Location</Label>
+                      <Input required value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} placeholder="e.g. 12B, Green Park, South Block" />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="font-bold">Property Type</Label>
+                      <Select required value={formData.propertyType} onValueChange={(v) => setFormData({...formData, propertyType: v})}>
+                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Room">Single Room</SelectItem>
+                          <SelectItem value="Apartment">Apartment / Flat</SelectItem>
+                          <SelectItem value="PG">PG / Hostel</SelectItem>
+                          <SelectItem value="Commercial">Commercial Shop/Office</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="font-bold">BHK Configuration</Label>
+                      <Select value={formData.bhkCount} onValueChange={(v) => setFormData({...formData, bhkCount: v})}>
+                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="N/A">N/A (Single Room/PG)</SelectItem>
+                          <SelectItem value="1">1 BHK</SelectItem>
+                          <SelectItem value="2">2 BHK</SelectItem>
+                          <SelectItem value="3">3 BHK</SelectItem>
+                          <SelectItem value="4+">4+ BHK</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="font-bold">Area (Sq Ft)</Label>
+                      <Input required type="number" value={formData.areaSqFt} onChange={(e) => setFormData({...formData, areaSqFt: e.target.value})} placeholder="e.g. 1200" />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="font-bold">Monthly Rent (₹)</Label>
+                      <Input required type="number" value={formData.rent} onChange={(e) => setFormData({...formData, rent: e.target.value})} placeholder="e.g. 15000" />
+                    </div>
+
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label className="font-bold">Ideal For</Label>
+                      <Select required onValueChange={(v) => setFormData({...formData, idealFor: v})}>
+                        <SelectTrigger><SelectValue placeholder="Select target audience" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Bachelor">Bachelors / Students</SelectItem>
+                          <SelectItem value="Family">Families</SelectItem>
+                          <SelectItem value="Anyone">All Purpose</SelectItem>
+                          <SelectItem value="Commercial">Commercial Clients</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="font-bold">Monthly Rent (₹)</Label>
-                    <Input required type="number" value={formData.rent} onChange={(e) => setFormData({...formData, rent: e.target.value})} placeholder="e.g. 15000" />
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="flex items-center gap-2 border p-3 rounded-lg hover:bg-muted/50 cursor-pointer">
+                        <input type="checkbox" id="wifi" checked={formData.wifi} onChange={(e) => setFormData({...formData, wifi: e.target.checked})} className="h-4 w-4" />
+                        <Label htmlFor="wifi" className="cursor-pointer font-medium">WiFi</Label>
+                    </div>
+                    <div className="flex items-center gap-2 border p-3 rounded-lg hover:bg-muted/50 cursor-pointer">
+                        <input type="checkbox" id="ac" checked={formData.ac} onChange={(e) => setFormData({...formData, ac: e.target.checked})} className="h-4 w-4" />
+                        <Label htmlFor="ac" className="cursor-pointer font-medium">AC</Label>
+                    </div>
+                    <div className="flex items-center gap-2 border p-3 rounded-lg hover:bg-muted/50 cursor-pointer">
+                        <input type="checkbox" id="backup" checked={formData.powerBackup} onChange={(e) => setFormData({...formData, powerBackup: e.target.checked})} className="h-4 w-4" />
+                        <Label htmlFor="backup" className="cursor-pointer font-medium">Inverter</Label>
+                    </div>
                   </div>
 
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label className="font-bold">Ideal For</Label>
-                    <Select required onValueChange={(v) => setFormData({...formData, idealFor: v})}>
-                      <SelectTrigger><SelectValue placeholder="Select target audience" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Bachelor">Bachelors / Students</SelectItem>
-                        <SelectItem value="Family">Families</SelectItem>
-                        <SelectItem value="Anyone">All Purpose</SelectItem>
-                        <SelectItem value="Commercial">Commercial Clients</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="bg-primary/5 p-6 rounded-2xl border border-primary/10 flex items-start gap-4">
+                    <ShieldCheck className="h-6 w-6 text-primary shrink-0" />
+                    <div>
+                      <p className="font-headline font-bold text-primary">Secure Marketplace Access</p>
+                      <p className="text-sm text-muted-foreground">
+                        Property images are stored securely on Firebase Storage for 100% reliability.
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-3 gap-4">
-                   <div className="flex items-center gap-2 border p-3 rounded-lg hover:bg-muted/50 cursor-pointer">
-                      <input type="checkbox" id="wifi" checked={formData.wifi} onChange={(e) => setFormData({...formData, wifi: e.target.checked})} className="h-4 w-4" />
-                      <Label htmlFor="wifi" className="cursor-pointer font-medium">WiFi</Label>
-                   </div>
-                   <div className="flex items-center gap-2 border p-3 rounded-lg hover:bg-muted/50 cursor-pointer">
-                      <input type="checkbox" id="ac" checked={formData.ac} onChange={(e) => setFormData({...formData, ac: e.target.checked})} className="h-4 w-4" />
-                      <Label htmlFor="ac" className="cursor-pointer font-medium">AC</Label>
-                   </div>
-                   <div className="flex items-center gap-2 border p-3 rounded-lg hover:bg-muted/50 cursor-pointer">
-                      <input type="checkbox" id="backup" checked={formData.powerBackup} onChange={(e) => setFormData({...formData, powerBackup: e.target.checked})} className="h-4 w-4" />
-                      <Label htmlFor="backup" className="cursor-pointer font-medium">Inverter</Label>
-                   </div>
-                </div>
-
-                <div className="bg-primary/5 p-6 rounded-2xl border border-primary/10 flex items-start gap-4">
-                  <ShieldCheck className="h-6 w-6 text-primary shrink-0" />
-                  <div>
-                    <p className="font-headline font-bold text-primary">Secure Marketplace Access</p>
-                    <p className="text-sm text-muted-foreground">
-                      Property images are stored securely on Firebase Storage for 100% reliability.
-                    </p>
-                  </div>
-                </div>
-
-                <Button 
-                  type="submit" 
-                  disabled={!!loadingStep || uploadedCount < 2 || !user} 
-                  className="w-full h-16 text-xl font-headline shadow-xl hover:shadow-primary/20 transition-all"
-                >
-                  {loadingStep || (user ? "Publish Listing" : "Connecting Securely...")}
-                </Button>
-              </form>
-            )}
-          </CardContent>
-        </Card>
+                  <Button 
+                    type="submit" 
+                    disabled={!!loadingStep || !isRegistered} 
+                    className="w-full h-16 text-xl font-headline shadow-xl hover:shadow-primary/20 transition-all"
+                  >
+                    {loadingStep || "Publish Listing"}
+                  </Button>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
