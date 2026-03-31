@@ -1,35 +1,42 @@
 rules_version = '2';
 service firebase.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.36 - Absolute Public Access for Browsing
+    // Version: 1.0.37 - Restored Auth-Compliant Rules
     
-    function isSignedIn() { return request.auth != null; }
+    function isSignedIn() {
+      return request.auth != null;
+    }
     
-    function isOwner(userId) { 
-      return isSignedIn() && request.auth.uid == userId; 
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
     // Public Marketplace Listings (Landlords)
-    // Explicitly allow GET and LIST for unauthenticated users
     match /room_listings/{listingId} {
-      allow read: if true; 
+      // Browsing requires at least an anonymous session (Auth Compliance)
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update, delete: if isOwner(resource.data.landlordId);
+      allow update, delete: if isOwner(resource.data.landlordId) || isAdmin();
     }
 
     // Public Marketplace Requirements (Tenants)
     match /saved_search_requests/{requestId} {
-      allow read: if true;
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update, delete: if isOwner(resource.data.renterId);
+      allow update, delete: if isOwner(resource.data.renterId) || isAdmin();
     }
 
     // Private User Profiles & Sub-collections
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if isOwner(userId) || isAdmin();
       
       match /{allSubcollections=**} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if isOwner(userId) || isAdmin();
       }
     }
   }

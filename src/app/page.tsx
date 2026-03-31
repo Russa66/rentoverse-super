@@ -9,21 +9,32 @@ import { Search, MapPin, Home, Sparkles } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { useFirestore, useCollection, useMemoFirebase, useUser, useAuth } from "@/firebase";
 import { collection, query, limit } from "firebase/firestore";
+import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
+import { Badge } from "@/components/ui/badge";
 
 export default function HomePage() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
   const firestore = useFirestore();
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
+
+  // Ensure an anonymous session is active so that guests can browse auth-protected collections
+  useEffect(() => {
+    if (!isUserLoading && !user && auth) {
+      initiateAnonymousSignIn(auth);
+    }
+  }, [user, isUserLoading, auth]);
 
   // Query for featured listings from Firestore
   const featuredQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(
       collection(firestore, "room_listings"),
       limit(20)
     );
-  }, [firestore]);
+  }, [firestore, user]);
 
   const { data: listings, isLoading } = useCollection(featuredQuery);
   const [displayListings, setDisplayListings] = useState<any[]>([]);
@@ -128,13 +139,5 @@ export default function HomePage() {
         </div>
       </footer>
     </div>
-  );
-}
-
-function Badge({ children, className }: { children: React.ReactNode, className?: string }) {
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${className}`}>
-      {children}
-    </span>
   );
 }
