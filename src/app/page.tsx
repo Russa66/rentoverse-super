@@ -5,7 +5,7 @@ import Navbar from "@/components/Navbar";
 import RoomCard from "@/components/RoomCard";
 import { MOCK_ROOMS } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
-import { Search, MapPin, Home, Sparkles } from "lucide-react";
+import { Search, MapPin, Home, Sparkles, ShieldAlert, Info } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
@@ -13,12 +13,13 @@ import { useFirestore, useCollection, useMemoFirebase, useUser, useAuth } from "
 import { collection, query, limit } from "firebase/firestore";
 import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function HomePage() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
   const firestore = useFirestore();
   const auth = useAuth();
-  const { user, isUserLoading } = useUser();
+  const { user, isUserLoading, userError } = useUser();
 
   // Ensure an anonymous session is active so that guests can browse auth-protected collections
   useEffect(() => {
@@ -36,7 +37,7 @@ export default function HomePage() {
     );
   }, [firestore, user]);
 
-  const { data: listings, isLoading } = useCollection(featuredQuery);
+  const { data: listings, isLoading, error: listingsError } = useCollection(featuredQuery);
   const [displayListings, setDisplayListings] = useState<any[]>([]);
 
   useEffect(() => {
@@ -45,6 +46,9 @@ export default function HomePage() {
     const baseListings = (listings && listings.length > 0) ? listings : MOCK_ROOMS;
     setDisplayListings(baseListings.slice(0, 10));
   }, [listings, isLoading]);
+
+  // Determine if there's an auth restriction issue
+  const isAuthRestricted = listingsError?.message?.includes("permissions") && !user && !isUserLoading;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -88,6 +92,16 @@ export default function HomePage() {
       </section>
 
       <section className="py-20 container px-4 mx-auto flex-1">
+        {isAuthRestricted && (
+          <Alert variant="destructive" className="mb-12 border-destructive/50 bg-destructive/5">
+            <ShieldAlert className="h-4 w-4" />
+            <AlertTitle className="font-headline font-bold">Authentication Required</AlertTitle>
+            <AlertDescription className="text-sm">
+              To browse live properties, please ensure <strong>Anonymous Authentication</strong> is enabled in your Firebase Console (Authentication &gt; Sign-in method).
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="flex items-end justify-between mb-12 border-b pb-6">
           <div>
             <h2 className="text-3xl font-headline font-bold mb-2">Featured Properties</h2>
