@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -7,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles, CheckCircle2, MessageCircle, ShieldCheck, Camera, X, Image as ImageIcon, AlertCircle, Loader2 } from "lucide-react";
+import { Sparkles, CheckCircle2, MessageCircle, ShieldCheck, Camera, X, Image as ImageIcon, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useFirestore, useUser, useAuth, useStorage } from "@/firebase";
@@ -102,11 +103,11 @@ export default function NewListing() {
     }
 
     if (!user || !firestore || !storage) {
-      toast({ title: "Secure Connection Required", description: "Waiting for your secure session to initialize. Please try again in 2 seconds.", variant: "default" });
+      toast({ title: "Secure Connection Required", description: "Waiting for your secure session to initialize.", variant: "default" });
       return;
     }
 
-    setLoadingStep("Uploading Photos to Secure Storage...");
+    setLoadingStep("Uploading Photos to Firebase Storage...");
 
     try {
       const listingId = doc(collection(firestore, "temp")).id;
@@ -131,12 +132,12 @@ export default function NewListing() {
         }
       }
 
-      setLoadingStep("Publishing Property to Marketplace...");
+      setLoadingStep("Publishing Proprietor Listing...");
 
       const now = new Date().toISOString();
       const listingData = {
         id: listingId,
-        landlordId: user.uid,
+        landlordId: user.uid, // Proprietor context
         title: `${formData.bhkCount !== 'N/A' ? formData.bhkCount + ' BHK ' : ''}${formData.propertyType} in ${formData.location}`,
         location: formData.location,
         locality: formData.location.split(',')[0].trim(),
@@ -155,6 +156,7 @@ export default function NewListing() {
         updatedAt: now,
       };
 
+      // Save to proprietor specific paths
       setDocumentNonBlocking(doc(firestore, `users/${user.uid}/listings/${listingId}`), listingData, { merge: true });
       setDocumentNonBlocking(doc(firestore, `room_listings/${listingId}`), listingData, { merge: true });
 
@@ -193,7 +195,7 @@ export default function NewListing() {
       console.error("Submission error:", error);
       toast({ 
         title: "Submission Error", 
-        description: error.message || "Could not save listing. Please check your connection.", 
+        description: error.message || "Could not save listing.", 
         variant: "destructive" 
       });
     } finally {
@@ -215,7 +217,7 @@ export default function NewListing() {
             <div className="bg-white/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle2 className="h-12 w-12" />
             </div>
-            <h2 className="text-3xl font-headline font-bold mb-2">Listing Published!</h2>
+            <h2 className="text-3xl font-headline font-bold mb-2">Proprietor Post Published!</h2>
             <p className="opacity-90">Your property is now active in the RentoVerse marketplace.</p>
           </div>
           <CardContent className="p-8 space-y-6">
@@ -250,7 +252,7 @@ export default function NewListing() {
       <div className="container max-w-4xl px-4 py-8 mx-auto">
         <Card className="border-none shadow-lg overflow-hidden">
           <CardHeader className="text-center bg-primary/5 rounded-t-xl py-10">
-            <CardTitle className="text-3xl font-headline font-bold text-primary">Post Property</CardTitle>
+            <CardTitle className="text-3xl font-headline font-bold text-primary">Post Property (Proprietor)</CardTitle>
             <CardDescription>Upload photos and details. AI will handle the social media marketing.</CardDescription>
           </CardHeader>
           <CardContent className="p-8">
@@ -291,7 +293,7 @@ export default function NewListing() {
                           >
                             <X className="h-4 w-4" />
                           </button>
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] font-bold uppercase py-1 text-center">Featured Photo</div>
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] font-bold uppercase py-1 text-center">Cover Photo</div>
                         </div>
                       ) : (
                         <div 
@@ -424,9 +426,9 @@ export default function NewListing() {
                 <div className="bg-primary/5 p-6 rounded-2xl border border-primary/10 flex items-start gap-4">
                   <ShieldCheck className="h-6 w-6 text-primary shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-headline font-bold text-primary">Marketplace & AI Social Ready</p>
+                    <p className="font-headline font-bold text-primary">Secure Marketplace Access</p>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      Your listing will be instantly shared across RentoVerse and optimized for social media groups.
+                      Your listing will be instantly shared across RentoVerse and stored in our secure database.
                     </p>
                   </div>
                 </div>

@@ -21,6 +21,7 @@
     "RoomListing": {
       "title": "RoomListing",
       "type": "object",
+      "description": "A property listing posted by a proprietor (landlord).",
       "properties": {
         "id": { "type": "string" },
         "landlordId": { "type": "string" },
@@ -40,6 +41,7 @@
     "SavedSearchRequest": {
       "title": "SavedSearchRequest",
       "type": "object",
+      "description": "A room search requirement posted by a tenant.",
       "properties": {
         "id": { "type": "string" },
         "renterId": { "type": "string" },
@@ -60,15 +62,19 @@
     },
     "/room_listings/{listingId}": {
       "schema": { "$ref": "#/backend/entities/RoomListing" },
-      "description": "Public property listings."
+      "description": "Public property listings posted by proprietors."
     },
     "/saved_search_requests/{requestId}": {
       "schema": { "$ref": "#/backend/entities/SavedSearchRequest" },
       "description": "Public tenant requirements."
     },
+    "/users/{userId}/listings/{listingId}": {
+      "schema": { "$ref": "#/backend/entities/RoomListing" },
+      "description": "Private proprietor listings tracking."
+    },
     "/users/{userId}/saved_search_requests/{requestId}": {
       "schema": { "$ref": "#/backend/entities/SavedSearchRequest" },
-      "description": "Private search requests tracking."
+      "description": "Private tenant requirements tracking."
     }
   }
 }

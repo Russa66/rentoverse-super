@@ -1,7 +1,8 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.9 - Triggering redeploy for storage sync
+    // Version: 1.0.9 - Explicit Proprietor and Tenant Separation
     
     function isSignedIn() { return request.auth != null; }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
@@ -16,6 +17,7 @@ service cloud.firestore {
       allow update: if isOwner(userId) || isAdmin();
     }
 
+    // Proprietor Listings
     match /room_listings/{listingId} {
       allow read: if true;
       allow create: if isSignedIn();
@@ -26,6 +28,7 @@ service cloud.firestore {
       allow read, write: if isOwner(userId) || isAdmin();
     }
 
+    // Tenant Requirements
     match /saved_search_requests/{requestId} {
       allow read: if true;
       allow create: if isSignedIn();
@@ -50,8 +53,5 @@ service cloud.firestore {
     match /connectivity_tests/{testId} {
       allow read, write: if true;
     }
-    
-    match /landlords/{userId} { allow read, write: if isOwner(userId) || isAdmin(); }
-    match /renters/{userId} { allow read, write: if isOwner(userId) || isAdmin(); }
   }
 }
