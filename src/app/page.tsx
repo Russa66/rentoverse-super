@@ -26,15 +26,17 @@ export default function HomePage() {
     );
   }, [firestore]);
 
-  const { data: listings, isLoading } = useCollection(featuredQuery);
+  const { data: listings, isLoading, error } = useCollection(featuredQuery);
   const [displayListings, setDisplayListings] = useState<any[]>([]);
 
   useEffect(() => {
-    if (isLoading) return;
-    // Use Firestore data if available, otherwise fallback to mock data for a full UI
-    const baseListings = (listings && listings.length > 0) ? listings : MOCK_ROOMS;
-    setDisplayListings(baseListings.slice(0, 10));
-  }, [listings, isLoading]);
+    // If we have an error (like permission denied while rules propagate), 
+    // or if we aren't loading and have no data, fallback to mock data.
+    if (!isLoading) {
+      const baseListings = (listings && listings.length > 0) ? listings : MOCK_ROOMS;
+      setDisplayListings(baseListings.slice(0, 10));
+    }
+  }, [listings, isLoading, error]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

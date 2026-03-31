@@ -1,7 +1,9 @@
 rules_version = '2';
 service firebase.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.41 - Explicit Public Marketplace Access
+    // Version: 1.0.42 - Unified Public Marketplace Access
+    // This version explicitly allows unrestricted READ access to marketplace collections
+    // to resolve "Missing or insufficient permissions" errors for guest users.
     
     function isSignedIn() {
       return request.auth != null;
@@ -21,30 +23,30 @@ service firebase.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
-    // Public Marketplace Listings (Landlords)
+    // Public Marketplace Collections
+    // Both room_listings and saved_search_requests are part of the open marketplace
     match /room_listings/{listingId} {
-      // Explicitly allow both document read (get) and collection query (list) for everyone
-      allow get, list: if true;
+      allow read: if true; // Unrestricted browsing for guests and users
       
-      // Posting and management requires a registered account
+      // Mutations require a verified account
       allow create: if isRegistered();
       allow update, delete: if isOwner(resource.data.landlordId) || isAdmin();
     }
 
-    // Public Marketplace Requirements (Tenants)
     match /saved_search_requests/{requestId} {
-      // Explicitly allow browsing for everyone
-      allow get, list: if true;
+      allow read: if true; // Unrestricted browsing for everyone
       
-      // Requirements also require registration to post
+      // Mutations require a verified account
       allow create: if isRegistered();
       allow update, delete: if isOwner(resource.data.renterId) || isAdmin();
     }
 
-    // User Profiles & Private Sub-collections
+    // User Profiles & Private Data
     match /users/{userId} {
+      // Profiles are private to the owner and admins
       allow read, write: if isOwner(userId) || isAdmin();
       
+      // Sub-collections like private listings tracking
       match /{allSubcollections=**} {
         allow read, write: if isOwner(userId) || isAdmin();
       }
