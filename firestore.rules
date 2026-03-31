@@ -1,7 +1,7 @@
 rules_version = '2';
 service firebase.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.45 - Definitive Public Marketplace Access
+    // Version: 1.0.46 - Robust Public Marketplace Access
     
     // Helpers
     function isSignedIn() {
@@ -17,7 +17,6 @@ service firebase.firestore {
     }
     
     function isAdmin() {
-      // Safely check for admin status if the user is signed in
       return isSignedIn() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
@@ -25,47 +24,34 @@ service firebase.firestore {
 
     // Public Marketplace: Properties
     match /room_listings/{listingId} {
-      // ALLOW READ (get/list) for anyone - fixes the permission error for guests
+      // Allow anyone to browse (get/list)
       allow read: if true; 
       
-      // Only registered users (phone/email) can create new listings
+      // Only registered users can create
       allow create: if isRegistered();
       
-      // Only the landlord who created it or an admin can edit/delete
+      // Only the landlord or an admin can edit/delete
       allow update, delete: if isOwner(resource.data.landlordId) || isAdmin();
     }
 
-    // Public Marketplace: Requirements (Tenant Search)
+    // Public Marketplace: Tenant Requirements
     match /saved_search_requests/{requestId} {
-      // Open for anyone to browse
       allow read: if true;
-      
-      // Only registered tenants can post their requirements
       allow create: if isRegistered();
-      
-      // Only the owner or an admin can manage the requirement
       allow update, delete: if isOwner(resource.data.renterId) || isAdmin();
     }
 
-    // User Profiles & Private Tracking Data
+    // User Profiles & Private Data
     match /users/{userId} {
-      // Profiles are private to the owner and admins
       allow read, write: if isOwner(userId) || isAdmin();
       
-      match /listings/{listingId} {
-        allow read, write: if isOwner(userId) || isAdmin();
-      }
-      
-      match /saved_search_requests/{requestId} {
-        allow read, write: if isOwner(userId) || isAdmin();
-      }
-
-      match /notifications/{notifId} {
+      // Handle all nested sub-collections (listings, search_requests, notifications)
+      match /{allSubcollections=**} {
         allow read, write: if isOwner(userId) || isAdmin();
       }
     }
 
-    // Audit Logs for Social Posts
+    // Social Post Audit (Admin visibility only)
     match /social_posts/{postId} {
       allow read: if isAdmin();
       allow create: if isRegistered(); 
