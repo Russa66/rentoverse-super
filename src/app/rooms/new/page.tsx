@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -48,6 +47,9 @@ export default function NewListing() {
     description: ""
   });
 
+  // Calculate uploadedCount at component scope so it's available for the JSX
+  const uploadedCount = imageFiles.filter(img => img !== null).length;
+
   useEffect(() => {
     if (!isUserLoading && !user && auth) {
       initiateAnonymousSignIn(auth);
@@ -91,7 +93,6 @@ export default function NewListing() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const uploadedCount = imageFiles.filter(img => img !== null).length;
     if (uploadedCount < 2) {
       toast({ 
         title: "Photos Required", 
