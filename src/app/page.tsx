@@ -158,9 +158,6 @@ export default function HomePage() {
                   </Button>
                 </Link>
              </div>
-             <p className="text-xs text-muted-foreground font-medium pt-4">
-               Or visit the <Link href="/admin" className="underline font-bold text-primary">Admin Panel</Link> to seed sample records instantly.
-             </p>
           </div>
         )}
       </section>
