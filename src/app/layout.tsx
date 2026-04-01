@@ -9,6 +9,8 @@ export const metadata: Metadata = {
   description: 'Intuitive room search and listing platform with AI-powered social sharing.',
   icons: {
     icon: 'https://firebasestorage.googleapis.com/v0/b/studio-184067128-73095.firebasestorage.app/o/only%20logo.jpg?alt=media&token=13a54a46-da72-4cc0-aeb0-a422540387af',
+    shortcut: 'https://firebasestorage.googleapis.com/v0/b/studio-184067128-73095.firebasestorage.app/o/only%20logo.jpg?alt=media&token=13a54a46-da72-4cc0-aeb0-a422540387af',
+    apple: 'https://firebasestorage.googleapis.com/v0/b/studio-184067128-73095.firebasestorage.app/o/only%20logo.jpg?alt=media&token=13a54a46-da72-4cc0-aeb0-a422540387af',
   }
 };
 

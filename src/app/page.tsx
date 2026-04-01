@@ -6,7 +6,7 @@ import Navbar from "@/components/Navbar";
 import RoomCard from "@/components/RoomCard";
 import { MOCK_ROOMS } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
-import { Search, MapPin, Home, Sparkles, Loader2, Database, ShieldAlert } from "lucide-react";
+import { Search, MapPin, Home, Sparkles, Loader2, Database, ShieldAlert, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
@@ -111,7 +111,7 @@ export default function HomePage() {
             <p className="text-muted-foreground">
               {isLive 
                 ? "Direct from our live property network." 
-                : "No live data found. Visit the Admin Dashboard to seed sample properties."}
+                : "Explore our curated collection of verified stays."}
             </p>
           </div>
           <Link href="/search">
@@ -136,17 +136,31 @@ export default function HomePage() {
         )}
 
         {!isLive && !isLoading && (
-          <div className="mt-20 p-8 border-2 border-dashed rounded-3xl bg-muted/20 text-center space-y-4">
-             <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
-                <Database className="h-8 w-8 text-primary" />
+          <div className="mt-20 p-12 border-2 border-dashed rounded-3xl bg-muted/20 text-center space-y-6">
+             <div className="bg-primary/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto">
+                <Sparkles className="h-10 w-10 text-primary" />
              </div>
-             <h3 className="text-xl font-headline font-bold">Populate Your Database</h3>
-             <p className="text-muted-foreground max-w-md mx-auto">
-               Your Firestore collection is currently empty. Go to the <strong>Admin Dashboard</strong> and click <strong>Seed Sample Data</strong> to see real property records live on the site.
+             <div className="space-y-2">
+               <h3 className="text-3xl font-headline font-bold text-gray-900">Start Your RentoVerse Journey</h3>
+               <p className="text-muted-foreground max-w-lg mx-auto text-lg">
+                 Our marketplace is waiting for your content. Be the first to list a stay or post what you're looking for.
+               </p>
+             </div>
+             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+                <Link href="/rooms/new">
+                  <Button size="lg" className="h-14 px-8 font-headline text-lg w-full sm:w-auto shadow-xl hover:shadow-primary/20">
+                    <PlusCircle className="mr-2 h-5 w-5" /> Air Your Property
+                  </Button>
+                </Link>
+                <Link href="/search-requests/new">
+                  <Button variant="outline" size="lg" className="h-14 px-8 font-headline text-lg w-full sm:w-auto border-primary text-primary hover:bg-primary/5">
+                    <Search className="mr-2 h-5 w-5" /> Populate Your Query
+                  </Button>
+                </Link>
+             </div>
+             <p className="text-xs text-muted-foreground font-medium pt-4">
+               Or visit the <Link href="/admin" className="underline font-bold text-primary">Admin Panel</Link> to seed sample records instantly.
              </p>
-             <Link href="/admin">
-               <Button variant="secondary" className="font-headline">Go to Admin Dashboard</Button>
-             </Link>
           </div>
         )}
       </section>
