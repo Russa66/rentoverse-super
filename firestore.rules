@@ -1,77 +1,41 @@
 rules_version = '2';
 service firebase.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.47 - Definitive Public Access & Robust Admin Controls
-    
-    // --- BASIC HELPERS ---
-    
+    // --- HELPERS ---
     function isSignedIn() {
       return request.auth != null;
     }
-    
-    function isRegistered() {
-      return isSignedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous';
-    }
-    
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-    
-    // Robust admin check that safely handles unauthenticated users
-    function isAdmin() {
-      return isSignedIn() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-    }
 
-    // --- PUBLIC COLLECTIONS ---
-
+    // --- PUBLIC COLLECTIONS (GUESTS CAN VIEW) ---
     match /room_listings/{listingId} {
-      // Explicitly allow anyone to view single documents or list the entire collection
-      // This solves the "Missing or insufficient permissions" error for guests (auth: null)
-      allow read: if true; 
-      
-      // Creating requires a registered account (Phone or Email)
-      allow create: if isRegistered();
-      
-      // Updates and Deletes require ownership or admin privileges
-      allow update, delete: if isOwner(resource.data.landlordId) || isAdmin();
+      // Allow anyone (even guests) to read/list rooms
+      allow read: if true;
+      // Only registered users can post or manage their own listings
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (resource.data.landlordId == request.auth.uid);
     }
 
     match /saved_search_requests/{requestId} {
-      // Unrestricted public browsing for tenant requirements
+      // Allow anyone to see what people are looking for
       allow read: if true;
-      
-      // Posting requirements requires a registered account
-      allow create: if isRegistered();
-      
-      // Only the author or an admin can manage the request
-      allow update, delete: if isOwner(resource.data.renterId) || isAdmin();
+      // Only registered users can post their own search requirements
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (resource.data.renterId == request.auth.uid);
     }
 
     // --- PRIVATE USER DATA ---
-
     match /users/{userId} {
-      // Users can manage their own profile and private settings
-      allow read, write: if isOwner(userId) || isAdmin();
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
       
-      // Sub-collections like /users/{uid}/listings or /users/{uid}/saved_search_requests
       match /{allSubcollections=**} {
-        allow read, write: if isOwner(userId) || isAdmin();
+        allow read, write: if isSignedIn() && request.auth.uid == userId;
       }
     }
-
-    // --- AUDIT LOGS ---
     
+    // --- AUDIT LOGS (ADMIN ONLY) ---
     match /social_posts/{postId} {
-      // Only admins can see the full audit trail of AI-generated content
-      allow read: if isAdmin();
-      
-      // Registered users can record their AI posting activity
-      allow create: if isRegistered(); 
-      
-      // Modification and cleanup only by admins
-      allow update, delete: if isAdmin();
+      allow read: if isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      allow create: if isSignedIn();
     }
   }
 }

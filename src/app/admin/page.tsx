@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc, updateDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase";
@@ -70,7 +69,7 @@ export default function AdminDashboard() {
     setIsSeeding(true);
     
     try {
-      // 1. Seed Current User as Admin if not already
+      // 1. Seed Current User Profile
       setDocumentNonBlocking(doc(firestore, "users", user.uid), {
         id: user.uid,
         name: user.displayName || "Platform Admin",
@@ -81,36 +80,58 @@ export default function AdminDashboard() {
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
-      // 2. Seed Sample Listings
+      // 2. Seed Sample Listings to Public Collection
       for (const room of MOCK_ROOMS) {
         const listingRef = doc(firestore, "room_listings", room.id);
         const listingData = {
           ...room,
-          landlordId: user.uid, // Assign to current user for testing
+          landlordId: user.uid,
           isActive: true,
           createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
+          // Use high quality placeholder images for seeding
+          photoUrls: room.photoUrls || [`https://picsum.photos/seed/${room.id}/800/600`]
         };
         setDocumentNonBlocking(listingRef, listingData, { merge: true });
         
-        // Also seed to user's private collection
+        // Also seed to user's private collection for profile visibility
         const privateListingRef = doc(firestore, `users/${user.uid}/listings`, room.id);
         setDocumentNonBlocking(privateListingRef, listingData, { merge: true });
       }
 
       // 3. Seed some sample search requests
       const sampleRequests = [
-        { id: 'req_1', renterId: 'user_seed_1', locationFilter: 'Downtown, Metropolis', maxRent: 30000, propertyType: 'Studio', createdAt: new Date().toISOString(), notificationPreference: 'WhatsApp' },
-        { id: 'req_2', renterId: 'user_seed_2', locationFilter: 'West End', maxRent: 15000, propertyType: 'Single Room', createdAt: new Date().toISOString(), notificationPreference: 'SMS' }
+        { 
+          id: 'req_1', 
+          renterId: user.uid, 
+          renterName: 'Test Tenant 1',
+          locationFilter: 'Downtown, Metropolis', 
+          maxRent: 30000, 
+          propertyType: 'Studio', 
+          createdAt: new Date().toISOString(), 
+          notificationPreference: 'WhatsApp' 
+        },
+        { 
+          id: 'req_2', 
+          renterId: user.uid, 
+          renterName: 'Test Tenant 2',
+          locationFilter: 'West End, University Area', 
+          maxRent: 15000, 
+          propertyType: 'Single Room', 
+          createdAt: new Date().toISOString(), 
+          notificationPreference: 'SMS' 
+        }
       ];
 
       for (const req of sampleRequests) {
         setDocumentNonBlocking(doc(firestore, "saved_search_requests", req.id), req, { merge: true });
+        // Also save to private user collection
+        setDocumentNonBlocking(doc(firestore, `users/${user.uid}/saved_search_requests/${req.id}`), req, { merge: true });
       }
 
       toast({
-        title: "Database Seeded",
-        description: "Sample properties and users have been added to Firestore.",
+        title: "Database Seeded Successfully",
+        description: `${MOCK_ROOMS.length} properties and ${sampleRequests.length} requirements have been pushed to Firestore.`,
       });
     } catch (error: any) {
       toast({
@@ -128,13 +149,13 @@ export default function AdminDashboard() {
       <div className="min-h-screen bg-muted/30 flex flex-col">
         <Navbar />
         <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </div>
     );
   }
 
-  // Allow first user to see seed option even if not admin yet
+  // Allow first user to see seed option even if not admin yet to bootstrap the site
   const canSeeDashboard = user && (profile?.isAdmin || listings?.length === 0);
 
   if (!user || !canSeeDashboard) {
@@ -180,7 +201,7 @@ export default function AdminDashboard() {
             </div>
             <div>
               <h1 className="text-3xl font-headline font-bold tracking-tight">Admin Dashboard</h1>
-              <p className="text-muted-foreground text-sm">Real-time platform monitoring and database management.</p>
+              <p className="text-muted-foreground text-sm">Manage live properties and platform metadata.</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
