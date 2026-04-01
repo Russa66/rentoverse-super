@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef } from "react";
@@ -84,16 +85,16 @@ export default function NewListing() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!isRegistered) {
-      toast({ title: "Registration Required", description: "You must be logged in with a verified account to post.", variant: "destructive" });
+    if (!isRegistered || !firestore || !storage || !user) {
+      toast({ title: "Registration Required", description: "Waiting for authenticated session...", variant: "destructive" });
       return;
     }
 
     const uploadedCount = imageFiles.filter(img => img !== null).length;
-    if (uploadedCount < 2) {
+    if (uploadedCount < 1) {
       toast({ 
         title: "Photos Required", 
-        description: `Please upload at least 2 photos of the property.`, 
+        description: `Please upload at least 1 photo of the property.`, 
         variant: "destructive" 
       });
       return;
@@ -102,13 +103,13 @@ export default function NewListing() {
     setLoadingStep("Uploading Photos...");
 
     try {
-      const listingId = doc(collection(firestore!, "temp")).id;
+      const listingId = doc(collection(firestore, "room_listings")).id;
       const photoUrls: string[] = [];
 
       for (let i = 0; i < imageFiles.length; i++) {
         const file = imageFiles[i];
         if (file) {
-          const storageRef = ref(storage!, `listings/${listingId}/${Date.now()}_${i}`);
+          const storageRef = ref(storage, `listings/${listingId}/${Date.now()}_${i}`);
           const uploadTask = uploadBytesResumable(storageRef, file);
           
           await new Promise((resolve, reject) => {
@@ -131,7 +132,7 @@ export default function NewListing() {
         landlordId: user.uid,
         title: `${formData.bhkCount !== 'N/A' ? formData.bhkCount + ' BHK ' : ''}${formData.propertyType} in ${formData.location}`,
         location: formData.location,
-        locality: formData.location.split(',')[0].trim(),
+        locality: formData.location.split(',')[0].trim() || formData.location,
         areaSqFt: Number(formData.areaSqFt),
         bhkCount: formData.bhkCount,
         propertyType: formData.propertyType,
@@ -148,8 +149,11 @@ export default function NewListing() {
       };
 
       // Atomic-style updates to both private and public locations
-      setDocumentNonBlocking(doc(firestore!, `users/${user.uid}/listings/${listingId}`), listingData, { merge: true });
-      setDocumentNonBlocking(doc(firestore!, `room_listings/${listingId}`), listingData, { merge: true });
+      const privateRef = doc(firestore, `users/${user.uid}/listings/${listingId}`);
+      const publicRef = doc(firestore, `room_listings/${listingId}`);
+      
+      setDocumentNonBlocking(privateRef, listingData, { merge: true });
+      setDocumentNonBlocking(publicRef, listingData, { merge: true });
 
       setSuccessData({ 
         id: listingId, 
@@ -158,6 +162,7 @@ export default function NewListing() {
       });
       
     } catch (error: any) {
+      console.error("Listing Submission Error:", error);
       toast({ 
         title: "Submission Error", 
         description: error.message || "Could not save listing.", 
@@ -256,7 +261,7 @@ export default function NewListing() {
                     <div className="flex items-center justify-between">
                       <Label className="text-lg font-headline font-bold">Property Photos</Label>
                       <span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                        <ImageIcon className="h-3 w-3" /> Min 2 photos required
+                        <ImageIcon className="h-3 w-3" /> Min 1 photo required
                       </span>
                     </div>
                     

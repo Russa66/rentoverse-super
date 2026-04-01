@@ -89,7 +89,10 @@ export default function RegisterPage() {
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!confirmationResult || otp.length !== 6 || !firestore) return;
+    if (!confirmationResult || otp.length !== 6 || !firestore) {
+      toast({ title: "System Readying", description: "Waiting for database connection...", variant: "default" });
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -108,10 +111,16 @@ export default function RegisterPage() {
         isVerified: true,
       };
 
-      setDocumentNonBlocking(doc(firestore, "users", user.uid), userData, { merge: true });
+      // Ensure firestore is ready before writing
+      const userRef = doc(firestore, "users", user.uid);
+      setDocumentNonBlocking(userRef, userData, { merge: true });
       
-      toast({ title: "Welcome to RentoVerse", description: "Your account is ready." });
-      router.push("/profile");
+      toast({ title: "Welcome to RentoVerse", description: "Your account is being initialized." });
+      
+      // Delay redirect slightly to ensure Firestore SDK initiates the write
+      setTimeout(() => {
+        router.push("/profile");
+      }, 500);
       
     } catch (error: any) {
       console.error("Verification Error:", error);

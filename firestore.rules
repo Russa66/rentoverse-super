@@ -7,7 +7,7 @@ service firebase.firestore {
       return request.auth != null;
     }
     
-    // Check if the user is a registered user (not guest)
+    // Any user signed in with Phone or Email is considered registered
     function isRegistered() {
       return isSignedIn() && (request.auth.token.firebase.sign_in_provider != 'anonymous');
     }
@@ -18,8 +18,11 @@ service firebase.firestore {
 
     // --- PUBLIC COLLECTIONS (GUESTS CAN BROWSE) ---
     match /room_listings/{listingId} {
+      // Explicitly allow get and list for anyone
       allow read: if true;
+      // Registered users can create listings
       allow create: if isRegistered();
+      // Only owners or admins can modify
       allow update, delete: if isRegistered() && (resource.data.landlordId == request.auth.uid || isAdmin());
     }
 
@@ -29,9 +32,11 @@ service firebase.firestore {
       allow update, delete: if isRegistered() && (resource.data.renterId == request.auth.uid || isAdmin());
     }
 
-    // --- PRIVATE USER DATA ---
+    // --- USER PROFILES ---
     match /users/{userId} {
+      // Profiles are public for trust
       allow read: if true;
+      // Users can only write their own profile
       allow write: if isRegistered() && (request.auth.uid == userId || isAdmin());
       
       match /{allSubcollections=**} {
@@ -41,9 +46,7 @@ service firebase.firestore {
     
     // --- SOCIAL POSTS AUDIT ---
     match /social_posts/{postId} {
-      // Strictly protected: Only admins can read audit logs
       allow read: if isAdmin();
-      // Any registered user can trigger a post creation
       allow create: if isRegistered();
     }
   }
