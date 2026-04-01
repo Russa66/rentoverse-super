@@ -6,17 +6,25 @@ import Navbar from "@/components/Navbar";
 import RoomCard from "@/components/RoomCard";
 import { MOCK_ROOMS } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
-import { Search, MapPin, Home, Sparkles, Loader2, Database } from "lucide-react";
+import { Search, MapPin, Home, Sparkles, Loader2, Database, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, limit } from "firebase/firestore";
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase";
+import { collection, query, limit, doc } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 
 export default function HomePage() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
   const firestore = useFirestore();
+  const { user } = useUser();
+
+  // Check for admin status to show/hide footer link
+  const profileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, "users", user.uid);
+  }, [firestore, user]);
+  const { data: profile } = useDoc(profileRef);
 
   // Optimized marketplace query
   const featuredQuery = useMemoFirebase(() => {
@@ -159,7 +167,11 @@ export default function HomePage() {
               <Link href="/search" className="hover:text-primary">Browse</Link>
               <Link href="/legal-form" className="hover:text-primary">Legal</Link>
               <Link href="/search-requests/new" className="hover:text-primary">Requirements</Link>
-              <Link href="/admin" className="hover:text-primary">Admin</Link>
+              {profile?.isAdmin && (
+                <Link href="/admin" className="hover:text-primary flex items-center gap-1 font-bold text-destructive">
+                  <ShieldAlert className="h-3 w-3" /> Admin
+                </Link>
+              )}
             </div>
             <div className="text-center md:text-right">
               <p className="text-muted-foreground text-xs">© 2026 RentoVerse Inc. All rights reserved.</p>

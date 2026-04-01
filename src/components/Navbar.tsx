@@ -2,9 +2,9 @@
 "use client";
 
 import Link from "next/link";
-import { Search, PlusCircle, User, FileText, Send, LogIn, Menu, Home, X } from "lucide-react";
+import { Search, PlusCircle, User, FileText, Send, LogIn, Menu, Home, X, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useUser } from "@/firebase";
+import { useUser, useFirestore, useMemoFirebase, useDoc } from "@/firebase";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import {
@@ -15,11 +15,20 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { useState } from "react";
+import { doc } from "firebase/firestore";
 
 export default function Navbar() {
   const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
   const logo = PlaceHolderImages.find(img => img.id === 'logo');
   const [isOpen, setIsOpen] = useState(false);
+
+  // Check for admin status to conditionally show admin dashboard link
+  const profileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, "users", user.uid);
+  }, [firestore, user]);
+  const { data: profile } = useDoc(profileRef);
 
   const NavLinks = () => (
     <>
@@ -44,6 +53,15 @@ export default function Navbar() {
       >
         <FileText className="h-4 w-4" /> Legal
       </Link>
+      {profile?.isAdmin && (
+        <Link 
+          href="/admin" 
+          onClick={() => setIsOpen(false)}
+          className="text-sm font-bold text-destructive hover:text-destructive/80 transition-colors flex items-center gap-2 md:gap-1"
+        >
+          <ShieldAlert className="h-4 w-4" /> Dashboard
+        </Link>
+      )}
     </>
   );
 

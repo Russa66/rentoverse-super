@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -9,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, MessageCircle, Home, Bell, CheckCircle, Save, Sparkles, MapPin, XCircle, LogOut, Loader2, Search, Mail } from "lucide-react";
+import { User, MessageCircle, Home, Bell, CheckCircle, Save, Sparkles, MapPin, XCircle, LogOut, Loader2, Search, Mail, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser, useCollection, useMemoFirebase, useAuth, useDoc } from "@/firebase";
 import { collection, query, orderBy, doc } from "firebase/firestore";
@@ -131,6 +132,15 @@ export default function ProfilePage() {
                 </div>
                 
                 <div className="w-full space-y-1">
+                  {profile?.isAdmin && (
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start font-headline mb-4 border-destructive text-destructive hover:bg-destructive/10"
+                      onClick={() => router.push('/admin')}
+                    >
+                      <ShieldAlert className="mr-2 h-4 w-4" /> Admin Dashboard
+                    </Button>
+                  )}
                   <Button 
                     variant={activeTab === "account" ? "secondary" : "ghost"} 
                     className="w-full justify-start font-headline"
