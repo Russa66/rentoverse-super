@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service firebase.firestore {
   match /databases/{database}/documents {
@@ -5,37 +6,46 @@ service firebase.firestore {
     function isSignedIn() {
       return request.auth != null;
     }
+    
+    // Check if the user is a registered user (not guest)
+    function isRegistered() {
+      return isSignedIn() && (request.auth.token.firebase.sign_in_provider != 'anonymous');
+    }
 
-    // --- PUBLIC COLLECTIONS (GUESTS CAN VIEW) ---
+    function isAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // --- PUBLIC COLLECTIONS (GUESTS CAN BROWSE) ---
+    // Explicitly allow both get and list for anyone to browse without authentication
     match /room_listings/{listingId} {
-      // Allow anyone (even guests) to read/list rooms
-      allow read: if true;
-      // Only registered users can post or manage their own listings
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && (resource.data.landlordId == request.auth.uid);
+      allow get, list: if true;
+      allow create: if isRegistered();
+      allow update, delete: if isRegistered() && (resource.data.landlordId == request.auth.uid || isAdmin());
     }
 
     match /saved_search_requests/{requestId} {
-      // Allow anyone to see what people are looking for
-      allow read: if true;
-      // Only registered users can post their own search requirements
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && (resource.data.renterId == request.auth.uid);
+      allow get, list: if true;
+      allow create: if isRegistered();
+      allow update, delete: if isRegistered() && (resource.data.renterId == request.auth.uid || isAdmin());
     }
 
     // --- PRIVATE USER DATA ---
     match /users/{userId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      // Allow read for everyone so landlord names/profiles can be linked
+      // but write is strictly for the owner or admin
+      allow read: if true;
+      allow write: if isRegistered() && (request.auth.uid == userId || isAdmin());
       
       match /{allSubcollections=**} {
-        allow read, write: if isSignedIn() && request.auth.uid == userId;
+        allow read, write: if isRegistered() && (request.auth.uid == userId || isAdmin());
       }
     }
     
-    // --- AUDIT LOGS (ADMIN ONLY) ---
+    // --- SOCIAL POSTS AUDIT ---
     match /social_posts/{postId} {
-      allow read: if isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-      allow create: if isSignedIn();
+      allow read: if isAdmin();
+      allow create: if isRegistered();
     }
   }
 }

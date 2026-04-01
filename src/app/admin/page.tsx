@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc, updateDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase";
@@ -70,41 +71,46 @@ export default function AdminDashboard() {
     
     try {
       // 1. Seed Current User Profile
-      setDocumentNonBlocking(doc(firestore, "users", user.uid), {
+      const userData = {
         id: user.uid,
         name: user.displayName || "Platform Admin",
         email: user.email,
+        phoneNumber: user.phoneNumber || "+919876543210",
         isAdmin: true,
         isVerified: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      }, { merge: true });
+      };
+      setDocumentNonBlocking(doc(firestore, "users", user.uid), userData, { merge: true });
 
       // 2. Seed Sample Listings to Public Collection
       for (const room of MOCK_ROOMS) {
-        const listingRef = doc(firestore, "room_listings", room.id);
+        const listingId = `seed_${room.id}`;
+        const listingRef = doc(firestore, "room_listings", listingId);
         const listingData = {
           ...room,
+          id: listingId,
           landlordId: user.uid,
+          landlordName: userData.name,
           isActive: true,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          // Use high quality placeholder images for seeding
+          // Ensure image URLs are valid
           photoUrls: room.photoUrls || [`https://picsum.photos/seed/${room.id}/800/600`]
         };
         setDocumentNonBlocking(listingRef, listingData, { merge: true });
         
-        // Also seed to user's private collection for profile visibility
-        const privateListingRef = doc(firestore, `users/${user.uid}/listings`, room.id);
+        // Also seed to user's private collection
+        const privateListingRef = doc(firestore, `users/${user.uid}/listings`, listingId);
         setDocumentNonBlocking(privateListingRef, listingData, { merge: true });
       }
 
       // 3. Seed some sample search requests
       const sampleRequests = [
         { 
-          id: 'req_1', 
+          id: 'seed_req_1', 
           renterId: user.uid, 
-          renterName: 'Test Tenant 1',
+          renterName: 'RentoVerse Demo Tenant',
           locationFilter: 'Downtown, Metropolis', 
           maxRent: 30000, 
           propertyType: 'Studio', 
@@ -112,9 +118,9 @@ export default function AdminDashboard() {
           notificationPreference: 'WhatsApp' 
         },
         { 
-          id: 'req_2', 
+          id: 'seed_req_2', 
           renterId: user.uid, 
-          renterName: 'Test Tenant 2',
+          renterName: 'University Student',
           locationFilter: 'West End, University Area', 
           maxRent: 15000, 
           propertyType: 'Single Room', 
@@ -125,13 +131,12 @@ export default function AdminDashboard() {
 
       for (const req of sampleRequests) {
         setDocumentNonBlocking(doc(firestore, "saved_search_requests", req.id), req, { merge: true });
-        // Also save to private user collection
         setDocumentNonBlocking(doc(firestore, `users/${user.uid}/saved_search_requests/${req.id}`), req, { merge: true });
       }
 
       toast({
         title: "Database Seeded Successfully",
-        description: `${MOCK_ROOMS.length} properties and ${sampleRequests.length} requirements have been pushed to Firestore.`,
+        description: `${MOCK_ROOMS.length} properties and ${sampleRequests.length} requirements are now live in Firestore.`,
       });
     } catch (error: any) {
       toast({
@@ -156,7 +161,7 @@ export default function AdminDashboard() {
   }
 
   // Allow first user to see seed option even if not admin yet to bootstrap the site
-  const canSeeDashboard = user && (profile?.isAdmin || listings?.length === 0);
+  const canSeeDashboard = user && (profile?.isAdmin || listings?.length === 0 || !profile);
 
   if (!user || !canSeeDashboard) {
     return (
