@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -5,12 +6,12 @@ import Navbar from "@/components/Navbar";
 import RoomCard from "@/components/RoomCard";
 import { MOCK_ROOMS } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
-import { Search, MapPin, Home, Sparkles, Loader2 } from "lucide-react";
+import { Search, MapPin, Home, Sparkles, Loader2, Database } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, limit } from "firebase/firestore";
+import { collection, query, limit, orderBy } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 
 export default function HomePage() {
@@ -28,15 +29,20 @@ export default function HomePage() {
 
   const { data: listings, isLoading, error } = useCollection(featuredQuery);
   const [displayListings, setDisplayListings] = useState<any[]>([]);
+  const [isLive, setIsLive] = useState(false);
 
   useEffect(() => {
-    // If rules are still propagating or there's a permission hitch,
-    // we fallback to mock data so the user never sees a broken page.
     if (!isLoading) {
-      const hasData = listings && listings.length > 0;
-      setDisplayListings(hasData ? listings : MOCK_ROOMS.slice(0, 10));
+      if (listings && listings.length > 0) {
+        setDisplayListings(listings);
+        setIsLive(true);
+      } else {
+        // Fallback to mock data if Firestore is truly empty
+        setDisplayListings(MOCK_ROOMS.slice(0, 10));
+        setIsLive(false);
+      }
     }
-  }, [listings, isLoading, error]);
+  }, [listings, isLoading]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -82,8 +88,23 @@ export default function HomePage() {
       <section className="py-20 container px-4 mx-auto flex-1">
         <div className="flex items-end justify-between mb-12 border-b pb-6">
           <div>
-            <h2 className="text-3xl font-headline font-bold mb-2">Featured Properties</h2>
-            <p className="text-muted-foreground">Handpicked rooms and apartments available for rent.</p>
+            <div className="flex items-center gap-2 mb-2">
+              <h2 className="text-3xl font-headline font-bold">Featured Properties</h2>
+              {isLive ? (
+                <Badge variant="outline" className="border-primary text-primary font-bold gap-1 bg-primary/5">
+                  <Database className="h-3 w-3" /> Live Database
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-muted-foreground font-bold border-dashed">
+                  Preview Mode
+                </Badge>
+              )}
+            </div>
+            <p className="text-muted-foreground">
+              {isLive 
+                ? "Direct from our property network." 
+                : "Seeding is recommended in Admin Dashboard to see live data."}
+            </p>
           </div>
           <Link href="/search">
             <Button variant="link" className="text-primary font-bold text-lg p-0">
@@ -105,6 +126,21 @@ export default function HomePage() {
             ))}
           </div>
         )}
+
+        {!isLive && !isLoading && (
+          <div className="mt-20 p-8 border-2 border-dashed rounded-3xl bg-muted/20 text-center space-y-4">
+             <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
+                <Database className="h-8 w-8 text-primary" />
+             </div>
+             <h3 className="text-xl font-headline font-bold">Want to see live data?</h3>
+             <p className="text-muted-foreground max-w-md mx-auto">
+               Go to the <strong>Admin Dashboard</strong> and click <strong>Seed Sample Data</strong> to populate your Firestore collection with real property records.
+             </p>
+             <Link href="/admin">
+               <Button variant="secondary">Go to Admin Dashboard</Button>
+             </Link>
+          </div>
+        )}
       </section>
 
       <footer className="py-16 bg-white border-t mt-auto">
@@ -123,6 +159,7 @@ export default function HomePage() {
               <Link href="/search" className="hover:text-primary">Browse</Link>
               <Link href="/legal-form" className="hover:text-primary">Legal</Link>
               <Link href="/search-requests/new" className="hover:text-primary">Requirements</Link>
+              <Link href="/admin" className="hover:text-primary">Admin</Link>
             </div>
             <div className="text-center md:text-right">
               <p className="text-muted-foreground text-xs">© 2026 RentoVerse Inc. All rights reserved.</p>
