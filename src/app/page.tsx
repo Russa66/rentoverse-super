@@ -11,14 +11,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, limit, orderBy } from "firebase/firestore";
+import { collection, query, limit } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 
 export default function HomePage() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
   const firestore = useFirestore();
 
-  // Public query for the marketplace
+  // Optimized marketplace query
   const featuredQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(
@@ -27,7 +27,7 @@ export default function HomePage() {
     );
   }, [firestore]);
 
-  const { data: listings, isLoading, error } = useCollection(featuredQuery);
+  const { data: listings, isLoading } = useCollection(featuredQuery);
   const [displayListings, setDisplayListings] = useState<any[]>([]);
   const [isLive, setIsLive] = useState(false);
 
@@ -37,7 +37,7 @@ export default function HomePage() {
         setDisplayListings(listings);
         setIsLive(true);
       } else {
-        // Fallback to mock data if Firestore is truly empty
+        // Fallback to mock data for a vibrant first-time experience
         setDisplayListings(MOCK_ROOMS.slice(0, 10));
         setIsLive(false);
       }
@@ -102,8 +102,8 @@ export default function HomePage() {
             </div>
             <p className="text-muted-foreground">
               {isLive 
-                ? "Direct from our property network." 
-                : "Seeding is recommended in Admin Dashboard to see live data."}
+                ? "Direct from our live property network." 
+                : "No live data found. Visit the Admin Dashboard to seed sample properties."}
             </p>
           </div>
           <Link href="/search">
@@ -132,12 +132,12 @@ export default function HomePage() {
              <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
                 <Database className="h-8 w-8 text-primary" />
              </div>
-             <h3 className="text-xl font-headline font-bold">Want to see live data?</h3>
+             <h3 className="text-xl font-headline font-bold">Populate Your Database</h3>
              <p className="text-muted-foreground max-w-md mx-auto">
-               Go to the <strong>Admin Dashboard</strong> and click <strong>Seed Sample Data</strong> to populate your Firestore collection with real property records.
+               Your Firestore collection is currently empty. Go to the <strong>Admin Dashboard</strong> and click <strong>Seed Sample Data</strong> to see real property records live on the site.
              </p>
              <Link href="/admin">
-               <Button variant="secondary">Go to Admin Dashboard</Button>
+               <Button variant="secondary" className="font-headline">Go to Admin Dashboard</Button>
              </Link>
           </div>
         )}

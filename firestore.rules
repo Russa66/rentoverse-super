@@ -1,9 +1,10 @@
 rules_version = '2';
 service firebase.firestore {
   match /databases/{database}/documents {
-    // Version: 1.0.46 - Robust Public Marketplace Access
+    // Version: 1.0.47 - Definitive Public Access & Robust Admin Controls
     
-    // Helpers
+    // --- BASIC HELPERS ---
+    
     function isSignedIn() {
       return request.auth != null;
     }
@@ -16,45 +17,60 @@ service firebase.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
     
+    // Robust admin check that safely handles unauthenticated users
     function isAdmin() {
       return isSignedIn() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
-    // Public Marketplace: Properties
+    // --- PUBLIC COLLECTIONS ---
+
     match /room_listings/{listingId} {
-      // Allow anyone to browse (get/list)
+      // Explicitly allow anyone to view single documents or list the entire collection
+      // This solves the "Missing or insufficient permissions" error for guests (auth: null)
       allow read: if true; 
       
-      // Only registered users can create
+      // Creating requires a registered account (Phone or Email)
       allow create: if isRegistered();
       
-      // Only the landlord or an admin can edit/delete
+      // Updates and Deletes require ownership or admin privileges
       allow update, delete: if isOwner(resource.data.landlordId) || isAdmin();
     }
 
-    // Public Marketplace: Tenant Requirements
     match /saved_search_requests/{requestId} {
+      // Unrestricted public browsing for tenant requirements
       allow read: if true;
+      
+      // Posting requirements requires a registered account
       allow create: if isRegistered();
+      
+      // Only the author or an admin can manage the request
       allow update, delete: if isOwner(resource.data.renterId) || isAdmin();
     }
 
-    // User Profiles & Private Data
+    // --- PRIVATE USER DATA ---
+
     match /users/{userId} {
+      // Users can manage their own profile and private settings
       allow read, write: if isOwner(userId) || isAdmin();
       
-      // Handle all nested sub-collections (listings, search_requests, notifications)
+      // Sub-collections like /users/{uid}/listings or /users/{uid}/saved_search_requests
       match /{allSubcollections=**} {
         allow read, write: if isOwner(userId) || isAdmin();
       }
     }
 
-    // Social Post Audit (Admin visibility only)
+    // --- AUDIT LOGS ---
+    
     match /social_posts/{postId} {
+      // Only admins can see the full audit trail of AI-generated content
       allow read: if isAdmin();
+      
+      // Registered users can record their AI posting activity
       allow create: if isRegistered(); 
+      
+      // Modification and cleanup only by admins
       allow update, delete: if isAdmin();
     }
   }
