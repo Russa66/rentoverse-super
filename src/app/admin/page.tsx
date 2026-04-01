@@ -31,17 +31,17 @@ export default function AdminDashboard() {
   
   const { data: profile, isLoading: profileLoading } = useDoc(userProfileRef);
 
-  // Listings and Requests are public, but we only fetch here if user is logged in
+  // Listings and Requests are public
   const listingsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore) return null;
     return collection(firestore, "room_listings");
-  }, [firestore, user]);
+  }, [firestore]);
   const { data: listings, isLoading: listingsLoading } = useCollection(listingsQuery);
 
   const requestsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore) return null;
     return collection(firestore, "saved_search_requests");
-  }, [firestore, user]);
+  }, [firestore]);
   const { data: requests, isLoading: requestsLoading } = useCollection(requestsQuery);
 
   // Social posts are restricted to ADMINS ONLY. 
