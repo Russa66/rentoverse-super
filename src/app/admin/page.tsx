@@ -31,22 +31,25 @@ export default function AdminDashboard() {
   
   const { data: profile, isLoading: profileLoading } = useDoc(userProfileRef);
 
+  // Listings and Requests are public, but we only fetch here if user is logged in
   const listingsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return collection(firestore, "room_listings");
-  }, [firestore]);
+  }, [firestore, user]);
   const { data: listings, isLoading: listingsLoading } = useCollection(listingsQuery);
 
   const requestsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return collection(firestore, "saved_search_requests");
-  }, [firestore]);
+  }, [firestore, user]);
   const { data: requests, isLoading: requestsLoading } = useCollection(requestsQuery);
 
+  // Social posts are restricted to ADMINS ONLY. 
+  // We MUST check profile.isAdmin before even attempting the query to avoid permission errors.
   const postsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user || !profile?.isAdmin) return null;
     return collection(firestore, "social_posts");
-  }, [firestore]);
+  }, [firestore, user, profile]);
   const { data: posts, isLoading: postsLoading } = useCollection(postsQuery);
 
   const handleUpdateLocality = (listingId: string) => {
@@ -95,12 +98,10 @@ export default function AdminDashboard() {
           isActive: true,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          // Ensure image URLs are valid
           photoUrls: room.photoUrls || [`https://picsum.photos/seed/${room.id}/800/600`]
         };
         setDocumentNonBlocking(listingRef, listingData, { merge: true });
         
-        // Also seed to user's private collection
         const privateListingRef = doc(firestore, `users/${user.uid}/listings`, listingId);
         setDocumentNonBlocking(privateListingRef, listingData, { merge: true });
       }
@@ -160,8 +161,8 @@ export default function AdminDashboard() {
     );
   }
 
-  // Allow first user to see seed option even if not admin yet to bootstrap the site
-  const canSeeDashboard = user && (profile?.isAdmin || listings?.length === 0 || !profile);
+  // Secure redirect if not an admin
+  const canSeeDashboard = user && (profile?.isAdmin || (listings?.length === 0 && !listingsLoading));
 
   if (!user || !canSeeDashboard) {
     return (
@@ -175,7 +176,7 @@ export default function AdminDashboard() {
             <CardHeader className="p-0 mb-4">
               <CardTitle className="text-2xl font-headline font-bold">Restricted Access</CardTitle>
               <CardDescription>
-                You do not have the required permissions to view the Admin Dashboard.
+                You do not have permission to view the Admin Dashboard.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -390,7 +391,12 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4">
-                  {postsLoading ? (
+                  {!profile?.isAdmin ? (
+                    <div className="p-8 text-center text-muted-foreground bg-muted/20 rounded-xl">
+                       <Lock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                       <p>Admin verification required to view social logs.</p>
+                    </div>
+                  ) : postsLoading ? (
                     <p className="text-center py-12">Loading social post audit log...</p>
                   ) : posts?.length === 0 ? (
                     <div className="text-center py-20 bg-muted/20 rounded-xl border-2 border-dashed">
