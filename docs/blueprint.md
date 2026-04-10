@@ -1,4 +1,4 @@
-# **App Name**: Rentipedia
+# **App Name**: RentoVerse
 
 ## Core Features:
 

@@ -36,11 +36,12 @@ service firebase.firestore {
     match /users/{userId} {
       // Profiles are public for trust
       allow read: if true;
-      // Users can only write their own profile
-      allow write: if isRegistered() && (request.auth.uid == userId || isAdmin());
+      
+      // Users can always safely write to their own isolated profile node 
+      allow write: if isSignedIn() && request.auth.uid == userId;
       
       match /{allSubcollections=**} {
-        allow read, write: if isRegistered() && (request.auth.uid == userId || isAdmin());
+        allow read, write: if isSignedIn() && request.auth.uid == userId;
       }
     }
     

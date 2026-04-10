@@ -1,10 +1,9 @@
-
 "use client";
 
 import Link from "next/link";
-import { Search, PlusCircle, User, FileText, Send, LogIn, Menu, Home, X, ShieldAlert } from "lucide-react";
+import { Search, PlusCircle, User, FileText, Send, LogIn, Menu, Home, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useUser, useFirestore, useMemoFirebase, useDoc } from "@/firebase";
+import { createClient } from "@/utils/supabase/client";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import {
@@ -14,21 +13,41 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { useState } from "react";
-import { doc } from "firebase/firestore";
+import { useState, useEffect } from "react";
 
 export default function Navbar() {
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
+  const supabase = createClient();
   const logo = PlaceHolderImages.find(img => img.id === 'logo');
   const [isOpen, setIsOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Check for admin status to conditionally show admin dashboard link
-  const profileRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, "users", user.uid);
-  }, [firestore, user]);
-  const { data: profile } = useDoc(profileRef);
+  useEffect(() => {
+    const fetchSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+      if (session?.user) {
+        const { data } = await supabase.from('users').select('is_admin').eq('id', session.user.id).single();
+        setProfile(data);
+      }
+      setLoading(false);
+    };
+
+    fetchSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setUser(session?.user || null);
+      if (session?.user) {
+        const { data } = await supabase.from('users').select('is_admin').eq('id', session.user.id).single();
+        setProfile(data);
+      } else {
+        setProfile(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase]);
 
   const NavLinks = () => (
     <>
@@ -53,7 +72,7 @@ export default function Navbar() {
       >
         <FileText className="h-4 w-4" /> Legal
       </Link>
-      {profile?.isAdmin && (
+      {profile?.is_admin && (
         <Link 
           href="/admin" 
           onClick={() => setIsOpen(false)}
@@ -69,7 +88,6 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 mx-auto">
         <div className="flex items-center gap-4">
-          {/* Mobile Menu Trigger */}
           <div className="md:hidden">
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild>
@@ -82,14 +100,7 @@ export default function Navbar() {
                 <SheetHeader className="text-left pb-6 border-b">
                   <SheetTitle className="flex items-center gap-2">
                     <div className="relative w-8 h-8">
-                      {logo && (
-                        <Image 
-                          src={logo.imageUrl} 
-                          alt="RentoVerse" 
-                          fill 
-                          className="object-contain"
-                        />
-                      )}
+                      {logo && <Image src={logo.imageUrl} alt="RentoVerse" fill className="object-contain" />}
                     </div>
                     <span className="font-headline font-bold text-xl text-primary">RentoVerse</span>
                   </SheetTitle>
@@ -109,21 +120,12 @@ export default function Navbar() {
 
           <Link href="/" className="flex items-center gap-2 md:gap-3">
             <div className="relative w-8 h-8 md:w-10 md:h-10">
-              {logo && (
-                <Image 
-                  src={logo.imageUrl} 
-                  alt="RentoVerse" 
-                  fill 
-                  className="object-contain"
-                  priority
-                />
-              )}
+              {logo && <Image src={logo.imageUrl} alt="RentoVerse" fill className="object-contain" priority />}
             </div>
             <span className="text-xl md:text-2xl font-headline font-bold text-primary tracking-tighter">RentoVerse</span>
           </Link>
         </div>
         
-        {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-6">
           <NavLinks />
         </div>
@@ -134,8 +136,8 @@ export default function Navbar() {
               <PlusCircle className="mr-2 h-4 w-4" /> List Property
             </Button>
           </Link>
-          {!isUserLoading && (
-            user && !user.isAnonymous ? (
+          {!loading && (
+            user ? (
               <Link href="/profile">
                 <Button variant="ghost" size="icon" className="rounded-full h-10 w-10">
                   <User className="h-5 w-5" />

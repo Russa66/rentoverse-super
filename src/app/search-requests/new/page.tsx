@@ -10,27 +10,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { useFirestore, useUser, useDoc, useMemoFirebase } from "@/firebase";
-import { collection, doc } from "firebase/firestore";
-import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { createClient } from "@/utils/supabase/client";
 import { Search, ShieldCheck, MapPin, Loader2, Phone, User as UserIcon, Lock, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { v4 as uuidv4 } from "uuid";
 
 export default function PostRequirement() {
   const [loadingStep, setLoadingStep] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
-  const firestore = useFirestore();
-  const { user, isUserLoading } = useUser();
-
-  const isRegistered = user && !user.isAnonymous;
-
-  const profileRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, "users", user.uid);
-  }, [firestore, user]);
-
-  const { data: profile } = useDoc(profileRef);
+  const supabase = createClient();
+  
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -46,27 +39,31 @@ export default function PostRequirement() {
   });
 
   useEffect(() => {
-    if (user?.phoneNumber || profile?.phoneNumber) {
-      const phone = user?.phoneNumber || profile?.phoneNumber || "";
-      const displayPhone = phone.startsWith('+91') 
-        ? phone.substring(3) 
-        : phone;
-      setFormData(prev => ({ ...prev, phoneNumber: displayPhone }));
-    }
-    if (profile?.name) {
-      setFormData(prev => ({ ...prev, name: profile.name }));
-    }
-  }, [user, profile]);
+    const fetchSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+      
+      if (session?.user) {
+        const { data } = await supabase.from('users').select('*').eq('id', session.user.id).single();
+        if (data) {
+          setProfile(data);
+          let phone = data.phone_number || session.user.phone || "";
+          phone = phone.startsWith('+91') ? phone.substring(3) : phone;
+          setFormData(prev => ({ ...prev, phoneNumber: phone, name: data.name || "" }));
+        }
+      }
+      setLoadingUser(false);
+    };
+    fetchSession();
+  }, [supabase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!isRegistered) {
-      toast({ title: "Registration Required", description: "Please log in with a verified account to post your requirements.", variant: "destructive" });
+    if (!user) {
+      toast({ title: "Registration Required", description: "Please log in to post your requirements.", variant: "destructive" });
       return;
     }
-
-    if (!firestore) return;
 
     const phoneDigits = formData.phoneNumber.trim().replace(/\D/g, '');
     if (phoneDigits.length !== 10) {
@@ -83,7 +80,7 @@ export default function PostRequirement() {
     setLoadingStep("Saving Requirement...");
 
     try {
-      const requestId = doc(collection(firestore, "temp")).id;
+      const requestId = uuidv4();
       const amenities = [];
       if (formData.acRequired) amenities.push("AC");
       if (formData.wifiRequired) amenities.push("WiFi");
@@ -94,40 +91,31 @@ export default function PostRequirement() {
 
       const requestData = {
         id: requestId,
-        renterId: user.uid,
-        renterName: formData.name,
-        locationFilter: combinedLocation,
-        maxRent: Number(formData.budget),
-        propertyType: formData.propertyType,
-        requiredAmenities: amenities,
-        phoneNumber: fullPhone,
-        notificationPreference: "WhatsApp",
-        createdAt: new Date().toISOString(),
+        renter_id: user.id,
+        renter_name: formData.name,
+        location_filter: combinedLocation,
+        max_rent: Number(formData.budget),
+        property_type: formData.propertyType,
+        required_amenities: amenities,
+        phone_number: fullPhone,
+        notification_preference: "WhatsApp",
+        created_at: new Date().toISOString(),
       };
 
-      setDocumentNonBlocking(doc(firestore, `users/${user.uid}/saved_search_requests/${requestId}`), requestData, { merge: true });
-      setDocumentNonBlocking(doc(firestore, `saved_search_requests/${requestId}`), requestData, { merge: true });
-
-      setDocumentNonBlocking(doc(firestore, "users", user.uid), { 
-        id: user.uid,
-        name: formData.name,
-        phoneNumber: fullPhone,
-        updatedAt: new Date().toISOString(),
-        createdAt: profile?.createdAt || new Date().toISOString(),
-        isVerified: profile?.isVerified || false,
-        isAdmin: profile?.isAdmin || false,
-      }, { merge: true });
+      const { error } = await supabase.from('saved_search_requests').insert(requestData);
+      
+      if (error) throw error;
 
       toast({ title: "Requirement Posted", description: "Your search is now active in RentoVerse." });
       router.push("/profile");
     } catch (error) {
-      toast({ title: "Error", description: "Failed to post requirement.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to post requirement. Did you create the SQL table?", variant: "destructive" });
     } finally {
       setLoadingStep(null);
     }
   };
 
-  if (isUserLoading) {
+  if (loadingUser) {
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -139,7 +127,7 @@ export default function PostRequirement() {
     <div className="min-h-screen bg-muted/30 pb-12">
       <Navbar />
       <div className="container max-w-2xl px-4 py-12 mx-auto">
-        {!isRegistered ? (
+        {!user ? (
           <Card className="border-none shadow-xl text-center p-12 space-y-6 bg-white">
             <div className="bg-destructive/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto">
               <Lock className="h-10 w-10 text-destructive" />
@@ -154,11 +142,6 @@ export default function PostRequirement() {
               <Link href="/login">
                 <Button className="font-headline h-12 px-8 gap-2">
                   Log In Now <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button variant="outline" className="font-headline h-12 px-8">
-                  Create Free Account
                 </Button>
               </Link>
             </div>
@@ -181,7 +164,7 @@ export default function PostRequirement() {
                   <Loader2 className="h-12 w-12 text-primary animate-spin" />
                   <div className="text-center">
                       <p className="text-xl font-headline font-bold text-primary">{loadingStep}</p>
-                      <p className="text-sm text-muted-foreground mt-2">Saving your request to the cloud...</p>
+                      <p className="text-sm text-muted-foreground mt-2">Saving your request to Supabase Postgres...</p>
                   </div>
                 </div>
               ) : (
@@ -205,31 +188,11 @@ export default function PostRequirement() {
                     <div className="space-y-3">
                       <div className="relative">
                         <MapPin className="absolute left-3 top-3 h-4 w-4 text-primary" />
-                        <Input 
-                          required 
-                          value={formData.location1} 
-                          onChange={(e) => setFormData({...formData, location1: e.target.value})} 
-                          placeholder="Primary Location (e.g. Poabagan)" 
-                          className="h-12 pl-10"
-                        />
+                        <Input required value={formData.location1} onChange={(e) => setFormData({...formData, location1: e.target.value})} placeholder="Primary Location" className="h-12 pl-10" />
                       </div>
                       <div className="relative">
                         <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                          value={formData.location2} 
-                          onChange={(e) => setFormData({...formData, location2: e.target.value})} 
-                          placeholder="Second Location (Optional)" 
-                          className="h-12 pl-10"
-                        />
-                      </div>
-                      <div className="relative">
-                        <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                          value={formData.location3} 
-                          onChange={(e) => setFormData({...formData, location3: e.target.value})} 
-                          placeholder="Third Location (Optional)" 
-                          className="h-12 pl-10"
-                        />
+                        <Input value={formData.location2} onChange={(e) => setFormData({...formData, location2: e.target.value})} placeholder="Second Location (Optional)" className="h-12 pl-10" />
                       </div>
                     </div>
                   </div>
@@ -237,22 +200,13 @@ export default function PostRequirement() {
                   <div className="grid gap-6 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label className="font-bold">Max Monthly Budget (INR)</Label>
-                      <Input 
-                        required 
-                        type="number" 
-                        value={formData.budget} 
-                        onChange={(e) => setFormData({...formData, budget: e.target.value})} 
-                        placeholder="12000" 
-                        className="h-12"
-                      />
+                      <Input required type="number" value={formData.budget} onChange={(e) => setFormData({...formData, budget: e.target.value})} placeholder="12000" className="h-12" />
                     </div>
 
                     <div className="space-y-2">
                       <Label className="font-bold">Property Type</Label>
                       <Select value={formData.propertyType} onValueChange={(v) => setFormData({...formData, propertyType: v})}>
-                        <SelectTrigger className="h-12">
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
+                        <SelectTrigger className="h-12"><SelectValue placeholder="Select type" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="Single Room">Single Room</SelectItem>
                           <SelectItem value="Shared Room / PG">Shared Room / PG</SelectItem>
@@ -267,9 +221,7 @@ export default function PostRequirement() {
                         <Phone className="h-4 w-4 text-primary" /> Contact Phone Number
                       </Label>
                       <div className="relative">
-                        <div className="absolute left-3 top-0 bottom-0 flex items-center gap-1 text-muted-foreground font-bold text-sm border-r pr-3 my-2 pointer-events-none">
-                          +91
-                        </div>
+                        <div className="absolute left-3 top-0 bottom-0 flex items-center gap-1 text-muted-foreground font-bold text-sm border-r pr-3 my-2 pointer-events-none">+91</div>
                         <input 
                           required 
                           value={formData.phoneNumber} 
@@ -287,42 +239,17 @@ export default function PostRequirement() {
                     <Label className="font-bold">Essential Amenities</Label>
                     <div className="grid grid-cols-3 gap-4">
                       <div className="flex items-center space-x-2 border p-3 rounded-lg hover:bg-muted/50 cursor-pointer">
-                        <Checkbox 
-                          id="ac" 
-                          checked={formData.acRequired} 
-                          onCheckedChange={(v) => setFormData({...formData, acRequired: !!v})} 
-                        />
-                        <label htmlFor="ac" className="text-sm font-medium leading-none cursor-pointer">AC</label>
+                        <Checkbox id="ac" checked={formData.acRequired} onCheckedChange={(v) => setFormData({...formData, acRequired: !!v})} />
+                        <label htmlFor="ac" className="text-sm font-medium cursor-pointer">AC</label>
                       </div>
                       <div className="flex items-center space-x-2 border p-3 rounded-lg hover:bg-muted/50 cursor-pointer">
-                        <Checkbox 
-                          id="wifi" 
-                          checked={formData.wifiRequired} 
-                          onCheckedChange={(v) => setFormData({...formData, wifiRequired: !!v})} 
-                        />
-                        <label htmlFor="wifi" className="text-sm font-medium leading-none cursor-pointer">WiFi</label>
+                        <Checkbox id="wifi" checked={formData.wifiRequired} onCheckedChange={(v) => setFormData({...formData, wifiRequired: !!v})} />
+                        <label htmlFor="wifi" className="text-sm font-medium cursor-pointer">WiFi</label>
                       </div>
-                      <div className="flex items-center space-x-2 border p-3 rounded-lg hover:bg-muted/50 cursor-pointer">
-                        <Checkbox 
-                          id="backup" 
-                          checked={formData.powerBackupRequired} 
-                          onCheckedChange={(v) => setFormData({...formData, powerBackupRequired: !!v})} 
-                        />
-                        <label htmlFor="backup" className="text-sm font-medium leading-none cursor-pointer">Inverter</label>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 space-y-3">
-                    <div className="flex items-start gap-3">
-                      <ShieldCheck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        Your requirement will be saved to your profile and visible to landlords on RentoVerse.
-                      </p>
                     </div>
                   </div>
 
-                  <Button type="submit" disabled={!!loadingStep || !isRegistered} className="w-full h-14 text-lg font-headline shadow-lg hover:shadow-primary/20 transition-all">
+                  <Button type="submit" disabled={!!loadingStep} className="w-full h-14 text-lg font-headline shadow-lg hover:shadow-primary/20">
                     Post Requirement
                   </Button>
                 </form>

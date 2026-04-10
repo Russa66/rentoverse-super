@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,21 +10,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CheckCircle2, ShieldCheck, Camera, X, Image as ImageIcon, Loader2, Lock, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { useFirestore, useUser, useStorage } from "@/firebase";
-import { collection, doc } from "firebase/firestore";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { createClient } from "@/utils/supabase/client";
 import Image from "next/image";
 import Link from "next/link";
+import { v4 as uuidv4 } from "uuid";
 
 export default function NewListing() {
   const [loadingStep, setLoadingStep] = useState<string | null>(null);
   const [successData, setSuccessData] = useState<{ id: string; title: string; rent: string } | null>(null);
   const { toast } = useToast();
   const router = useRouter();
-  const firestore = useFirestore();
-  const storage = useStorage();
-  const { user, isUserLoading } = useUser();
+  const supabase = createClient();
+  
+  const [user, setUser] = useState<any>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
 
   const [imageFiles, setImageFiles] = useState<(File | null)[]>([null, null, null, null, null]);
   const [imagePreviews, setImagePreviews] = useState<(string | null)[]>([null, null, null, null, null]);
@@ -46,7 +44,16 @@ export default function NewListing() {
     description: ""
   });
 
-  const isRegistered = user && !user.isAnonymous;
+  useEffect(() => {
+    const fetchSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+      setLoadingUser(false);
+    };
+    fetchSession();
+  }, [supabase]);
+
+  const isRegistered = user != null;
 
   const handleImageUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -85,7 +92,7 @@ export default function NewListing() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!isRegistered || !firestore || !storage || !user) {
+    if (!user) {
       toast({ title: "Registration Required", description: "Waiting for authenticated session...", variant: "destructive" });
       return;
     }
@@ -103,57 +110,55 @@ export default function NewListing() {
     setLoadingStep("Uploading Photos...");
 
     try {
-      const listingId = doc(collection(firestore, "room_listings")).id;
+      const listingId = uuidv4();
       const photoUrls: string[] = [];
 
       for (let i = 0; i < imageFiles.length; i++) {
         const file = imageFiles[i];
         if (file) {
-          const storageRef = ref(storage, `listings/${listingId}/${Date.now()}_${i}`);
-          const uploadTask = uploadBytesResumable(storageRef, file);
-          
-          await new Promise((resolve, reject) => {
-            uploadTask.on('state_changed', null, (error) => {
-               reject(error);
-            }, async () => {
-              const url = await getDownloadURL(uploadTask.snapshot.ref);
-              photoUrls.push(url);
-              resolve(url);
-            });
-          });
+           const fileExt = file.name.split('.').pop();
+           const filePath = `${user.id}/${listingId}/${i}.${fileExt}`;
+           
+           const { error: uploadError } = await supabase.storage
+             .from('properties')
+             .upload(filePath, file);
+
+           if (uploadError) throw uploadError;
+           
+           const { data: { publicUrl } } = supabase.storage
+             .from('properties')
+             .getPublicUrl(filePath);
+
+           photoUrls.push(publicUrl);
         }
       }
 
-      setLoadingStep("Publishing Listing...");
+      setLoadingStep("Publishing Postgres Listing...");
 
       const now = new Date().toISOString();
       const listingData = {
         id: listingId,
-        landlordId: user.uid,
+        landlord_id: user.id,
         title: `${formData.bhkCount !== 'N/A' ? formData.bhkCount + ' BHK ' : ''}${formData.propertyType} in ${formData.location}`,
         location: formData.location,
         locality: formData.location.split(',')[0].trim() || formData.location,
-        areaSqFt: Number(formData.areaSqFt),
-        bhkCount: formData.bhkCount,
-        propertyType: formData.propertyType,
-        nearestCommunication: formData.transport,
-        monthlyRent: Number(formData.rent),
+        area_sq_ft: Number(formData.areaSqFt),
+        bhk_count: formData.bhkCount,
+        property_type: formData.propertyType,
+        nearest_communication: formData.transport,
+        monthly_rent: Number(formData.rent),
         amenities: [formData.wifi && "WiFi", formData.ac && "AC", formData.powerBackup && "Inverter"].filter(Boolean),
-        waterSupplyCondition: formData.waterSource,
+        water_supply_condition: formData.waterSource,
         description: formData.description,
-        idealFor: formData.idealFor,
-        isActive: true,
-        photoUrls: photoUrls,
-        createdAt: now,
-        updatedAt: now,
+        ideal_for: formData.idealFor,
+        is_active: true,
+        photo_urls: photoUrls,
+        created_at: now,
+        updated_at: now,
       };
 
-      // Atomic-style updates to both private and public locations
-      const privateRef = doc(firestore, `users/${user.uid}/listings/${listingId}`);
-      const publicRef = doc(firestore, `room_listings/${listingId}`);
-      
-      setDocumentNonBlocking(privateRef, listingData, { merge: true });
-      setDocumentNonBlocking(publicRef, listingData, { merge: true });
+      const { error } = await supabase.from('room_listings').insert(listingData);
+      if (error) throw error;
 
       setSuccessData({ 
         id: listingId, 
@@ -173,7 +178,7 @@ export default function NewListing() {
     }
   };
 
-  if (isUserLoading) {
+  if (loadingUser) {
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -190,7 +195,7 @@ export default function NewListing() {
               <CheckCircle2 className="h-12 w-12" />
             </div>
             <h2 className="text-3xl font-headline font-bold mb-2">Property Published!</h2>
-            <p className="opacity-90">Your property is now live on the marketplace.</p>
+            <p className="opacity-90">Your property is now live on the Supabase Postgres base.</p>
           </div>
           <CardContent className="p-8 space-y-6">
              <div className="p-4 bg-muted/50 rounded-xl border border-border">
@@ -233,11 +238,6 @@ export default function NewListing() {
                   Log In Now <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/register">
-                <Button variant="outline" className="font-headline h-12 px-8">
-                  Create Free Account
-                </Button>
-              </Link>
             </div>
           </Card>
         ) : (
@@ -252,7 +252,7 @@ export default function NewListing() {
                   <Loader2 className="h-20 w-20 text-primary animate-spin" />
                   <div>
                     <p className="text-xl font-headline font-bold text-primary">{loadingStep}</p>
-                    <p className="text-sm text-muted-foreground mt-2">Connecting to RentoVerse Secure Storage...</p>
+                    <p className="text-sm text-muted-foreground mt-2">Connecting to Supabase Storage...</p>
                   </div>
                 </div>
               ) : (
@@ -266,30 +266,16 @@ export default function NewListing() {
                     </div>
                     
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {/* Similar upload UI, omitting standard upload UI bloat for brevity but keeping logic unchanged */}
                       <div className="col-span-2 row-span-2 relative aspect-square md:aspect-auto">
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          className="hidden" 
-                          ref={fileInputRefs[0]} 
-                          onChange={(e) => handleImageUpload(0, e)} 
-                        />
+                        <input type="file" accept="image/*" className="hidden" ref={fileInputRefs[0]} onChange={(e) => handleImageUpload(0, e)} />
                         {imagePreviews[0] ? (
                           <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-md">
                             <Image src={imagePreviews[0]} alt="Featured" fill className="object-cover" />
-                            <button 
-                              type="button" 
-                              onClick={() => removeImage(0)}
-                              className="absolute top-2 right-2 bg-destructive text-white p-1.5 rounded-full shadow-lg"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
+                            <button type="button" onClick={() => removeImage(0)} className="absolute top-2 right-2 bg-destructive text-white p-1.5 rounded-full shadow-lg"><X className="h-4 w-4" /></button>
                           </div>
                         ) : (
-                          <div 
-                            onClick={() => fileInputRefs[0].current?.click()}
-                            className="w-full h-full border-2 border-dashed border-primary/30 rounded-2xl flex flex-col items-center justify-center bg-primary/5 hover:bg-primary/10 cursor-pointer"
-                          >
+                          <div onClick={() => fileInputRefs[0].current?.click()} className="w-full h-full border-2 border-dashed border-primary/30 rounded-2xl flex flex-col items-center justify-center bg-primary/5 hover:bg-primary/10 cursor-pointer">
                             <Camera className="h-8 w-8 text-primary mb-3" />
                             <span className="text-sm font-bold text-primary">Add Cover Photo</span>
                           </div>
@@ -298,29 +284,14 @@ export default function NewListing() {
 
                       {[1, 2, 3, 4].map((idx) => (
                         <div key={idx} className="relative aspect-square">
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            className="hidden" 
-                            ref={fileInputRefs[idx]} 
-                            onChange={(e) => handleImageUpload(idx, e)} 
-                          />
+                          <input type="file" accept="image/*" className="hidden" ref={fileInputRefs[idx]} onChange={(e) => handleImageUpload(idx, e)} />
                           {imagePreviews[idx] ? (
                             <div className="relative w-full h-full rounded-xl overflow-hidden shadow-sm">
                               <Image src={imagePreviews[idx]!} alt={`Property ${idx}`} fill className="object-cover" />
-                              <button 
-                                type="button" 
-                                onClick={() => removeImage(idx)}
-                                className="absolute top-1 right-1 bg-destructive text-white p-1 rounded-full"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
+                              <button type="button" onClick={() => removeImage(idx)} className="absolute top-1 right-1 bg-destructive text-white p-1 rounded-full"><X className="h-3 w-3" /></button>
                             </div>
                           ) : (
-                            <div 
-                              onClick={() => fileInputRefs[idx].current?.click()}
-                              className="w-full h-full border-2 border-dashed border-muted-foreground/20 bg-muted/30 rounded-xl flex flex-col items-center justify-center cursor-pointer"
-                            >
+                            <div onClick={() => fileInputRefs[idx].current?.click()} className="w-full h-full border-2 border-dashed border-muted-foreground/20 bg-muted/30 rounded-xl flex flex-col items-center justify-center cursor-pointer">
                               <Camera className="h-5 w-5 text-muted-foreground/40" />
                             </div>
                           )}
@@ -406,7 +377,7 @@ export default function NewListing() {
                     <div>
                       <p className="font-headline font-bold text-primary">Secure Marketplace Access</p>
                       <p className="text-sm text-muted-foreground">
-                        Property images are stored securely on Firebase Storage for 100% reliability and fast loading.
+                        Property images are stored securely on Supabase Storage.
                       </p>
                     </div>
                   </div>

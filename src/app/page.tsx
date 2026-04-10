@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -6,51 +5,49 @@ import Navbar from "@/components/Navbar";
 import RoomCard from "@/components/RoomCard";
 import { MOCK_ROOMS } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
-import { Search, MapPin, Home, Sparkles, Loader2, Database, ShieldAlert, PlusCircle } from "lucide-react";
+import { Search, MapPin, Home, Sparkles, Database, ShieldAlert, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase";
-import { collection, query, limit, doc } from "firebase/firestore";
+import { createClient } from "@/utils/supabase/client";
 import { Badge } from "@/components/ui/badge";
 
 export default function HomePage() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
-  const firestore = useFirestore();
-  const { user } = useUser();
-
-  // Check for admin status to show/hide footer link
-  const profileRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, "users", user.uid);
-  }, [firestore, user]);
-  const { data: profile } = useDoc(profileRef);
-
-  // Optimized marketplace query
-  const featuredQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(
-      collection(firestore, "room_listings"),
-      limit(20)
-    );
-  }, [firestore]);
-
-  const { data: listings, isLoading } = useCollection(featuredQuery);
-  const [displayListings, setDisplayListings] = useState<any[]>([]);
+  const supabase = createClient();
+  const [profile, setProfile] = useState<any>(null);
+  const [listings, setListings] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
 
   useEffect(() => {
-    if (!isLoading) {
-      if (listings && listings.length > 0) {
-        setDisplayListings(listings);
+    const fetchHomeData = async () => {
+      // 1. Fetch Profile for Admin check
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data } = await supabase.from('users').select('is_admin').eq('id', session.user.id).single();
+        setProfile(data);
+      }
+
+      // 2. Fetch featured properties
+      const { data: roomsData } = await supabase
+        .from('room_listings')
+        .select('*')
+        .limit(20);
+
+      if (roomsData && roomsData.length > 0) {
+        setListings(roomsData);
         setIsLive(true);
       } else {
-        // Fallback to mock data for a vibrant first-time experience
-        setDisplayListings(MOCK_ROOMS.slice(0, 10));
+        setListings(MOCK_ROOMS.slice(0, 10));
         setIsLive(false);
       }
-    }
-  }, [listings, isLoading]);
+      
+      setIsLoading(false);
+    };
+
+    fetchHomeData();
+  }, [supabase]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -63,7 +60,6 @@ export default function HomePage() {
           fill 
           className="object-cover brightness-[0.35]"
           priority
-          data-ai-hint="modern city"
         />
         <div className="container relative z-10 px-4 text-center text-white">
           <Badge className="mb-4 bg-secondary text-secondary-foreground hover:bg-secondary font-headline py-1 px-4 text-xs uppercase tracking-widest">
@@ -100,7 +96,7 @@ export default function HomePage() {
               <h2 className="text-3xl font-headline font-bold">Featured Properties</h2>
               {isLive ? (
                 <Badge variant="outline" className="border-primary text-primary font-bold gap-1 bg-primary/5">
-                  <Database className="h-3 w-3" /> Live Database
+                  <Database className="h-3 w-3" /> Live Postgres
                 </Badge>
               ) : (
                 <Badge variant="outline" className="text-muted-foreground font-bold border-dashed">
@@ -110,7 +106,7 @@ export default function HomePage() {
             </div>
             <p className="text-muted-foreground">
               {isLive 
-                ? "Direct from our live property network." 
+                ? "Direct from our live database." 
                 : "Explore our curated collection of verified stays."}
             </p>
           </div>
@@ -129,8 +125,18 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-8">
-            {displayListings.map((room: any) => (
-              <RoomCard key={room.id} room={room} />
+            {listings.map((room: any) => (
+              <RoomCard 
+                key={room.id} 
+                room={{
+                  ...room, 
+                  monthlyRent: room.monthly_rent || room.monthlyRent,
+                  areaSqFt: room.area_sq_ft || room.areaSqFt,
+                  bhkCount: room.bhk_count || room.bhkCount,
+                  propertyType: room.property_type || room.propertyType,
+                  photoUrls: room.photo_urls || room.photoUrls,
+                }} 
+              />
             ))}
           </div>
         )}
@@ -141,9 +147,9 @@ export default function HomePage() {
                 <Sparkles className="h-10 w-10 text-primary" />
              </div>
              <div className="space-y-2">
-               <h3 className="text-3xl font-headline font-bold text-gray-900">Start Your RentoVerse Journey</h3>
+               <h3 className="text-3xl font-headline font-bold text-gray-900">Start Your Postgres Journey</h3>
                <p className="text-muted-foreground max-w-lg mx-auto text-lg">
-                 Our marketplace is waiting for your content. Be the first to list a stay or post what you're looking for.
+                 Our marketplace is waiting for your content. Be the first to list a stay using your new Supabase backend!
                </p>
              </div>
              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
@@ -178,7 +184,7 @@ export default function HomePage() {
               <Link href="/search" className="hover:text-primary">Browse</Link>
               <Link href="/legal-form" className="hover:text-primary">Legal</Link>
               <Link href="/search-requests/new" className="hover:text-primary">Requirements</Link>
-              {profile?.isAdmin && (
+              {profile?.is_admin && (
                 <Link href="/admin" className="hover:text-primary flex items-center gap-1 font-bold text-destructive">
                   <ShieldAlert className="h-3 w-3" /> Admin
                 </Link>

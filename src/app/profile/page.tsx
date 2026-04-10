@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -10,104 +9,138 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, MessageCircle, Home, Bell, CheckCircle, Save, Sparkles, MapPin, XCircle, LogOut, Loader2, Search, Mail, ShieldAlert } from "lucide-react";
+import { User, MessageCircle, Home, Bell, CheckCircle, Save, Sparkles, MapPin, XCircle, LogOut, Loader2, Search, Mail, ShieldAlert, Heart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useUser, useCollection, useMemoFirebase, useAuth, useDoc } from "@/firebase";
-import { collection, query, orderBy, doc } from "firebase/firestore";
-import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { createClient } from "@/utils/supabase/client";
 import { format } from "date-fns";
-import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
 
 export default function ProfilePage() {
   const { toast } = useToast();
-  const firestore = useFirestore();
-  const { user } = useUser();
-  const auth = useAuth();
+  const supabase = createClient();
   const router = useRouter();
+  
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [listings, setListings] = useState<any[]>([]);
+  const [requests, setRequests] = useState<any[]>([]);
+  const [favorites, setFavorites] = useState<any[]>([]);
+  
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("account");
   const [address, setAddress] = useState("");
   const [email, setEmail] = useState("");
-
-  const profileRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, "users", user.uid);
-  }, [firestore, user]);
-
-  const { data: profile, isLoading: profileLoading } = useDoc(profileRef);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (profile) {
-      setAddress(profile.address || "");
-      setEmail(profile.email || user?.email || "");
-    } else if (user?.email) {
-      setEmail(user.email);
-    }
-  }, [profile, user]);
+    const fetchDashboardData = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+      
+      const userId = session.user.id;
+      setUser(session.user);
 
-  const notificationsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(
-      collection(firestore, `users/${user.uid}/notifications`),
-      orderBy("createdAt", "desc")
-    );
-  }, [firestore, user]);
+      // Fetch Profile
+      const { data: profileData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+        
+      if (profileData) {
+        setProfile(profileData);
+        setAddress(profileData.address || "");
+        setEmail(profileData.email || session.user.email || "");
+      }
 
-  const { data: notifications, isLoading: notificationsLoading } = useCollection(notificationsQuery);
+      // Fetch Properties
+      const { data: listingsData } = await supabase
+        .from('room_listings')
+        .select('*')
+        .eq('landlord_id', userId);
+      
+      if (listingsData) setListings(listingsData);
 
-  const listingsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return collection(firestore, `users/${user.uid}/listings`);
-  }, [firestore, user]);
+      // Fetch Requests
+      const { data: requestsData } = await supabase
+        .from('saved_search_requests')
+        .select('*')
+        .eq('renter_id', userId);
+        
+      if (requestsData) setRequests(requestsData);
 
-  const { data: listings, isLoading: listingsLoading } = useCollection(listingsQuery);
+      // Fetch Favorites
+      const { data: favoritesData } = await supabase
+        .from('user_favorites')
+        .select('room_listings (*)')
+        .eq('user_id', userId);
+        
+      if (favoritesData) setFavorites(favoritesData.map((f: any) => f.room_listings));
 
-  const requestsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return collection(firestore, `users/${user.uid}/saved_search_requests`);
-  }, [firestore, user]);
+      // Fetch Notifications
+      const { data: notifData } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+        
+      if (notifData) setNotifications(notifData);
+      
+      setLoading(false);
+    };
 
-  const { data: requests, isLoading: requestsLoading } = useCollection(requestsQuery);
+    fetchDashboardData();
+  }, [supabase, router]);
 
-  const handleUpdateProfile = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleUpdateProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!firestore || !user) return;
+    if (!user) return;
 
     setIsSaving(true);
     
-    updateDocumentNonBlocking(doc(firestore, "users", user.uid), {
-      address,
-      updatedAt: new Date().toISOString()
-    });
+    const { error } = await supabase
+      .from('users')
+      .update({ 
+        address, 
+        updated_at: new Date().toISOString() 
+      })
+      .eq('id', user.id);
 
-    setTimeout(() => {
+    if (error) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to update profile." });
+    } else {
       toast({ title: "Settings Saved", description: "Your profile information has been updated." });
-      setIsSaving(false);
-    }, 500);
+    }
+    
+    setIsSaving(false);
   };
 
   const handleLogout = async () => {
-    await signOut(auth);
+    await supabase.auth.signOut();
     router.push("/");
     toast({ title: "Signed Out", description: "See you again soon!" });
   };
 
-  const displayName = profile?.name || user?.displayName || "Member";
-  const firstName = displayName.split(' ')[0];
-  const isVerified = profile?.isVerified || !!user?.phoneNumber;
-
-  if (profileLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-muted/30">
         <Navbar />
         <div className="container px-4 py-20 flex flex-col justify-center items-center gap-4 text-center">
           <Loader2 className="animate-spin h-8 w-8 text-primary" />
-          <p className="text-muted-foreground font-headline">Syncing your RentoVerse Dashboard...</p>
+          <p className="text-muted-foreground font-headline">Syncing your RentoVerse Dashboard from Supabase...</p>
         </div>
       </div>
     );
   }
+
+  const displayName = profile?.name || user?.email || user?.phone || "Member";
+  const firstName = displayName.split(' ')[0];
+  const isVerified = profile?.is_verified || !!user?.phone;
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -118,7 +151,7 @@ export default function ProfilePage() {
             <CardContent className="p-6">
               <div className="flex flex-col items-center text-center">
                 <Avatar className="h-24 w-24 mb-4 border-4 border-primary/20">
-                  <AvatarImage src={`https://picsum.photos/seed/${user?.uid || 'user'}/200`} />
+                  <AvatarImage src={`https://picsum.photos/seed/${user?.id || 'user'}/200`} />
                   <AvatarFallback><User /></AvatarFallback>
                 </Avatar>
                 <h2 className="text-xl font-headline font-bold">Welcome, {firstName}!</h2>
@@ -132,7 +165,7 @@ export default function ProfilePage() {
                 </div>
                 
                 <div className="w-full space-y-1">
-                  {profile?.isAdmin && (
+                  {profile?.is_admin && (
                     <Button 
                       variant="outline" 
                       className="w-full justify-start font-headline mb-4 border-destructive text-destructive hover:bg-destructive/10"
@@ -163,6 +196,13 @@ export default function ProfilePage() {
                     <Search className="mr-2 h-4 w-4" /> My Requirements
                   </Button>
                   <Button 
+                    variant={activeTab === "favorites" ? "secondary" : "ghost"} 
+                    className="w-full justify-start font-headline"
+                    onClick={() => setActiveTab("favorites")}
+                  >
+                    <Heart className="mr-2 h-4 w-4" /> Shortlisted
+                  </Button>
+                  <Button 
                     variant="ghost" 
                     className="w-full justify-start font-headline text-destructive hover:bg-destructive/10"
                     onClick={handleLogout}
@@ -180,6 +220,7 @@ export default function ProfilePage() {
                 <TabsTrigger value="account" className="rounded-lg font-headline">Settings</TabsTrigger>
                 <TabsTrigger value="listings" className="rounded-lg font-headline">Properties</TabsTrigger>
                 <TabsTrigger value="requests" className="rounded-lg font-headline">Requirements</TabsTrigger>
+                <TabsTrigger value="favorites" className="rounded-lg font-headline">Shortlists</TabsTrigger>
                 <TabsTrigger value="activity" className="rounded-lg font-headline">Alerts</TabsTrigger>
               </TabsList>
               
@@ -200,7 +241,7 @@ export default function ProfilePage() {
                           <Label htmlFor="whatsapp" className="flex items-center gap-1">
                             <MessageCircle className="h-4 w-4 text-green-500" /> WhatsApp Contact
                           </Label>
-                          <Input id="whatsapp" value={profile?.phoneNumber || user?.phoneNumber || "N/A"} disabled className="bg-muted/50 cursor-not-allowed font-medium" />
+                          <Input id="whatsapp" value={profile?.phone_number || user?.phone || "N/A"} disabled className="bg-muted/50 cursor-not-allowed font-medium" />
                         </div>
                         <div className="space-y-2 md:col-span-2">
                           <Label htmlFor="email" className="flex items-center gap-1">
@@ -240,9 +281,7 @@ export default function ProfilePage() {
                     <Button variant="outline" size="sm" onClick={() => router.push('/rooms/new')}>+ Post New</Button>
                   </div>
 
-                  {listingsLoading ? (
-                    <div className="p-10 text-center"><Loader2 className="animate-spin h-6 w-6 mx-auto" /></div>
-                  ) : !listings || listings.length === 0 ? (
+                  {!listings || listings.length === 0 ? (
                     <Card className="border-none py-12 text-center bg-white">
                       <Home className="h-10 w-10 text-muted mx-auto mb-4" />
                       <p className="text-muted-foreground">You haven't listed any properties yet.</p>
@@ -259,7 +298,7 @@ export default function ProfilePage() {
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="text-right mr-4">
-                              <p className="text-sm font-bold text-primary">₹{(listing.monthlyRent || 0).toLocaleString('en-IN')}</p>
+                              <p className="text-sm font-bold text-primary">₹{(listing.monthlyRent || listing.monthly_rent || 0).toLocaleString('en-IN')}</p>
                               <p className="text-[10px] text-muted-foreground uppercase">Rent/mo</p>
                             </div>
                             <Button size="sm" variant="outline" onClick={() => router.push(`/rooms/${listing.id}`)}>View</Button>
@@ -278,9 +317,7 @@ export default function ProfilePage() {
                     <Button variant="outline" size="sm" onClick={() => router.push('/search-requests/new')}>+ Add New</Button>
                   </div>
 
-                  {requestsLoading ? (
-                    <div className="p-10 text-center"><Loader2 className="animate-spin h-6 w-6 mx-auto" /></div>
-                  ) : !requests || requests.length === 0 ? (
+                  {!requests || requests.length === 0 ? (
                     <Card className="border-none py-12 text-center bg-white">
                       <Search className="h-10 w-10 text-muted mx-auto mb-4" />
                       <p className="text-muted-foreground">No active search requirements found.</p>
@@ -290,14 +327,52 @@ export default function ProfilePage() {
                       {requests.map((req: any) => (
                         <Card key={req.id} className="border-none shadow-sm bg-white overflow-hidden p-6 flex items-center justify-between">
                           <div>
-                            <h4 className="font-bold font-headline">Looking for: {req.propertyType}</h4>
+                            <h4 className="font-bold font-headline">Looking for: {req.propertyType || req.property_type}</h4>
                             <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                              <MapPin className="h-3 w-3" /> {req.locationFilter}
+                              <MapPin className="h-3 w-3" /> {req.locationFilter || req.location_filter}
                             </p>
                           </div>
                           <div className="text-right">
-                             <p className="text-sm font-bold text-secondary-foreground bg-secondary/20 px-2 py-1 rounded">Budget: ₹{(req.maxRent || 0).toLocaleString('en-IN')}</p>
+                             <p className="text-sm font-bold text-secondary-foreground bg-secondary/20 px-2 py-1 rounded">Budget: ₹{(req.maxRent || req.max_rent || 0).toLocaleString('en-IN')}</p>
                              <p className="text-[10px] text-muted-foreground mt-1 uppercase">Active Match</p>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="favorites">
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-headline font-bold flex items-center gap-2">
+                       <Heart className="h-5 w-5 text-destructive" /> Shortlisted Properties
+                    </h3>
+                  </div>
+
+                  {!favorites || favorites.length === 0 ? (
+                    <Card className="border-none py-12 text-center bg-white">
+                      <Heart className="h-10 w-10 text-muted mx-auto mb-4" />
+                      <p className="text-muted-foreground">You haven't shortlisted any properties yet.</p>
+                      <Button variant="outline" className="mt-4" onClick={() => router.push('/search')}>Browse Properties</Button>
+                    </Card>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {favorites.map((room: any) => (
+                         // Using RoomCard might loop dependencies if not imported. I will just render a mini-card since RoomCard isn't imported here yet
+                        <Card key={room.id} className="border-none shadow-sm bg-white overflow-hidden p-6 flex flex-col justify-between">
+                          <div className="mb-4">
+                            <h4 className="font-bold font-headline">{room.title}</h4>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                              <MapPin className="h-3 w-3" /> {room.locality || room.location}
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-between border-t pt-4">
+                            <div>
+                               <p className="text-sm font-bold text-primary">₹{(room.monthlyRent || room.monthly_rent || 0).toLocaleString('en-IN')}</p>
+                            </div>
+                            <Button size="sm" variant="outline" onClick={() => router.push(`/rooms/${room.id}`)}>Details</Button>
                           </div>
                         </Card>
                       ))}
@@ -311,9 +386,7 @@ export default function ProfilePage() {
                     <h3 className="text-xl font-headline font-bold flex items-center gap-2">
                       <Bell className="h-5 w-5 text-primary" /> Match Notifications
                     </h3>
-                    {notificationsLoading ? (
-                      <div className="p-10 text-center"><Loader2 className="animate-spin h-6 w-6 mx-auto" /></div>
-                    ) : notifications?.length === 0 ? (
+                    {notifications?.length === 0 ? (
                       <Card className="border-none py-12 text-center">
                         <Bell className="h-10 w-10 text-muted mx-auto mb-4" />
                         <p className="text-muted-foreground">No new match alerts.</p>
@@ -327,7 +400,7 @@ export default function ProfilePage() {
                            <div className="flex-1">
                               <p className="text-sm font-medium">{notif.message}</p>
                               <p className="text-[10px] text-muted-foreground mt-1">
-                                {notif.createdAt && format(new Date(notif.createdAt), 'MMM d, h:mm a')}
+                                {notif.created_at && format(new Date(notif.created_at), 'MMM d, h:mm a')}
                               </p>
                            </div>
                         </Card>

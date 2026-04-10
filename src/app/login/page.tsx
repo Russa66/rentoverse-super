@@ -1,91 +1,60 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  RecaptchaVerifier, 
-  signInWithPhoneNumber, 
-  ConfirmationResult,
-  sendSignInLinkToEmail,
-  isSignInWithEmailLink,
-  signInWithEmailLink
-} from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { useAuth, useFirestore, useUser } from "@/firebase";
+import { createClient } from "@/utils/supabase/client";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Phone, Mail, ArrowRight, ShieldCheck, Info, AlertCircle } from "lucide-react";
+import { Mail, ArrowRight, ShieldCheck, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import Link from "next/link";
 
 export default function LoginPage() {
   const [step, setStep] = useState<"form" | "verify">("form");
-  const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   
-  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
-  const auth = useAuth();
-  const firestore = useFirestore();
-  const { user } = useUser();
+  const supabase = createClient();
   const router = useRouter();
   const { toast } = useToast();
   const logo = PlaceHolderImages.find(img => img.id === 'logo');
 
   useEffect(() => {
-    if (user && !user.isAnonymous && firestore) {
-      checkAdminAndRedirect(user.uid);
-    }
-  }, [user, firestore]);
-
-  useEffect(() => {
-    if (!auth) return;
-
-    if (isSignInWithEmailLink(auth, window.location.href)) {
-      const finishSignIn = async () => {
-        let storedEmail = window.localStorage.getItem('emailForSignIn');
-        if (!storedEmail) {
-          storedEmail = window.prompt('Please provide your email for confirmation');
-        }
-        
-        if (!storedEmail) return;
-
-        setIsLoading(true);
-        try {
-          await signInWithEmailLink(auth, storedEmail, window.location.href);
-          window.localStorage.removeItem('emailForSignIn');
-          toast({ title: "Logged in", description: "Email verified successfully." });
-          router.push('/profile');
-        } catch (error: any) {
-          toast({ variant: "destructive", title: "Verification Failed", description: error.message });
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      finishSignIn();
-    }
-  }, [auth]);
-
-  useEffect(() => {
-    return () => {
-      if (recaptchaVerifierRef.current) {
-        recaptchaVerifierRef.current.clear();
-        recaptchaVerifierRef.current = null;
+    // Check if they came from an email magic link
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        checkAdminAndRedirect(session.user.id);
       }
     };
-  }, []);
+    
+    // Subscribe to auth state changes for magic links
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        toast({ title: "Logged in", description: "Successfully authenticated." });
+        checkAdminAndRedirect(session.user.id);
+      }
+    });
+
+    checkSession();
+    
+    return () => subscription.unsubscribe();
+  }, [supabase, router, toast]);
 
   const checkAdminAndRedirect = async (uid: string) => {
     try {
-      const userDoc = await getDoc(doc(firestore!, "users", uid));
-      if (userDoc.exists() && userDoc.data()?.isAdmin) {
+      const { data: userProfile } = await supabase
+        .from('users')
+        .select('is_admin')
+        .eq('id', uid)
+        .single();
+        
+      if (userProfile?.is_admin) {
         router.push("/admin");
       } else {
         router.push("/profile");
@@ -95,73 +64,24 @@ export default function LoginPage() {
     }
   };
 
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!auth) return;
-
-    const phoneDigits = phoneNumber.trim().replace(/\D/g, '');
-    if (phoneDigits.length !== 10) {
-      toast({ title: "Invalid Number", description: "Please enter a 10-digit mobile number.", variant: "destructive" });
-      return;
-    }
-
-    const fullPhoneNumber = `+91${phoneDigits}`;
-    setIsLoading(true);
-
-    try {
-      if (recaptchaVerifierRef.current) {
-        recaptchaVerifierRef.current.clear();
-        recaptchaVerifierRef.current = null;
-      }
-
-      recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible'
-      });
-
-      const result = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifierRef.current);
-      setConfirmationResult(result);
-      setStep("verify");
-      toast({ title: "OTP Sent", description: `Verification code sent to +91 ${phoneDigits}` });
-    } catch (error: any) {
-      console.error("SMS Login Error:", error);
-      let errorMessage = "Error sending verification code.";
-      let errorTitle = "Login Attempt Blocked";
-      
-      if (error.code === 'auth/too-many-requests') {
-        errorMessage = "Security Block: Too many attempts. Please wait 10-15 minutes before trying again.";
-      } else if (error.code === 'auth/unauthorized-domain') {
-        errorTitle = "Domain Not Authorized";
-        errorMessage = `Domain '${window.location.hostname}' is not authorized. Please add it to 'Authorized Domains' in the Firebase Console (Authentication > Settings).`;
-      }
-
-      toast({
-        variant: "destructive",
-        title: errorTitle,
-        description: errorMessage,
-      });
-
-      if (recaptchaVerifierRef.current) {
-        recaptchaVerifierRef.current.clear();
-        recaptchaVerifierRef.current = null;
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleSendEmailLink = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth) return;
+    if (!email) return;
 
     setIsLoading(true);
     try {
-      const actionCodeSettings = {
-        url: window.location.origin + '/login',
-        handleCodeInApp: true,
-      };
-      await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-      window.localStorage.setItem('emailForSignIn', email);
-      toast({ title: "Login Link Sent", description: `Check your inbox at ${email}.` });
+      // By default, this sends both a Magic Link and a 6-digit OTP code in the same email.
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email,
+        options: {
+          emailRedirectTo: window.location.origin + '/profile',
+        }
+      });
+      
+      if (error) throw error;
+      
+      setStep("verify");
+      toast({ title: "Email Sent!", description: `Check your inbox at ${email} for the link or code.` });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Email Error", description: error.message });
     } finally {
@@ -171,15 +91,24 @@ export default function LoginPage() {
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!confirmationResult || otp.length !== 6) return;
+    if (otp.length < 6) return;
 
     setIsLoading(true);
+
     try {
-      await confirmationResult.confirm(otp);
-      toast({ title: "Logged In", description: "Redirecting..." });
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: email,
+        token: otp,
+        type: 'email' // We verify the 6 digit code sent in the magic link email
+      });
+
+      if (error) throw error;
+      if (data.session) {
+        checkAdminAndRedirect(data.session.user.id);
+      }
     } catch (error: any) {
       console.error("OTP Verification Error:", error);
-      toast({ variant: "destructive", title: "Login Failed", description: "Incorrect code." });
+      toast({ variant: "destructive", title: "Login Failed", description: error.message || "Incorrect code." });
     } finally {
       setIsLoading(false);
     }
@@ -196,68 +125,31 @@ export default function LoginPage() {
                 <Image src={logo.imageUrl} alt="RentoVerse" fill className="object-contain" priority />
               )}
             </div>
-            <CardTitle className="text-2xl font-headline font-bold">RentoVerse Login</CardTitle>
+            <CardTitle className="text-2xl font-headline font-bold">Log In</CardTitle>
             <CardDescription>
-              {step === "form" ? "Choose your preferred login method." : "Verify your identity via SMS."}
+              {step === "form" ? "Enter your email for a secure link or code." : "Verify using the code in your email."}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div id="recaptcha-container"></div>
-
             {step === "form" ? (
-              <Tabs defaultValue="phone" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-6 h-12">
-                  <TabsTrigger value="phone" className="gap-2 font-headline">
-                    <Phone className="h-4 w-4" /> Phone
-                  </TabsTrigger>
-                  <TabsTrigger value="email" className="gap-2 font-headline">
-                    <Mail className="h-4 w-4" /> Email
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="phone">
-                  <form onSubmit={handleSendOtp} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Phone Number</Label>
-                      <div className="relative">
-                        <div className="absolute left-3 top-0 bottom-0 flex items-center gap-1 text-muted-foreground font-bold text-sm border-r pr-3 my-2 pointer-events-none">+91</div>
-                        <input
-                          id="phone"
-                          type="tel"
-                          placeholder="9876543210"
-                          value={phoneNumber}
-                          onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                          className="flex h-12 w-full rounded-md border border-input bg-background pl-14 pr-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          required
-                          maxLength={10}
-                        />
-                      </div>
-                    </div>
-                    <Button type="submit" className="w-full font-headline h-12" disabled={isLoading || phoneNumber.length !== 10}>
-                      {isLoading ? "Preparing..." : "Send SMS OTP"}
-                    </Button>
-                  </form>
-                </TabsContent>
-
-                <TabsContent value="email">
-                  <form onSubmit={handleSendEmailLink} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email Address</Label>
-                      <input
-                        id="email"
-                        type="email"
-                        placeholder="your@email.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="flex h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        required
-                      />
-                    </div>
-                    <Button type="submit" className="w-full font-headline h-12" disabled={isLoading || !email}>
-                      {isLoading ? "Sending Link..." : "Send Login Link"}
-                    </Button>
-                  </form>
-                </TabsContent>
+              <form onSubmit={handleSendEmailLink} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="flex items-center gap-2">
+                     <Mail className="h-4 w-4" /> Email Address
+                  </Label>
+                  <input
+                    id="email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="flex h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full font-headline h-12" disabled={isLoading || !email}>
+                  {isLoading ? <Loader2 className="animate-spin" /> : "Send Login Link & Code"}
+                </Button>
 
                 <div className="mt-6 text-center">
                   <p className="text-sm text-muted-foreground">
@@ -267,35 +159,38 @@ export default function LoginPage() {
                     </Link>
                   </p>
                 </div>
-              </Tabs>
+              </form>
             ) : (
               <form onSubmit={handleVerifyOtp} className="space-y-6">
                 <div className="text-center p-4 bg-muted/50 rounded-xl border">
-                   <p className="text-sm font-medium mb-1">Code sent to:</p>
-                   <p className="font-bold text-primary">+91 {phoneNumber}</p>
+                   <p className="text-sm font-medium mb-2">Check your email. Click the link or enter the code sent to:</p>
+                   <p className="font-bold text-primary">{email}</p>
                 </div>
                 <div className="space-y-2 text-center">
-                  <Label htmlFor="otp">Enter 6-Digit Code</Label>
+                  <Label htmlFor="otp">Enter Email Code</Label>
                   <input
                     id="otp"
-                    placeholder="123456"
+                    placeholder="12345678"
                     value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
                     className="flex h-14 w-full rounded-md border border-input bg-background px-3 py-2 text-2xl text-center tracking-widest focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    maxLength={6}
+                    maxLength={8}
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full font-headline h-12" disabled={isLoading || otp.length !== 6}>
-                  {isLoading ? "Verifying..." : "Login"}
+                <Button type="submit" className="w-full font-headline h-12" disabled={isLoading || otp.length < 6}>
+                  {isLoading ? <Loader2 className="animate-spin" /> : "Login"}
                 </Button>
-                <Button variant="ghost" className="w-full" onClick={() => setStep("form")} disabled={isLoading}>Back</Button>
+                <div className="text-center">
+                   <p className="text-xs text-muted-foreground mb-4">Or simply click the Magic Link in the email to automatically sign in.</p>
+                   <Button type="button" variant="ghost" className="w-full" onClick={() => setStep("form")} disabled={isLoading}>Back to Email</Button>
+                </div>
               </form>
             )}
 
             <div className="mt-8 p-4 bg-primary/5 rounded-lg border border-primary/10 flex items-start gap-3">
               <ShieldCheck className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-              <p className="text-[11px] text-muted-foreground">Secure verification powered by RentoVerse.</p>
+              <p className="text-[11px] text-muted-foreground">Secure passwordless verification powered by Supabase Auth.</p>
             </div>
           </CardContent>
         </Card>

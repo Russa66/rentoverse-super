@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import { MOCK_ROOMS } from "@/lib/mock-data";
 import { Badge } from "@/components/ui/badge";
@@ -11,28 +11,52 @@ import { MapPin, Wifi, Zap, Wind, Droplets, MessageCircle, Phone, Users, ShieldC
 import Image from "next/image";
 import SocialPostDialog from "@/components/SocialPostDialog";
 import Link from "next/link";
-import { useFirestore, useDoc, useMemoFirebase } from "@/firebase";
-import { doc } from "firebase/firestore";
+import { createClient } from "@/utils/supabase/client";
 
 export default function RoomDetails({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const firestore = useFirestore();
+  const supabase = createClient();
+  const [room, setRoom] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  
+  // Negotiation State
+  const [isNegotiating, setIsNegotiating] = useState(false);
+  const [isSubmittingOffer, setIsSubmittingOffer] = useState(false);
+  const [offerDetails, setOfferDetails] = useState({ price: "", message: "I am interested in this property!" });
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
-  const roomRef = useMemoFirebase(() => {
-    if (!firestore || !id) return null;
-    return doc(firestore, "room_listings", id);
-  }, [firestore, id]);
+  useEffect(() => {
+    const fetchRoom = async () => {
+      const { data } = await supabase.from('room_listings').select('*').eq('id', id).single();
+      if (data) {
+        setRoom(data);
+      } else {
+        const fallback = MOCK_ROOMS.find((r) => r.id === id);
+        if (fallback) setRoom(fallback);
+      }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUser(session.user);
+        // Check if already negotiated
+        if (data) {
+           const { data: existingOffer } = await supabase.from('property_negotiations').select('*').eq('room_id', id).eq('applicant_id', session.user.id).single();
+           if (existingOffer) setHasSubmitted(true);
+        }
+      }
 
-  const { data: firestoreRoom, isLoading } = useDoc(roomRef);
+      setIsLoading(false);
+    };
 
-  const room = firestoreRoom || MOCK_ROOMS.find((r) => r.id === id);
+    fetchRoom();
+  }, [supabase, id]);
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col bg-muted/20">
         <Navbar />
         <div className="container px-4 mx-auto py-20 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="mt-4 text-muted-foreground font-headline">Loading property details...</p>
         </div>
       </div>
@@ -54,15 +78,43 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
     );
   }
 
-  const photos = room.photoUrls || room.photos || ["https://picsum.photos/seed/room/800/600"];
+  const photos = room.photo_urls || room.photoUrls || room.photos || ["https://picsum.photos/seed/room/800/600"];
   const amenities = room.amenities || [];
   const hasWifi = amenities.includes("WiFi") || !!room.wifiAvailable;
   const hasAc = amenities.includes("AC") || !!room.acAvailable;
   const hasInverter = amenities.includes("Inverter") || !!room.inverterAvailable;
-  const rentDisplay = typeof room.monthlyRent === 'number' ? `₹${room.monthlyRent}` : room.monthlyRent;
-  const whatsapp = room.landlord?.whatsapp || "";
-  const landlordName = room.landlord?.name || "Verified Landlord";
-  const publicLocation = room.locality || "Contact owner for exact address";
+  const rentNumber = room.monthly_rent || room.monthlyRent;
+  const rentDisplay = typeof rentNumber === 'number' ? `₹${rentNumber.toLocaleString('en-IN')}` : rentNumber;
+  
+  // NOTE: In a real Postgres database we would JOIN with the users table to get the landlord phone.
+  // For now we map.
+  const landlordName = room.landlord_name || room.landlordName || "Verified Landlord";
+  const publicLocation = room.locality || room.location || "Contact owner for exact address";
+
+  const handleOfferSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) {
+       alert("You must be signed in to make an offer!");
+       return;
+    }
+    
+    setIsSubmittingOffer(true);
+    const { error } = await supabase.from('property_negotiations').insert({
+      room_id: room.id,
+      applicant_id: user.id,
+      offered_price: Number(offerDetails.price) || 0,
+      message: offerDetails.message
+    });
+
+    setIsSubmittingOffer(false);
+
+    if (error) {
+      alert("Failed to submit offer: " + error.message);
+    } else {
+      setHasSubmitted(true);
+      setIsNegotiating(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/20 pb-20">
@@ -94,11 +146,11 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
                 <h1 className="text-3xl md:text-4xl font-headline font-bold tracking-tight">{room.title}</h1>
                 <div className="flex items-center gap-2">
                    <Badge className="bg-primary hover:bg-primary font-bold px-3 py-1 flex items-center gap-1">
-                     <Users className="h-3 w-3" /> {room.idealFor || "Verified"}
+                     <Users className="h-3 w-3" /> {room.ideal_for || room.idealFor || "Verified"}
                    </Badge>
-                   {room.bhkCount && room.bhkCount !== 'N/A' && (
+                   {(room.bhk_count || room.bhkCount) && (room.bhk_count || room.bhkCount) !== 'N/A' && (
                      <Badge variant="outline" className="border-primary text-primary font-bold px-3 py-1">
-                       {room.bhkCount} BHK
+                       {room.bhk_count || room.bhkCount} BHK
                      </Badge>
                    )}
                 </div>
@@ -118,14 +170,14 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
                     <Maximize2 className="h-5 w-5 text-primary" />
                     <div>
                        <p className="text-[10px] uppercase font-bold text-muted-foreground">Area</p>
-                       <p className="font-headline font-bold">{room.areaSqFt || '---'} Sq Ft</p>
+                       <p className="font-headline font-bold">{room.area_sq_ft || room.areaSqFt || '---'} Sq Ft</p>
                     </div>
                  </div>
                  <div className="p-4 rounded-xl bg-muted/50 flex items-center gap-3">
                     <Droplets className="h-5 w-5 text-blue-500" />
                     <div>
                        <p className="text-[10px] uppercase font-bold text-muted-foreground">Water Source</p>
-                       <p className="font-headline font-bold">{room.waterSupplyCondition || 'Standard'}</p>
+                       <p className="font-headline font-bold">{room.water_supply_condition || room.waterSupplyCondition || 'Standard'}</p>
                     </div>
                  </div>
               </div>
@@ -133,21 +185,21 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
               <Separator className="my-6" />
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
-                 <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-primary/5 border border-primary/10">
-                    <Wifi className={`h-8 w-8 ${hasWifi ? 'text-primary' : 'text-muted/30'}`} />
-                    <span className="text-xs font-bold uppercase tracking-wider">WiFi</span>
+                 <div className={`flex flex-col items-center gap-2 p-4 rounded-xl transition-all ${hasWifi ? 'bg-primary/10 border border-primary/20 scale-100' : 'bg-muted/30 border border-transparent opacity-40 grayscale scale-95'}`}>
+                    <Wifi className={`h-8 w-8 ${hasWifi ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <span className={`text-xs font-bold uppercase tracking-wider ${hasWifi ? 'text-foreground' : 'text-muted-foreground line-through decoration-muted-foreground/30'}`}>WiFi</span>
                  </div>
-                 <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-secondary/5 border border-secondary/10">
-                    <Wind className={`h-8 w-8 ${hasAc ? 'text-secondary' : 'text-muted/30'}`} />
-                    <span className="text-xs font-bold uppercase tracking-wider">AC</span>
+                 <div className={`flex flex-col items-center gap-2 p-4 rounded-xl transition-all ${hasAc ? 'bg-secondary/10 border border-secondary/20 scale-100' : 'bg-muted/30 border border-transparent opacity-40 grayscale scale-95'}`}>
+                    <Wind className={`h-8 w-8 ${hasAc ? 'text-secondary' : 'text-muted-foreground'}`} />
+                    <span className={`text-xs font-bold uppercase tracking-wider ${hasAc ? 'text-foreground' : 'text-muted-foreground line-through decoration-muted-foreground/30'}`}>AC</span>
                  </div>
-                 <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-yellow-50 border border-yellow-100">
-                    <Zap className={`h-8 w-8 ${hasInverter ? 'text-yellow-600' : 'text-muted/30'}`} />
-                    <span className="text-xs font-bold uppercase tracking-wider">Inverter</span>
+                 <div className={`flex flex-col items-center gap-2 p-4 rounded-xl transition-all ${hasInverter ? 'bg-yellow-50 border border-yellow-200 scale-100 shadow-sm' : 'bg-muted/30 border border-transparent opacity-40 grayscale scale-95'}`}>
+                    <Zap className={`h-8 w-8 ${hasInverter ? 'text-yellow-600' : 'text-muted-foreground'}`} />
+                    <span className={`text-xs font-bold uppercase tracking-wider ${hasInverter ? 'text-foreground' : 'text-muted-foreground line-through decoration-muted-foreground/30'}`}>Inverter</span>
                  </div>
-                 <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-blue-50 border border-blue-100">
+                 <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-blue-50 border border-blue-100 shadow-sm">
                     <Droplets className="h-8 w-8 text-blue-500" />
-                    <span className="text-xs font-bold uppercase tracking-wider">Water</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-foreground">Water</span>
                  </div>
               </div>
             </div>
@@ -162,7 +214,7 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
                  <ShieldCheck className="h-6 w-6 text-primary shrink-0" />
                  <div>
                    <p className="font-bold text-sm">Verified Property</p>
-                   <p className="text-xs text-muted-foreground">This property has been published via RentoVerse's secure platform.</p>
+                   <p className="text-xs text-muted-foreground">This property has been published via RentoVerse's secure Postgres platform.</p>
                  </div>
                </div>
             </div>
@@ -175,14 +227,51 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
                 <div className="text-4xl font-headline font-bold">{rentDisplay}</div>
               </div>
               <CardContent className="p-6 space-y-4">
-                <Button className="w-full h-12 text-lg font-headline bg-primary text-primary-foreground hover:bg-primary/90" asChild>
-                  <a href={`https://wa.me/${whatsapp}`} target="_blank">
-                    <MessageCircle className="mr-2 h-5 w-5" /> Chat on WhatsApp
-                  </a>
-                </Button>
-                <Button variant="outline" className="w-full h-12 border-primary text-primary hover:bg-primary/10 font-headline">
-                  <Phone className="mr-2 h-5 w-5" /> Call {landlordName}
-                </Button>
+                {hasSubmitted ? (
+                  <div className="bg-green-50 border border-green-200 p-4 rounded-xl text-center">
+                    <ShieldCheck className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                    <p className="font-bold text-green-800">Offer Submitted!</p>
+                    <p className="text-xs text-green-700 mt-1">The landlord has been notified and will review your securely placed offer soon.</p>
+                  </div>
+                ) : isNegotiating ? (
+                  <form onSubmit={handleOfferSubmit} className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                     <div>
+                       <label className="text-xs font-bold uppercase text-muted-foreground">Your Bargained Rate (₹)</label>
+                       <input 
+                         type="number" 
+                         required 
+                         placeholder="e.g. 15000"
+                         className="w-full mt-1 p-2 border rounded-md"
+                         value={offerDetails.price}
+                         onChange={e => setOfferDetails({...offerDetails, price: e.target.value})}
+                       />
+                     </div>
+                     <div>
+                       <label className="text-xs font-bold uppercase text-muted-foreground">Message to Landlord</label>
+                       <textarea 
+                         required 
+                         rows={2}
+                         className="w-full mt-1 p-2 border rounded-md text-sm"
+                         value={offerDetails.message}
+                         onChange={e => setOfferDetails({...offerDetails, message: e.target.value})}
+                       />
+                     </div>
+                     <div className="flex gap-2 pt-2">
+                       <Button type="button" variant="outline" className="flex-1" onClick={() => setIsNegotiating(false)}>Cancel</Button>
+                       <Button type="submit" className="flex-1 bg-primary text-white" disabled={isSubmittingOffer}>{isSubmittingOffer ? 'Sending...' : 'Submit Offer'}</Button>
+                     </div>
+                  </form>
+                ) : (
+                  <>
+                    <Button className="w-full h-12 text-lg font-headline bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setIsNegotiating(true)}>
+                      <MessageCircle className="mr-2 h-5 w-5" /> I am interested
+                    </Button>
+                    <Button variant="outline" className="w-full h-12 border-primary text-primary hover:bg-primary/10 font-headline pointer-events-none opacity-50">
+                      <Lock className="mr-2 h-4 w-4" /> Contact Protected
+                    </Button>
+                  </>
+                )}
+                
                 <Separator className="my-4" />
                 <SocialPostDialog room={{
                   ...room,
