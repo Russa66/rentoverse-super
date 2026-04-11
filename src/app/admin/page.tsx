@@ -40,10 +40,32 @@ export default function AdminDashboard() {
       setUser(session?.user || null);
       
       if (session?.user) {
-        const { data } = await supabase.from('users').select('*').eq('id', session.user.id).single();
-        setProfile(data);
+        // Fetch Profile with Recovery Fallback
+        let { data: profileData, error: profileErr } = await supabase
+          .from('users')
+          .select('*')
+          .eq('auth_id', session.user.id)
+          .single();
+          
+        if (profileErr || !profileData) {
+          // Fallback: Check if user exists by ID (old architecture)
+          const { data: fallbackData } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (fallbackData) {
+            // Sync auth_id for future visits
+            await supabase.from('users').update({ auth_id: session.user.id }).eq('id', session.user.id);
+            profileData = { ...fallbackData, auth_id: session.user.id };
+            console.log("Admin profile recovered and synced with auth_id");
+          }
+        }
+
+        setProfile(profileData);
         
-        if (data?.is_admin || true) { // allow fetch to try
+        if (profileData?.is_admin) {
            fetchAdminData();
         }
       }
@@ -92,7 +114,7 @@ export default function AdminDashboard() {
   };
 
   const seedSampleData = async () => {
-    if (!user) return;
+    if (!user || !profile) return;
     setIsSeeding(true);
     
     try {
@@ -101,7 +123,7 @@ export default function AdminDashboard() {
         const listingId = `seed_${room.id}`;
         const listingData = {
           id: listingId,
-          landlord_id: user.id,
+          landlord_id: profile.id,
           title: room.title,
           location: room.location,
           locality: room.locality,
@@ -141,7 +163,7 @@ export default function AdminDashboard() {
   }
 
   // Secure redirect if not an admin
-  const canSeeDashboard = user && (profile?.is_admin || (listings?.length === 0 && !listingsLoading));
+  const canSeeDashboard = user && profile?.is_admin;
 
   if (!user || !canSeeDashboard) {
     return (
@@ -284,7 +306,8 @@ export default function AdminDashboard() {
                           {editingLocality?.id === listing.id ? (
                             <Input 
                               value={editingLocality.value} 
-                              onChange={(e) => setEditingLocality({ ...editingLocality, value: e.target.value })}
+                              onKeyPress={(e) => e.key === 'Enter' && handleUpdateLocality(editingLocality!.id)}
+                              onChange={(e) => editingLocality && setEditingLocality({ ...editingLocality, value: e.target.value })}
                               className="h-8 text-xs max-w-[200px]"
                               placeholder="Enter Locality"
                             />

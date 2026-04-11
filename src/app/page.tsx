@@ -5,7 +5,7 @@ import Navbar from "@/components/Navbar";
 import RoomCard from "@/components/RoomCard";
 import { MOCK_ROOMS } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
-import { Search, MapPin, Home, Sparkles, Database, ShieldAlert, PlusCircle } from "lucide-react";
+import { Search, MapPin, Home, Sparkles, ShieldAlert, PlusCircle, Star } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
@@ -25,7 +25,7 @@ export default function HomePage() {
       // 1. Fetch Profile for Admin check
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        const { data } = await supabase.from('users').select('is_admin').eq('id', session.user.id).single();
+        const { data } = await supabase.from('users').select('is_admin').eq('auth_id', session.user.id).single();
         setProfile(data);
       }
 
@@ -94,20 +94,14 @@ export default function HomePage() {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <h2 className="text-3xl font-headline font-bold">Featured Properties</h2>
-              {isLive ? (
-                <Badge variant="outline" className="border-primary text-primary font-bold gap-1 bg-primary/5">
-                  <Database className="h-3 w-3" /> Live Postgres
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-muted-foreground font-bold border-dashed">
-                  Preview Mode
-                </Badge>
-              )}
+              <Badge variant="outline" className="border-primary text-primary font-bold gap-1 bg-primary/5">
+                <Star className="h-3 w-3" /> Handpicked
+              </Badge>
             </div>
             <p className="text-muted-foreground">
               {isLive 
-                ? "Direct from our live database." 
-                : "Explore our curated collection of verified stays."}
+                ? "Verified listings updated daily — find a place you'll love to call home."
+                : "Explore our curated collection of verified stays across top localities."}
             </p>
           </div>
           <Link href="/search">
@@ -128,14 +122,7 @@ export default function HomePage() {
             {listings.map((room: any) => (
               <RoomCard 
                 key={room.id} 
-                room={{
-                  ...room, 
-                  monthlyRent: room.monthly_rent || room.monthlyRent,
-                  areaSqFt: room.area_sq_ft || room.areaSqFt,
-                  bhkCount: room.bhk_count || room.bhkCount,
-                  propertyType: room.property_type || room.propertyType,
-                  photoUrls: room.photo_urls || room.photoUrls,
-                }} 
+                room={room} 
               />
             ))}
           </div>
@@ -147,20 +134,20 @@ export default function HomePage() {
                 <Sparkles className="h-10 w-10 text-primary" />
              </div>
              <div className="space-y-2">
-               <h3 className="text-3xl font-headline font-bold text-gray-900">Start Your Postgres Journey</h3>
+               <h3 className="text-3xl font-headline font-bold text-gray-900">Be the First to List Here!</h3>
                <p className="text-muted-foreground max-w-lg mx-auto text-lg">
-                 Our marketplace is waiting for your content. Be the first to list a stay using your new Supabase backend!
+                 Thousands of people are searching for their perfect room right now. Connect with genuine tenants, earn steady rental income, and list your property for free — in minutes.
                </p>
              </div>
              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
                 <Link href="/rooms/new">
                   <Button size="lg" className="h-14 px-8 font-headline text-lg w-full sm:w-auto shadow-xl hover:shadow-primary/20">
-                    <PlusCircle className="mr-2 h-5 w-5" /> Air Your Property
+                    <PlusCircle className="mr-2 h-5 w-5" /> List Your Property Free
                   </Button>
                 </Link>
                 <Link href="/search-requests/new">
                   <Button variant="outline" size="lg" className="h-14 px-8 font-headline text-lg w-full sm:w-auto border-primary text-primary hover:bg-primary/5">
-                    <Search className="mr-2 h-5 w-5" /> Populate Your Query
+                    <Search className="mr-2 h-5 w-5" /> Post Your Requirement
                   </Button>
                 </Link>
              </div>

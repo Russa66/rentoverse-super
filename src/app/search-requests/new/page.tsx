@@ -44,7 +44,7 @@ export default function PostRequirement() {
       setUser(session?.user || null);
       
       if (session?.user) {
-        const { data } = await supabase.from('users').select('*').eq('id', session.user.id).single();
+        const { data } = await supabase.from('users').select('*').eq('auth_id', session.user.id).single();
         if (data) {
           setProfile(data);
           let phone = data.phone_number || session.user.phone || "";
@@ -91,13 +91,9 @@ export default function PostRequirement() {
 
       const requestData = {
         id: requestId,
-        renter_id: user.id,
-        renter_name: formData.name,
+        renter_id: profile?.id || user.id, // Primary ID from public.users
         location_filter: combinedLocation,
         max_rent: Number(formData.budget),
-        property_type: formData.propertyType,
-        required_amenities: amenities,
-        phone_number: fullPhone,
         notification_preference: "WhatsApp",
         created_at: new Date().toISOString(),
       };

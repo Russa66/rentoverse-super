@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, ShieldCheck, Camera, X, Image as ImageIcon, Loader2, Lock, ArrowRight } from "lucide-react";
+import { CheckCircle2, ShieldCheck, Camera, X, Image as ImageIcon, Loader2, Lock, ArrowRight, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
@@ -41,13 +41,25 @@ export default function NewListing() {
     ac: false,
     powerBackup: false,
     waterSource: "",
-    description: ""
+    description: "",
+    // Admin fields for posting on behalf of others
+    landlordName: "",
+    landlordEmail: "",
+    landlordPhone: ""
   });
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const fetchSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user || null);
+      
+      if (session?.user) {
+        // Fetch if user is admin
+        const { data } = await supabase.from('users').select('is_admin').eq('auth_id', session.user.id).single();
+        setIsAdmin(data?.is_admin || false);
+      }
+      
       setLoadingUser(false);
     };
     fetchSession();
@@ -136,9 +148,49 @@ export default function NewListing() {
       setLoadingStep("Publishing Postgres Listing...");
 
       const now = new Date().toISOString();
+      let landlordId = user.id;
+
+      // If admin is posting for someone else
+      if (isAdmin && formData.landlordEmail) {
+        // 1. Check if user already exists
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', formData.landlordEmail)
+          .single();
+
+        if (existingUser) {
+          landlordId = existingUser.id;
+        } else {
+          // 2. Create a new shadow user
+          const newUserId = crypto.randomUUID();
+          const { error: userError } = await supabase.from('users').insert({
+            id: newUserId,
+            name: formData.landlordName,
+            email: formData.landlordEmail,
+            phone_number: formData.landlordPhone,
+            is_verified: true,
+          });
+
+          if (userError) throw new Error("Failed to create landlord profile: " + userError.message);
+          landlordId = newUserId;
+        }
+      } else {
+        // Find the internal ID of the currently logged in user
+        const { data: currentUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('auth_id', user.id)
+          .single();
+        
+        if (currentUser) {
+          landlordId = currentUser.id;
+        }
+      }
+
       const listingData = {
         id: listingId,
-        landlord_id: user.id,
+        landlord_id: landlordId,
         title: `${formData.bhkCount !== 'N/A' ? formData.bhkCount + ' BHK ' : ''}${formData.propertyType} in ${formData.location}`,
         location: formData.location,
         locality: formData.location.split(',')[0].trim() || formData.location,
@@ -300,6 +352,52 @@ export default function NewListing() {
                     </div>
                   </div>
 
+                  {isAdmin && (
+                    <div className="p-6 bg-primary/5 border border-primary/20 rounded-2xl space-y-6 mb-8 shadow-inner">
+                      <div className="flex items-center gap-2 text-primary">
+                        <ShieldCheck className="h-5 w-5" />
+                        <h3 className="font-headline font-bold">Landlord Contact (Admin Only)</h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="space-y-2">
+                          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Full Name</Label>
+                          <Input 
+                            placeholder="e.g. Rahul Sharma" 
+                            className="bg-white"
+                            value={formData.landlordName} 
+                            onChange={(e) => setFormData({...formData, landlordName: e.target.value})} 
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Email Address</Label>
+                          <Input 
+                            type="email" 
+                            placeholder="landlord@email.com" 
+                            className="bg-white"
+                            value={formData.landlordEmail} 
+                            onChange={(e) => setFormData({...formData, landlordEmail: e.target.value})} 
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Phone Number</Label>
+                          <Input 
+                            placeholder="e.g. +91 9876543210" 
+                            className="bg-white"
+                            value={formData.landlordPhone} 
+                            onChange={(e) => setFormData({...formData, landlordPhone: e.target.value})} 
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 p-3 bg-white/50 rounded-lg border border-primary/10">
+                         <Info className="h-4 w-4 text-primary shrink-0" />
+                         <p className="text-[11px] text-muted-foreground leading-tight">
+                           If these fields are filled, a new account will be prepared for this landlord. 
+                           Properties listed here will automatically appear in their dashboard once they log in.
+                         </p>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid gap-6 sm:grid-cols-2">
                     <div className="space-y-2 sm:col-span-2">
                       <Label className="font-bold">Full Address / Location</Label>
@@ -343,18 +441,39 @@ export default function NewListing() {
                       <Input required type="number" value={formData.rent} onChange={(e) => setFormData({...formData, rent: e.target.value})} placeholder="e.g. 15000" />
                     </div>
 
-                    <div className="space-y-2 sm:col-span-2">
-                      <Label className="font-bold">Ideal For</Label>
-                      <Select required onValueChange={(v) => setFormData({...formData, idealFor: v})}>
-                        <SelectTrigger><SelectValue placeholder="Select target audience" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Bachelor">Bachelors / Students</SelectItem>
-                          <SelectItem value="Family">Families</SelectItem>
-                          <SelectItem value="Anyone">All Purpose</SelectItem>
-                          <SelectItem value="Commercial">Commercial Clients</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="space-y-2">
+                       <Label className="font-bold">Ideal For</Label>
+                       <Select required onValueChange={(v) => setFormData({...formData, idealFor: v})}>
+                         <SelectTrigger><SelectValue placeholder="Select target audience" /></SelectTrigger>
+                         <SelectContent>
+                           <SelectItem value="Bachelor">Bachelors / Students</SelectItem>
+                           <SelectItem value="Family">Families</SelectItem>
+                           <SelectItem value="Anyone">All Purpose</SelectItem>
+                           <SelectItem value="Commercial">Commercial Clients</SelectItem>
+                         </SelectContent>
+                       </Select>
                     </div>
+
+                    <div className="space-y-2">
+                      <Label className="font-bold">Nearest Communication / Transport</Label>
+                      <Input required value={formData.transport} onChange={(e) => setFormData({...formData, transport: e.target.value})} placeholder="e.g. Metro Station, Bus Stand" />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="font-bold">Water Supply Condition</Label>
+                      <Input required value={formData.waterSource} onChange={(e) => setFormData({...formData, waterSource: e.target.value})} placeholder="e.g. 24/7 Corporation Water" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="font-bold">Property Description</Label>
+                    <textarea 
+                      required 
+                      value={formData.description} 
+                      onChange={(e) => setFormData({...formData, description: e.target.value})} 
+                      placeholder="Describe your property (e.g. newly painted, ventilated rooms, floor level...)"
+                      className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    />
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">

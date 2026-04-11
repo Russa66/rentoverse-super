@@ -28,7 +28,7 @@ export default function Navbar() {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user || null);
       if (session?.user) {
-        const { data } = await supabase.from('users').select('is_admin').eq('id', session.user.id).single();
+        const { data } = await supabase.from('users').select('is_admin').eq('auth_id', session.user.id).single();
         setProfile(data);
       }
       setLoading(false);
@@ -39,7 +39,7 @@ export default function Navbar() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user || null);
       if (session?.user) {
-        const { data } = await supabase.from('users').select('is_admin').eq('id', session.user.id).single();
+        const { data } = await supabase.from('users').select('is_admin').eq('auth_id', session.user.id).single();
         setProfile(data);
       } else {
         setProfile(null);

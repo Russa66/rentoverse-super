@@ -163,14 +163,7 @@ export default function SearchPage() {
             {sortedRooms.map((room) => (
               <RoomCard 
                 key={room.id} 
-                room={{
-                  ...room,
-                  monthlyRent: room.monthly_rent || room.monthlyRent,
-                  areaSqFt: room.area_sq_ft || room.areaSqFt,
-                  bhkCount: room.bhk_count || room.bhkCount,
-                  propertyType: room.property_type || room.propertyType,
-                  photoUrls: room.photo_urls || room.photoUrls,
-                }} 
+                room={room} 
               />
             ))}
           </div>

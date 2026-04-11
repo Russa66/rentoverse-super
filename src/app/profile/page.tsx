@@ -30,6 +30,8 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("account");
   const [address, setAddress] = useState("");
+  const [name, setName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -45,51 +47,71 @@ export default function ProfilePage() {
       const userId = session.user.id;
       setUser(session.user);
 
-      // Fetch Profile
-      const { data: profileData } = await supabase
+      // Fetch Profile with Recovery Fallback
+      let { data: profileData, error: profileErr } = await supabase
         .from('users')
         .select('*')
-        .eq('id', userId)
+        .eq('auth_id', userId)
         .single();
+        
+      if (profileErr || !profileData) {
+        // Fallback: Check if user exists by ID (old architecture)
+        const { data: fallbackData } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .single();
+          
+        if (fallbackData) {
+          // Sync auth_id for future visits
+          await supabase.from('users').update({ auth_id: userId }).eq('id', userId);
+          profileData = { ...fallbackData, auth_id: userId };
+          console.log("Profile recovered and synced with auth_id");
+        }
+      }
         
       if (profileData) {
         setProfile(profileData);
+        setName(profileData.name || "");
+        setPhoneNumber(profileData.phone_number || "");
         setAddress(profileData.address || "");
         setEmail(profileData.email || session.user.email || "");
+        
+        const internalId = profileData.id;
+
+        // Fetch Properties
+        const { data: listingsData } = await supabase
+          .from('room_listings')
+          .select('*')
+          .eq('landlord_id', internalId);
+        
+        if (listingsData) setListings(listingsData);
+
+        // Fetch Requests
+        const { data: requestsData } = await supabase
+          .from('saved_search_requests')
+          .select('*')
+          .eq('renter_id', internalId);
+          
+        if (requestsData) setRequests(requestsData);
+
+        // Fetch Favorites
+        const { data: favoritesData } = await supabase
+          .from('user_favorites')
+          .select('room_listings (*)')
+          .eq('user_id', internalId);
+          
+        if (favoritesData) setFavorites(favoritesData.map((f: any) => f.room_listings));
+
+        // Fetch Notifications
+        const { data: notifData } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', internalId)
+          .order('created_at', { ascending: false });
+          
+        if (notifData) setNotifications(notifData);
       }
-
-      // Fetch Properties
-      const { data: listingsData } = await supabase
-        .from('room_listings')
-        .select('*')
-        .eq('landlord_id', userId);
-      
-      if (listingsData) setListings(listingsData);
-
-      // Fetch Requests
-      const { data: requestsData } = await supabase
-        .from('saved_search_requests')
-        .select('*')
-        .eq('renter_id', userId);
-        
-      if (requestsData) setRequests(requestsData);
-
-      // Fetch Favorites
-      const { data: favoritesData } = await supabase
-        .from('user_favorites')
-        .select('room_listings (*)')
-        .eq('user_id', userId);
-        
-      if (favoritesData) setFavorites(favoritesData.map((f: any) => f.room_listings));
-
-      // Fetch Notifications
-      const { data: notifData } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-        
-      if (notifData) setNotifications(notifData);
       
       setLoading(false);
     };
@@ -106,10 +128,12 @@ export default function ProfilePage() {
     const { error } = await supabase
       .from('users')
       .update({ 
+        name,
+        phone_number: phoneNumber,
         address, 
         updated_at: new Date().toISOString() 
       })
-      .eq('id', user.id);
+      .eq('auth_id', user.id);
 
     if (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to update profile." });
@@ -235,13 +259,28 @@ export default function ProfilePage() {
                       <div className="grid md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <Label htmlFor="fullname">Full Name</Label>
-                          <Input id="fullname" value={displayName} disabled className="bg-muted/50 cursor-not-allowed font-medium" />
+                          <Input 
+                            id="fullname" 
+                            value={name} 
+                            onChange={(e) => setName(e.target.value)}
+                            disabled={!!profile?.name} 
+                            className={!!profile?.name ? "bg-muted/50 cursor-not-allowed font-medium" : "bg-white font-medium"} 
+                          />
+                          {!profile?.name && <p className="text-[10px] text-primary italic">Fill name to complete your profile</p>}
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="whatsapp" className="flex items-center gap-1">
                             <MessageCircle className="h-4 w-4 text-green-500" /> WhatsApp Contact
                           </Label>
-                          <Input id="whatsapp" value={profile?.phone_number || user?.phone || "N/A"} disabled className="bg-muted/50 cursor-not-allowed font-medium" />
+                          <Input 
+                            id="whatsapp" 
+                            value={phoneNumber} 
+                            onChange={(e) => setPhoneNumber(e.target.value)}
+                            disabled={!!profile?.phone_number} 
+                            className={!!profile?.phone_number ? "bg-muted/50 cursor-not-allowed font-medium" : "bg-white font-medium"} 
+                            placeholder="e.g. 9876543210"
+                          />
+                          {!profile?.phone_number && <p className="text-[10px] text-green-600 italic">Add phone number to enable WhatsApp alerts</p>}
                         </div>
                         <div className="space-y-2 md:col-span-2">
                           <Label htmlFor="email" className="flex items-center gap-1">

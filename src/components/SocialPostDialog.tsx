@@ -41,8 +41,9 @@ export default function SocialPostDialog({ room, trigger }: SocialPostDialogProp
         inverterAvailable: room.inverterAvailable,
         acAvailable: room.acAvailable,
         waterSupplyCondition: room.waterSupplyCondition,
-        monthlyRent: room.monthlyRent || "",
+        monthlyRent: String(room.monthlyRent || ""),
         socialMediaType: target,
+        type: "listing",
       });
       setPostContent(result.postContent);
     } catch (error) {

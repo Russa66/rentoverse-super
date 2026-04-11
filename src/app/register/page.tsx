@@ -76,26 +76,55 @@ export default function RegisterPage() {
       const user = data.session.user;
 
       // Ensure profile exists in PostgreSQL table
-      const userData = {
-        id: user.id,
-        name: formData.name,
-        email: formData.email,
-        phone_number: "",
-        address: "",
-        nearest_communication: formData.nearestCommunication,
-        is_admin: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        is_verified: true,
-      };
+      // 1. Check if user already exists (shadow user created by admin)
+      const { data: existingUser } = await supabase
+        .from("users")
+        .select("id")
+        .eq("email", formData.email)
+        .single();
 
-      const { error: dbError } = await supabase.from("users").upsert(userData, { onConflict: 'id' });
-      
-      if (dbError) {
-        console.warn("Could not insert user profile (Check your Supabase Table Schema!):", dbError);
-        toast({ title: "Login Successful", description: "Warning: Profile metadata sync failed.", variant: "destructive" });
+      if (existingUser) {
+        // Link existing shadow user to this Auth account
+        const { error: linkError } = await supabase
+          .from("users")
+          .update({
+            auth_id: user.id,
+            name: formData.name, // Update with official name
+            is_verified: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", existingUser.id);
+          
+        if (linkError) {
+          console.error("Linking Error:", linkError);
+          toast({ title: "Login Successful", description: "Warning: Profile linking failed.", variant: "destructive" });
+        } else {
+          toast({ title: "Welcome back to RentoVerse", description: "Your admin-managed listings are now linked to your account." });
+        }
       } else {
-        toast({ title: "Welcome to RentoVerse", description: "Your account is synced to Supabase." });
+        // Create new user record
+        const userData = {
+          id: user.id, // For standard users, we can use auth.id as PK
+          auth_id: user.id,
+          name: formData.name,
+          email: formData.email,
+          phone_number: "",
+          address: "",
+          nearest_communication: formData.nearestCommunication,
+          is_admin: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          is_verified: true,
+        };
+
+        const { error: dbError } = await supabase.from("users").insert(userData);
+        
+        if (dbError) {
+          console.warn("Could not insert user profile:", dbError);
+          toast({ title: "Login Successful", description: "Warning: Profile metadata sync failed.", variant: "destructive" });
+        } else {
+          toast({ title: "Welcome to RentoVerse", description: "Your account is synced to Supabase." });
+        }
       }
       
       router.push("/profile");

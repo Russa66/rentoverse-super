@@ -21,12 +21,11 @@ export default function RoomCard({ room }: { room: any }) {
   // Use locality for public display, fallback to a neighborhood extraction if locality is missing
   const publicLocation = room.locality || (room.location ? room.location.split(',')[1]?.trim() || room.location.split(',')[0] : "Location hidden");
 
-  // Handle double currency symbol by checking if it's a number or string
-  const rentDisplay = typeof room.monthlyRent === 'number' 
-    ? `₹${room.monthlyRent.toLocaleString('en-IN')}` 
-    : typeof room.monthly_rent === 'number'
-    ? `₹${room.monthly_rent.toLocaleString('en-IN')}`
-    : room.monthlyRent || room.monthly_rent;
+  // Handle currency display mapping
+  const rentNumber = room.monthly_rent ?? room.monthlyRent ?? 0;
+  const rentDisplay = typeof rentNumber === 'number' 
+    ? `₹${rentNumber.toLocaleString('en-IN')}` 
+    : rentNumber;
 
   useEffect(() => {
     const fetchFavoriteStatus = async () => {
@@ -107,9 +106,9 @@ export default function RoomCard({ room }: { room: any }) {
             className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
           <div className="absolute top-3 left-3 flex flex-wrap gap-2 pr-12">
-            {(room.idealFor || room.ideal_for) && (
+            {(room.ideal_for || room.idealFor) && (
               <Badge className="bg-white text-primary border-primary flex items-center gap-1 font-bold shadow-sm">
-                <Users className="h-3 w-3" /> {room.idealFor || room.ideal_for}
+                <Users className="h-3 w-3" /> {room.ideal_for || room.idealFor}
               </Badge>
             )}
             {(room.acAvailable || (room.amenities && room.amenities.includes('AC'))) && (
@@ -128,10 +127,10 @@ export default function RoomCard({ room }: { room: any }) {
               <MapPin className="h-4 w-4 shrink-0 text-destructive" />
               <span className="truncate font-medium">{publicLocation}</span>
             </div>
-            {(room.nearestCommunicationOptions || room.nearestCommunication || room.nearest_communication) && (
+            {(room.nearest_communication || room.nearestCommunication || room.nearestCommunicationOptions?.[0]) && (
               <div className="flex items-center text-muted-foreground text-sm gap-2">
                 <Train className="h-4 w-4 shrink-0 text-primary" />
-                <span className="truncate">{room.nearestCommunicationOptions?.[0] || room.nearestCommunication || room.nearest_communication}</span>
+                <span className="truncate">{room.nearest_communication || room.nearestCommunication || room.nearestCommunicationOptions?.[0]}</span>
               </div>
             )}
           </div>

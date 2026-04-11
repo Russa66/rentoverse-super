@@ -6,10 +6,11 @@
 
 -- 1. Create the `users` table
 CREATE TABLE IF NOT EXISTS public.users (
-  id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  auth_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE SET NULL,
   name TEXT,
   phone_number TEXT,
-  email TEXT,
+  email TEXT UNIQUE,
   address TEXT,
   nearest_communication TEXT,
   is_admin BOOLEAN DEFAULT false,
@@ -17,6 +18,10 @@ CREATE TABLE IF NOT EXISTS public.users (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
+
+-- Migration: Sync existing users who were created before the auth_id column
+-- Run this once if migrating from old schema:
+-- UPDATE public.users SET auth_id = id WHERE auth_id IS NULL;
 
 -- 2. Create the `room_listings` table
 CREATE TABLE IF NOT EXISTS public.room_listings (
@@ -72,20 +77,25 @@ ALTER TABLE public.social_posts ENABLE ROW LEVEL SECURITY;
 
 -- Users Table Policies: Users can read everyone, but only update themselves
 CREATE POLICY "Anyone can read users" ON public.users FOR SELECT USING (true);
-CREATE POLICY "Users can insert their own profile" ON public.users FOR INSERT WITH CHECK (auth.uid() = id);
-CREATE POLICY "Users can update their own profile" ON public.users FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Users can insert their own profile" ON public.users FOR INSERT WITH CHECK (auth.uid() = auth_id);
+CREATE POLICY "Users can update their own profile" ON public.users FOR UPDATE USING (auth.uid() = auth_id);
+CREATE POLICY "Admins can manage all users" ON public.users FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.users WHERE public.users.auth_id = auth.uid() AND is_admin = true)
+);
 
 -- Room Listings Policies: Anyone can view listings, only owners can insert/update
 CREATE POLICY "Anyone can view active listings" ON public.room_listings FOR SELECT USING (true);
-CREATE POLICY "Landlords can create listings" ON public.room_listings FOR INSERT WITH CHECK (auth.uid() = landlord_id);
-CREATE POLICY "Landlords can update own listings" ON public.room_listings FOR UPDATE USING (auth.uid() = landlord_id);
-CREATE POLICY "Landlords can delete own listings" ON public.room_listings FOR DELETE USING (auth.uid() = landlord_id);
+CREATE POLICY "Owners can manage listings" ON public.room_listings FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.users WHERE public.users.id = public.room_listings.landlord_id AND public.users.auth_id = auth.uid())
+);
+CREATE POLICY "Admins can manage all listings" ON public.room_listings FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.users WHERE public.users.auth_id = auth.uid() AND is_admin = true)
+);
 
 -- Saved Searches Policies: Only renters can see and manage their own searches
-CREATE POLICY "Renters can view own searches" ON public.saved_search_requests FOR SELECT USING (auth.uid() = renter_id);
-CREATE POLICY "Renters can insert own searches" ON public.saved_search_requests FOR INSERT WITH CHECK (auth.uid() = renter_id);
-CREATE POLICY "Renters can update own searches" ON public.saved_search_requests FOR UPDATE USING (auth.uid() = renter_id);
-CREATE POLICY "Renters can delete own searches" ON public.saved_search_requests FOR DELETE USING (auth.uid() = renter_id);
+CREATE POLICY "Renters can manage own searches" ON public.saved_search_requests FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.users WHERE public.users.id = public.saved_search_requests.renter_id AND public.users.auth_id = auth.uid())
+);
 
 -- Social Posts Policies
 CREATE POLICY "Anyone can view social posts" ON public.social_posts FOR SELECT USING (true);
@@ -118,11 +128,10 @@ CREATE TABLE IF NOT EXISTS public.user_favorites (
   UNIQUE(user_id, room_id)
 );
 
-ALTER TABLE public.user_favorites ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view own favorites" ON public.user_favorites FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own favorites" ON public.user_favorites FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can delete own favorites" ON public.user_favorites FOR DELETE USING (auth.uid() = user_id);
+-- User Favorites Policies
+CREATE POLICY "Users can manage own favorites" ON public.user_favorites FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.users WHERE public.users.id = public.user_favorites.user_id AND public.users.auth_id = auth.uid())
+);
 
 -- ============================================================
 -- 6. Create the `property_negotiations` table
@@ -139,15 +148,17 @@ CREATE TABLE IF NOT EXISTS public.property_negotiations (
 
 ALTER TABLE public.property_negotiations ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own negotiations" ON public.property_negotiations FOR SELECT USING (auth.uid() = applicant_id);
-CREATE POLICY "Users can insert own negotiations" ON public.property_negotiations FOR INSERT WITH CHECK (auth.uid() = applicant_id);
+-- Property Negotiations Policies
+CREATE POLICY "Applicants can manage own negotiations" ON public.property_negotiations FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.users WHERE public.users.id = public.property_negotiations.applicant_id AND public.users.auth_id = auth.uid())
+);
 CREATE POLICY "Landlords can view negotiations for their rooms" ON public.property_negotiations FOR SELECT USING (
   EXISTS (
     SELECT 1 FROM public.room_listings 
     WHERE public.room_listings.id = public.property_negotiations.room_id 
-    AND public.room_listings.landlord_id = auth.uid()
+    AND EXISTS (SELECT 1 FROM public.users WHERE public.users.id = public.room_listings.landlord_id AND public.users.auth_id = auth.uid())
   )
 );
 CREATE POLICY "Admins can view all negotiations" ON public.property_negotiations FOR SELECT USING (
-  EXISTS (SELECT 1 FROM public.users WHERE public.users.id = auth.uid() AND is_admin = true)
+  EXISTS (SELECT 1 FROM public.users WHERE public.users.auth_id = auth.uid() AND is_admin = true)
 );
