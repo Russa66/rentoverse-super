@@ -43,7 +43,6 @@ CREATE TABLE IF NOT EXISTS public.room_listings (
   description TEXT,
   ideal_for TEXT,
   is_active BOOLEAN DEFAULT true,
-  status TEXT DEFAULT 'Pending' CHECK (status IN ('Pending', 'Approved', 'Rejected')),
   photo_urls TEXT[],
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
@@ -101,7 +100,7 @@ CREATE POLICY "Admins can manage all users" ON public.users FOR ALL USING (
 
 -- Room Listings Policies: Anyone can view listings, only owners can insert/update
 DROP POLICY IF EXISTS "Anyone can view active listings" ON public.room_listings;
-CREATE POLICY "Anyone can view active listings" ON public.room_listings FOR SELECT USING (status = 'Approved' AND is_active = true);
+CREATE POLICY "Anyone can view active listings" ON public.room_listings FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Owners can manage listings" ON public.room_listings;
 CREATE POLICY "Owners can manage listings" ON public.room_listings FOR ALL USING (
@@ -200,41 +199,3 @@ DROP POLICY IF EXISTS "Admins can view all negotiations" ON public.property_nego
 CREATE POLICY "Admins can view all negotiations" ON public.property_negotiations FOR SELECT USING (
   EXISTS (SELECT 1 FROM public.admin_list WHERE user_id = auth.uid())
 );
-
--- ============================================================
--- AUTO-CREATE USER PROFILE ON SIGNUP (Required for phone login)
--- Run this in Supabase SQL Editor after updating the auth flow
--- ============================================================
-
--- Trigger function: fires after every new auth signup
--- Reads name + phone_number from metadata and inserts into public.users
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger AS $$
-BEGIN
-  INSERT INTO public.users (id, auth_id, name, phone_number, email, is_verified, created_at, updated_at)
-  VALUES (
-    gen_random_uuid(),
-    new.id,
-    new.raw_user_meta_data->>'name',
-    new.raw_user_meta_data->>'phone_number',
-    new.email,
-    true,
-    now(),
-    now()
-  )
-  ON CONFLICT (email) DO UPDATE SET
-    auth_id = EXCLUDED.auth_id,
-    name = COALESCE(EXCLUDED.name, public.users.name),
-    phone_number = COALESCE(EXCLUDED.phone_number, public.users.phone_number),
-    is_verified = true,
-    updated_at = now();
-  RETURN new;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Attach trigger to auth.users table
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
