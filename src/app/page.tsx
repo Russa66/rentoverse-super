@@ -25,8 +25,8 @@ export default function HomePage() {
       // 1. Fetch Profile for Admin check
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        const { data } = await supabase.from('users').select('is_admin').eq('auth_id', session.user.id).single();
-        setProfile(data);
+        const { data: adminCheck } = await supabase.from('admin_list').select('user_id').eq('user_id', session.user.id).maybeSingle();
+        setProfile({ is_admin: !!adminCheck });
       }
 
       // 2. Fetch featured properties

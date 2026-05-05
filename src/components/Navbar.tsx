@@ -28,8 +28,8 @@ export default function Navbar() {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user || null);
       if (session?.user) {
-        const { data } = await supabase.from('users').select('is_admin').eq('auth_id', session.user.id).single();
-        setProfile(data);
+        const { data: adminData } = await supabase.from('admin_list').select('user_id').eq('user_id', session.user.id).maybeSingle();
+        setProfile({ is_admin: !!adminData });
       }
       setLoading(false);
     };
@@ -39,8 +39,8 @@ export default function Navbar() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user || null);
       if (session?.user) {
-        const { data } = await supabase.from('users').select('is_admin').eq('auth_id', session.user.id).single();
-        setProfile(data);
+        const { data: adminData } = await supabase.from('admin_list').select('user_id').eq('user_id', session.user.id).maybeSingle();
+        setProfile({ is_admin: !!adminData });
       } else {
         setProfile(null);
       }

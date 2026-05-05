@@ -43,9 +43,9 @@ export default function AdminDashboard() {
         // Fetch Profile with Recovery Fallback
         let { data: profileData, error: profileErr } = await supabase
           .from('users')
-          .select('*')
+          .select('*, admin_list(user_id)')
           .eq('auth_id', session.user.id)
-          .single();
+          .maybeSingle();
           
         if (profileErr || !profileData) {
           // Fallback: Check if user exists by ID (old architecture)
@@ -59,8 +59,17 @@ export default function AdminDashboard() {
             // Sync auth_id for future visits
             await supabase.from('users').update({ auth_id: session.user.id }).eq('id', session.user.id);
             profileData = { ...fallbackData, auth_id: session.user.id };
+            
+            // Also fetch admin status for fallback
+            const { data: adminCheck } = await supabase.from('admin_list').select('user_id').eq('user_id', session.user.id).maybeSingle();
+            profileData.is_admin = !!adminCheck;
             console.log("Admin profile recovered and synced with auth_id");
           }
+        }
+
+        if (profileData) {
+          // Map admin_list join to is_admin property for UI compatibility
+          profileData.is_admin = profileData.is_admin || (profileData.admin_list ? (Array.isArray(profileData.admin_list) ? profileData.admin_list.length > 0 : !!profileData.admin_list) : false);
         }
 
         setProfile(profileData);

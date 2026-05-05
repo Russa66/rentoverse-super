@@ -55,9 +55,9 @@ export default function NewListing() {
       setUser(session?.user || null);
       
       if (session?.user) {
-        // Fetch if user is admin
-        const { data } = await supabase.from('users').select('is_admin').eq('auth_id', session.user.id).single();
-        setIsAdmin(data?.is_admin || false);
+        // Fetch if user is admin via admin_list table
+        const { data } = await supabase.from('admin_list').select('user_id').eq('user_id', session.user.id).maybeSingle();
+        setIsAdmin(!!data);
       }
       
       setLoadingUser(false);

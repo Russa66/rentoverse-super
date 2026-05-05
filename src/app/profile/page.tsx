@@ -15,9 +15,10 @@ import { createClient } from "@/utils/supabase/client";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 
+const supabase = createClient();
+
 export default function ProfilePage() {
   const { toast } = useToast();
-  const supabase = createClient();
   const router = useRouter();
   
   const [user, setUser] = useState<any>(null);
@@ -50,9 +51,9 @@ export default function ProfilePage() {
       // Fetch Profile with Recovery Fallback
       let { data: profileData, error: profileErr } = await supabase
         .from('users')
-        .select('*')
+        .select('*, admin_list(user_id)')
         .eq('auth_id', userId)
-        .single();
+        .maybeSingle();
         
       if (profileErr || !profileData) {
         // Fallback: Check if user exists by ID (old architecture)
@@ -66,11 +67,17 @@ export default function ProfilePage() {
           // Sync auth_id for future visits
           await supabase.from('users').update({ auth_id: userId }).eq('id', userId);
           profileData = { ...fallbackData, auth_id: userId };
+          
+          // Also fetch admin status for fallback
+          const { data: adminCheck } = await supabase.from('admin_list').select('user_id').eq('user_id', userId).maybeSingle();
+          profileData.is_admin = !!adminCheck;
           console.log("Profile recovered and synced with auth_id");
         }
       }
         
       if (profileData) {
+        // Map admin_list join to is_admin property for UI compatibility
+        profileData.is_admin = profileData.admin_list ? (Array.isArray(profileData.admin_list) ? profileData.admin_list.length > 0 : !!profileData.admin_list) : false;
         setProfile(profileData);
         setName(profileData.name || "");
         setPhoneNumber(profileData.phone_number || "");
@@ -111,13 +118,16 @@ export default function ProfilePage() {
           .order('created_at', { ascending: false });
           
         if (notifData) setNotifications(notifData);
+      } else {
+        // Still set email from session if profile doesn't exist yet
+        setEmail(session.user.email || "");
       }
       
       setLoading(false);
     };
 
     fetchDashboardData();
-  }, [supabase, router]);
+  }, [router]);
 
   const handleUpdateProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -162,9 +172,9 @@ export default function ProfilePage() {
     );
   }
 
-  const displayName = profile?.name || user?.email || user?.phone || "Member";
+  const displayName = profile?.name || name || user?.email || user?.phone || "Member";
   const firstName = displayName.split(' ')[0];
-  const isVerified = profile?.is_verified || !!user?.phone;
+  const isVerified = profile?.is_verified || !!profile?.phone_number || !!user?.phone;
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -258,29 +268,28 @@ export default function ProfilePage() {
                     <form onSubmit={handleUpdateProfile} className="space-y-8">
                       <div className="grid md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                          <Label htmlFor="fullname">Full Name</Label>
+                          <Label htmlFor="fullname">Full Name (Read Only)</Label>
                           <Input 
                             id="fullname" 
                             value={name} 
                             onChange={(e) => setName(e.target.value)}
-                            disabled={!!profile?.name} 
-                            className={!!profile?.name ? "bg-muted/50 cursor-not-allowed font-medium" : "bg-white font-medium"} 
+                            disabled
+                            className="bg-muted/50 cursor-not-allowed font-medium" 
+                            placeholder="Your full name"
                           />
-                          {!profile?.name && <p className="text-[10px] text-primary italic">Fill name to complete your profile</p>}
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="whatsapp" className="flex items-center gap-1">
-                            <MessageCircle className="h-4 w-4 text-green-500" /> WhatsApp Contact
+                            <MessageCircle className="h-4 w-4 text-green-500" /> WhatsApp Contact (Read Only)
                           </Label>
                           <Input 
                             id="whatsapp" 
                             value={phoneNumber} 
                             onChange={(e) => setPhoneNumber(e.target.value)}
-                            disabled={!!profile?.phone_number} 
-                            className={!!profile?.phone_number ? "bg-muted/50 cursor-not-allowed font-medium" : "bg-white font-medium"} 
+                            disabled
+                            className="bg-muted/50 cursor-not-allowed font-medium" 
                             placeholder="e.g. 9876543210"
                           />
-                          {!profile?.phone_number && <p className="text-[10px] text-green-600 italic">Add phone number to enable WhatsApp alerts</p>}
                         </div>
                         <div className="space-y-2 md:col-span-2">
                           <Label htmlFor="email" className="flex items-center gap-1">
@@ -295,19 +304,24 @@ export default function ProfilePage() {
                           />
                         </div>
                         <div className="space-y-2 md:col-span-2">
-                          <Label htmlFor="address">Default Address</Label>
+                          <Label htmlFor="address">Default Address {!!profile?.address && "(Read Only)"}</Label>
                           <Textarea 
                             id="address" 
                             placeholder="Your primary address for rental agreements" 
                             value={address} 
                             onChange={(e) => setAddress(e.target.value)} 
+                            disabled={!!profile?.address}
+                            className={!!profile?.address ? "bg-muted/50 cursor-not-allowed" : "bg-white"}
                           />
+                          {!profile?.address && <p className="text-xs text-muted-foreground mt-1">Note: You can only set your address once. Please make sure it is correct.</p>}
                         </div>
                       </div>
 
-                      <Button type="submit" disabled={isSaving} className="font-headline px-8 h-12">
-                        <Save className="mr-2 h-4 w-4" /> {isSaving ? "Saving..." : "Save Profile"}
-                      </Button>
+                      {!profile?.address && (
+                        <Button type="submit" disabled={isSaving || !address.trim()} className="font-headline px-8 h-12">
+                          <Save className="mr-2 h-4 w-4" /> {isSaving ? "Saving..." : "Save Address"}
+                        </Button>
+                      )}
                     </form>
                   </CardContent>
                 </Card>
