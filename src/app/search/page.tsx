@@ -19,12 +19,21 @@ export default function SearchPage() {
   const [filterType, setFilterType] = useState("All");
   
   const [listings, setListings] = useState<any[]>([]);
+  const [userFavorites, setUserFavorites] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
 
   useEffect(() => {
     const fetchListings = async () => {
       setIsLoading(true);
+      
+      // Bulk fetch user favorites to prevent N+1 queries in RoomCards
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: favs } = await supabase.from('user_favorites').select('room_id').eq('user_id', session.user.id);
+        if (favs) setUserFavorites(favs.map(f => f.room_id));
+      }
+
       let query = supabase.from('room_listings').select('*').eq('is_active', true);
       
       if (filterType !== "All") {
@@ -164,6 +173,7 @@ export default function SearchPage() {
               <RoomCard 
                 key={room.id} 
                 room={room} 
+                initialFavorite={userFavorites.includes(room.id)}
               />
             ))}
           </div>

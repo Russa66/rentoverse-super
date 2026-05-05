@@ -10,13 +10,12 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-export default function RoomCard({ room }: { room: any }) {
+export default function RoomCard({ room, initialFavorite = false }: { room: any, initialFavorite?: boolean }) {
   const supabase = createClient();
   const { toast } = useToast();
   
-  const [isFavorite, setIsFavorite] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(initialFavorite);
   const [isLiking, setIsLiking] = useState(false);
-  const [user, setUser] = useState<any>(null);
 
   // Use locality for public display, fallback to a neighborhood extraction if locality is missing
   const publicLocation = room.locality || (room.location ? room.location.split(',')[1]?.trim() || room.location.split(',')[0] : "Location hidden");
@@ -27,41 +26,25 @@ export default function RoomCard({ room }: { room: any }) {
     ? `₹${rentNumber.toLocaleString('en-IN')}` 
     : rentNumber;
 
-  useEffect(() => {
-    const fetchFavoriteStatus = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-        const { data } = await supabase
-          .from('user_favorites')
-          .select('id')
-          .eq('room_id', room.id)
-          .eq('user_id', session.user.id)
-          .single();
-        
-        if (data) setIsFavorite(true);
-      }
-    };
-
-    fetchFavoriteStatus();
-  }, [supabase, room.id]);
-
   const toggleFavorite = async (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigating to /rooms/[id]
     
-    if (!user) {
+    setIsLiking(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session?.user) {
       toast({ title: "Login Required", description: "You must be signed in to favorite properties.", variant: "destructive" });
+      setIsLiking(false);
       return;
     }
-
-    setIsLiking(true);
+    const userId = session.user.id;
     if (isFavorite) {
       // Remove favorite
       const { error } = await supabase
         .from('user_favorites')
         .delete()
         .eq('room_id', room.id)
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
         
       if (!error) {
          setIsFavorite(false);
@@ -73,7 +56,7 @@ export default function RoomCard({ room }: { room: any }) {
       // Add favorite
       const { error } = await supabase
         .from('user_favorites')
-        .insert({ room_id: room.id, user_id: user.id });
+        .insert({ room_id: room.id, user_id: userId });
         
       if (!error) {
          setIsFavorite(true);
@@ -103,6 +86,7 @@ export default function RoomCard({ room }: { room: any }) {
             src={(room.photoUrls && room.photoUrls[0]) || (room.photo_urls && room.photo_urls[0]) || (room.photos && room.photos[0]) || "https://picsum.photos/seed/room/800/600"}
             alt={room.title}
             fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
           <div className="absolute top-3 left-3 flex flex-wrap gap-2 pr-12">

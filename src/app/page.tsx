@@ -1,6 +1,3 @@
-"use client";
-
-import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import RoomCard from "@/components/RoomCard";
 import { MOCK_ROOMS } from "@/lib/mock-data";
@@ -9,45 +6,43 @@ import { Search, MapPin, Home, Sparkles, ShieldAlert, PlusCircle, Star } from "l
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/utils/supabase/server";
 import { Badge } from "@/components/ui/badge";
+import { cookies } from "next/headers";
 
-export default function HomePage() {
+export default async function HomePage() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero');
-  const supabase = createClient();
-  const [profile, setProfile] = useState<any>(null);
-  const [listings, setListings] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLive, setIsLive] = useState(false);
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+  
+  let profile = { is_admin: false };
+  let listings = [];
+  let isLive = false;
+  let userFavorites: string[] = [];
 
-  useEffect(() => {
-    const fetchHomeData = async () => {
-      // 1. Fetch Profile for Admin check
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const { data: adminCheck } = await supabase.from('admin_list').select('user_id').eq('user_id', session.user.id).maybeSingle();
-        setProfile({ is_admin: !!adminCheck });
-      }
+  // 1. Fetch Profile for Admin check & Bulk fetch favorites
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.user) {
+    const { data: adminCheck } = await supabase.from('admin_list').select('user_id').eq('user_id', session.user.id).maybeSingle();
+    profile.is_admin = !!adminCheck;
+    
+    const { data: favs } = await supabase.from('user_favorites').select('room_id').eq('user_id', session.user.id);
+    if (favs) userFavorites = favs.map(f => f.room_id);
+  }
 
-      // 2. Fetch featured properties
-      const { data: roomsData } = await supabase
-        .from('room_listings')
-        .select('*')
-        .limit(20);
+  // 2. Fetch featured properties
+  const { data: roomsData } = await supabase
+    .from('room_listings')
+    .select('*')
+    .limit(20);
 
-      if (roomsData && roomsData.length > 0) {
-        setListings(roomsData);
-        setIsLive(true);
-      } else {
-        setListings(MOCK_ROOMS.slice(0, 10));
-        setIsLive(false);
-      }
-      
-      setIsLoading(false);
-    };
-
-    fetchHomeData();
-  }, [supabase]);
+  if (roomsData && roomsData.length > 0) {
+    listings = roomsData;
+    isLive = true;
+  } else {
+    listings = MOCK_ROOMS.slice(0, 10);
+    isLive = false;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -111,24 +106,17 @@ export default function HomePage() {
           </Link>
         </div>
 
-        {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-8">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="aspect-[4/5] bg-muted animate-pulse rounded-3xl" />
-            ))}
-          </div>
-        ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-8">
             {listings.map((room: any) => (
               <RoomCard 
                 key={room.id} 
                 room={room} 
+                initialFavorite={userFavorites.includes(room.id)}
               />
             ))}
           </div>
-        )}
 
-        {!isLive && !isLoading && (
+        {!isLive && (
           <div className="mt-20 p-12 border-2 border-dashed rounded-3xl bg-muted/20 text-center space-y-6">
              <div className="bg-primary/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto">
                 <Sparkles className="h-10 w-10 text-primary" />
