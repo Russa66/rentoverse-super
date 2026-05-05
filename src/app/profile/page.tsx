@@ -166,7 +166,7 @@ export default function ProfilePage() {
         <Navbar />
         <div className="container px-4 py-20 flex flex-col justify-center items-center gap-4 text-center">
           <Loader2 className="animate-spin h-8 w-8 text-primary" />
-          <p className="text-muted-foreground font-headline">Syncing your RentoVerse Dashboard from Supabase...</p>
+          <p className="text-muted-foreground font-headline">Syncing your RentoVerse Dashboard...</p>
         </div>
       </div>
     );

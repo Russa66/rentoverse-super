@@ -132,7 +132,7 @@ export default function SearchPage() {
             </p>
             {isLive ? (
               <Badge variant="outline" className="border-primary text-primary font-bold gap-1 bg-primary/5">
-                <Database className="h-3 w-3" /> Supabase Database
+                <Database className="h-3 w-3" /> Live Database
               </Badge>
             ) : (
               <Badge variant="outline" className="text-muted-foreground">Preview Mode</Badge>

@@ -160,7 +160,7 @@ export default function PostRequirement() {
                   <Loader2 className="h-12 w-12 text-primary animate-spin" />
                   <div className="text-center">
                       <p className="text-xl font-headline font-bold text-primary">{loadingStep}</p>
-                      <p className="text-sm text-muted-foreground mt-2">Saving your request to Supabase Postgres...</p>
+                      <p className="text-sm text-muted-foreground mt-2">Saving your request...</p>
                   </div>
                 </div>
               ) : (

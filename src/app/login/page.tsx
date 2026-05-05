@@ -361,7 +361,7 @@ export default function LoginPage() {
           {/* Footer note */}
           <div className="flex items-center gap-1.5 mt-4 text-slate-400">
             <ShieldCheck className="w-3 h-3 shrink-0 text-emerald-400" />
-            <p className="text-[10px]">Secured by Supabase Auth · End-to-end encrypted</p>
+            <p className="text-[10px]">End-to-end encrypted</p>
           </div>
         </div>
       </motion.div>

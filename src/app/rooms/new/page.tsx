@@ -247,7 +247,7 @@ export default function NewListing() {
               <CheckCircle2 className="h-12 w-12" />
             </div>
             <h2 className="text-3xl font-headline font-bold mb-2">Property Published!</h2>
-            <p className="opacity-90">Your property is now live on the Supabase Postgres base.</p>
+            <p className="opacity-90">Your property is now live and visible to renters.</p>
           </div>
           <CardContent className="p-8 space-y-6">
              <div className="p-4 bg-muted/50 rounded-xl border border-border">
@@ -304,7 +304,7 @@ export default function NewListing() {
                   <Loader2 className="h-20 w-20 text-primary animate-spin" />
                   <div>
                     <p className="text-xl font-headline font-bold text-primary">{loadingStep}</p>
-                    <p className="text-sm text-muted-foreground mt-2">Connecting to Supabase Storage...</p>
+                    <p className="text-sm text-muted-foreground mt-2">Uploading property data...</p>
                   </div>
                 </div>
               ) : (
@@ -496,7 +496,7 @@ export default function NewListing() {
                     <div>
                       <p className="font-headline font-bold text-primary">Secure Marketplace Access</p>
                       <p className="text-sm text-muted-foreground">
-                        Property images are stored securely on Supabase Storage.
+                        Property images are stored securely.
                       </p>
                     </div>
                   </div>
