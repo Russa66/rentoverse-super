@@ -1,66 +1,42 @@
-"use client";
-
-import { use, useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import { MOCK_ROOMS } from "@/lib/mock-data";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { MapPin, Wifi, Zap, Wind, Droplets, MessageCircle, Phone, Users, ShieldCheck, Lock, Maximize2 } from "lucide-react";
+import { MapPin, Wifi, Zap, Wind, Droplets, ShieldCheck, Lock, Maximize2, Users } from "lucide-react";
 import Image from "next/image";
 import SocialPostDialog from "@/components/SocialPostDialog";
 import Link from "next/link";
-import { createClient } from "@/utils/supabase/client";
+import { cookies } from "next/headers";
+import { createClient } from "@/utils/supabase/server";
+import NegotiationForm from "./NegotiationForm";
 
-export default function RoomDetails({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const supabase = createClient();
-  const [room, setRoom] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+export default async function RoomDetails({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
   
-  // Negotiation State
-  const [isNegotiating, setIsNegotiating] = useState(false);
-  const [isSubmittingOffer, setIsSubmittingOffer] = useState(false);
-  const [offerDetails, setOfferDetails] = useState({ price: "", message: "I am interested in this property!" });
-  const [hasSubmitted, setHasSubmitted] = useState(false);
+  let room = null;
+  let user = null;
+  let initialHasSubmitted = false;
 
-  useEffect(() => {
-    const fetchRoom = async () => {
-      const { data } = await supabase.from('room_listings').select('*').eq('id', id).single();
-      if (data) {
-        setRoom(data);
-      } else {
-        const fallback = MOCK_ROOMS.find((r) => r.id === id);
-        if (fallback) setRoom(fallback);
-      }
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-        // Check if already negotiated
-        if (data) {
-           const { data: existingOffer } = await supabase.from('property_negotiations').select('*').eq('room_id', id).eq('applicant_id', session.user.id).single();
-           if (existingOffer) setHasSubmitted(true);
-        }
-      }
+  const { data } = await supabase.from('room_listings').select('*').eq('id', id).single();
+  
+  if (data) {
+    room = data;
+  } else {
+    const fallback = MOCK_ROOMS.find((r) => r.id === id);
+    if (fallback) room = fallback;
+  }
 
-      setIsLoading(false);
-    };
-
-    fetchRoom();
-  }, [supabase, id]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex flex-col bg-muted/20">
-        <Navbar />
-        <div className="container px-4 mx-auto py-20 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="mt-4 text-muted-foreground font-headline">Loading property details...</p>
-        </div>
-      </div>
-    );
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (session?.user) {
+    user = session.user;
+    if (data) {
+       const { data: existingOffer } = await supabase.from('property_negotiations').select('*').eq('room_id', id).eq('applicant_id', session.user.id).single();
+       if (existingOffer) initialHasSubmitted = true;
+    }
   }
 
   if (!room) {
@@ -71,7 +47,7 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
           <h1 className="text-3xl font-headline font-bold mb-4">Property Not Found</h1>
           <p className="text-muted-foreground mb-8">The listing you are looking for might have been moved or deleted.</p>
           <Link href="/search">
-            <Button>Back to Search</Button>
+            <button className="px-4 py-2 bg-primary text-white rounded-md">Back to Search</button>
           </Link>
         </div>
       </div>
@@ -86,35 +62,7 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
   const rentNumber = room.monthly_rent || room.monthlyRent;
   const rentDisplay = typeof rentNumber === 'number' ? `₹${rentNumber.toLocaleString('en-IN')}` : rentNumber;
   
-  // NOTE: In a real Postgres database we would JOIN with the users table to get the landlord phone.
-  // For now we map.
-  const landlordName = room.landlord_name || room.landlordName || "Verified Landlord";
   const publicLocation = room.locality || room.location || "Contact owner for exact address";
-
-  const handleOfferSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) {
-       alert("You must be signed in to make an offer!");
-       return;
-    }
-    
-    setIsSubmittingOffer(true);
-    const { error } = await supabase.from('property_negotiations').insert({
-      room_id: room.id,
-      applicant_id: user.id,
-      offered_price: Number(offerDetails.price) || 0,
-      message: offerDetails.message
-    });
-
-    setIsSubmittingOffer(false);
-
-    if (error) {
-      alert("Failed to submit offer: " + error.message);
-    } else {
-      setHasSubmitted(true);
-      setIsNegotiating(false);
-    }
-  };
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/20 pb-20">
@@ -123,19 +71,19 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
       <div className="container px-4 mx-auto py-8">
         <div className="grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-3 h-[300px] md:h-[500px] mb-8 rounded-2xl overflow-hidden shadow-lg">
           <div className="md:col-span-2 md:row-span-2 relative">
-            <Image src={photos[0]} alt={room.title} fill className="object-cover" />
+            <Image src={photos[0]} alt={room.title || "Room"} fill className="object-cover" />
           </div>
           <div className="relative hidden md:block">
-            <Image src={photos[1] || photos[0]} alt={room.title} fill className="object-cover" />
+            <Image src={photos[1] || photos[0]} alt={room.title || "Room"} fill className="object-cover" />
           </div>
           <div className="relative hidden md:block">
-            <Image src={photos[0]} alt={room.title} fill className="object-cover brightness-75" />
+            <Image src={photos[0]} alt={room.title || "Room"} fill className="object-cover brightness-75" />
             <div className="absolute inset-0 flex items-center justify-center text-white font-bold text-lg">
               +{photos.length > 2 ? photos.length - 2 : 0} More
             </div>
           </div>
           <div className="md:col-span-2 relative hidden md:block">
-            <Image src={photos[1] || photos[0]} alt={room.title} fill className="object-cover" />
+            <Image src={photos[1] || photos[0]} alt={room.title || "Room"} fill className="object-cover" />
           </div>
         </div>
 
@@ -227,50 +175,11 @@ export default function RoomDetails({ params }: { params: Promise<{ id: string }
                 <div className="text-4xl font-headline font-bold">{rentDisplay}</div>
               </div>
               <CardContent className="p-6 space-y-4">
-                {hasSubmitted ? (
-                  <div className="bg-green-50 border border-green-200 p-4 rounded-xl text-center">
-                    <ShieldCheck className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                    <p className="font-bold text-green-800">Offer Submitted!</p>
-                    <p className="text-xs text-green-700 mt-1">The landlord has been notified and will review your securely placed offer soon.</p>
-                  </div>
-                ) : isNegotiating ? (
-                  <form onSubmit={handleOfferSubmit} className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                     <div>
-                       <label className="text-xs font-bold uppercase text-muted-foreground">Your Bargained Rate (₹)</label>
-                       <input 
-                         type="number" 
-                         required 
-                         placeholder="e.g. 15000"
-                         className="w-full mt-1 p-2 border rounded-md"
-                         value={offerDetails.price}
-                         onChange={e => setOfferDetails({...offerDetails, price: e.target.value})}
-                       />
-                     </div>
-                     <div>
-                       <label className="text-xs font-bold uppercase text-muted-foreground">Message to Landlord</label>
-                       <textarea 
-                         required 
-                         rows={2}
-                         className="w-full mt-1 p-2 border rounded-md text-sm"
-                         value={offerDetails.message}
-                         onChange={e => setOfferDetails({...offerDetails, message: e.target.value})}
-                       />
-                     </div>
-                     <div className="flex gap-2 pt-2">
-                       <Button type="button" variant="outline" className="flex-1" onClick={() => setIsNegotiating(false)}>Cancel</Button>
-                       <Button type="submit" className="flex-1 bg-primary text-white" disabled={isSubmittingOffer}>{isSubmittingOffer ? 'Sending...' : 'Submit Offer'}</Button>
-                     </div>
-                  </form>
-                ) : (
-                  <>
-                    <Button className="w-full h-12 text-lg font-headline bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setIsNegotiating(true)}>
-                      <MessageCircle className="mr-2 h-5 w-5" /> I am interested
-                    </Button>
-                    <Button variant="outline" className="w-full h-12 border-primary text-primary hover:bg-primary/10 font-headline pointer-events-none opacity-50">
-                      <Lock className="mr-2 h-4 w-4" /> Contact Protected
-                    </Button>
-                  </>
-                )}
+                <NegotiationForm 
+                  roomId={room.id} 
+                  userId={user?.id} 
+                  initialHasSubmitted={initialHasSubmitted} 
+                />
                 
                 <Separator className="my-4" />
                 <SocialPostDialog room={{

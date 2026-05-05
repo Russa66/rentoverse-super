@@ -40,19 +40,22 @@ export default function PostRequirement() {
 
   useEffect(() => {
     const fetchSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user || null);
-      
-      if (session?.user) {
-        const { data } = await supabase.from('users').select('*').eq('auth_id', session.user.id).single();
-        if (data) {
-          setProfile(data);
-          let phone = data.phone_number || session.user.phone || "";
-          phone = phone.startsWith('+91') ? phone.substring(3) : phone;
-          setFormData(prev => ({ ...prev, phoneNumber: phone, name: data.name || "" }));
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user || null);
+        
+        if (session?.user) {
+          const { data } = await supabase.from('users').select('*').eq('auth_id', session.user.id).single();
+          if (data) {
+            setProfile(data);
+            let phone = data.phone_number || session.user.phone || "";
+            phone = phone.startsWith('+91') ? phone.substring(3) : phone;
+            setFormData(prev => ({ ...prev, phoneNumber: phone, name: data.name || "" }));
+          }
         }
+      } finally {
+        setLoadingUser(false);
       }
-      setLoadingUser(false);
     };
     fetchSession();
   }, [supabase]);
