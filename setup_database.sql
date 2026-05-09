@@ -199,3 +199,22 @@ DROP POLICY IF EXISTS "Admins can view all negotiations" ON public.property_nego
 CREATE POLICY "Admins can view all negotiations" ON public.property_negotiations FOR SELECT USING (
   EXISTS (SELECT 1 FROM public.admin_list WHERE user_id = auth.uid())
 );
+
+-- ============================================================
+-- 7. Create the `notifications` table
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  message TEXT NOT NULL,
+  is_read BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+-- Notifications Policies
+DROP POLICY IF EXISTS "Users can view their own notifications" ON public.notifications;
+CREATE POLICY "Users can view their own notifications" ON public.notifications FOR SELECT USING (
+  EXISTS (SELECT 1 FROM public.users WHERE public.users.id = public.notifications.user_id AND public.users.auth_id = auth.uid())
+);

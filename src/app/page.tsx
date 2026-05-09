@@ -55,6 +55,7 @@ export default async function HomePage() {
           fill 
           className="object-cover brightness-[0.35]"
           priority
+          fetchPriority="high"
         />
         <div className="container relative z-10 px-4 text-center text-white">
           <Badge className="mb-4 bg-secondary text-secondary-foreground hover:bg-secondary font-headline py-1 px-4 text-xs uppercase tracking-widest">

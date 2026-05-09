@@ -49,12 +49,14 @@ export default function ProfilePage() {
         const userId = session.user.id;
         setUser(session.user);
 
-        // Fetch Profile with Recovery Fallback
-        let { data: profileData, error: profileErr } = await supabase
-          .from('users')
-          .select('*, admin_list(user_id)')
-          .eq('auth_id', userId)
-          .maybeSingle();
+        // Fetch Profile and Admin Status in parallel to avoid foreign key join errors
+        let [
+          { data: profileData, error: profileErr },
+          { data: adminCheck }
+        ] = await Promise.all([
+          supabase.from('users').select('*').eq('auth_id', userId).maybeSingle(),
+          supabase.from('admin_list').select('user_id').eq('user_id', userId).maybeSingle()
+        ]);
           
         if (profileErr || !profileData) {
           // Fallback: Check if user exists by ID (old architecture)
@@ -69,16 +71,13 @@ export default function ProfilePage() {
             await supabase.from('users').update({ auth_id: userId }).eq('id', userId);
             profileData = { ...fallbackData, auth_id: userId };
             
-            // Also fetch admin status for fallback
-            const { data: adminCheck } = await supabase.from('admin_list').select('user_id').eq('user_id', userId).maybeSingle();
-            profileData.is_admin = !!adminCheck;
             console.log("Profile recovered and synced with auth_id");
           }
         }
           
         if (profileData) {
-          // Map admin_list join to is_admin property for UI compatibility
-          profileData.is_admin = profileData.admin_list ? (Array.isArray(profileData.admin_list) ? profileData.admin_list.length > 0 : !!profileData.admin_list) : false;
+          // Map separate admin_list check to is_admin property for UI compatibility
+          profileData.is_admin = !!adminCheck;
           setProfile(profileData);
           setName(profileData.name || "");
           setPhoneNumber(profileData.phone_number || "");
@@ -87,37 +86,22 @@ export default function ProfilePage() {
           
           const internalId = profileData.id;
 
-          // Fetch Properties
-          const { data: listingsData } = await supabase
-            .from('room_listings')
-            .select('*')
-            .eq('landlord_id', internalId);
+          // Fetch all related data in parallel to avoid waterfall delays
+          const [
+            { data: listingsData },
+            { data: requestsData },
+            { data: favoritesData },
+            { data: notifData }
+          ] = await Promise.all([
+            supabase.from('room_listings').select('*').eq('landlord_id', internalId),
+            supabase.from('saved_search_requests').select('*').eq('renter_id', internalId),
+            supabase.from('user_favorites').select('room_listings (*)').eq('user_id', internalId),
+            supabase.from('notifications').select('*').eq('user_id', internalId).order('created_at', { ascending: false })
+          ]);
           
           if (listingsData) setListings(listingsData);
-
-          // Fetch Requests
-          const { data: requestsData } = await supabase
-            .from('saved_search_requests')
-            .select('*')
-            .eq('renter_id', internalId);
-            
           if (requestsData) setRequests(requestsData);
-
-          // Fetch Favorites
-          const { data: favoritesData } = await supabase
-            .from('user_favorites')
-            .select('room_listings (*)')
-            .eq('user_id', internalId);
-            
           if (favoritesData) setFavorites(favoritesData.map((f: any) => f.room_listings));
-
-          // Fetch Notifications
-          const { data: notifData } = await supabase
-            .from('notifications')
-            .select('*')
-            .eq('user_id', internalId)
-            .order('created_at', { ascending: false });
-            
           if (notifData) setNotifications(notifData);
         } else {
           // Still set email from session if profile doesn't exist yet
