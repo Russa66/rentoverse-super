@@ -11,6 +11,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import NegotiationForm from "./NegotiationForm";
+import AdminActions from "./AdminActions";
 
 export default async function RoomDetails({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -112,13 +113,19 @@ export default async function RoomDetails({ params }: { params: Promise<{ id: st
     <div className="min-h-screen flex flex-col bg-muted/20 pb-20">
       <Navbar />
       
-      {!isApproved && (isOwner || isAdmin) && (
+      {/* Admin Moderation Panel */}
+      {isAdmin && (
+        <AdminActions roomId={room.id} currentStatus={room.approval_status || 'Pending'} />
+      )}
+      
+      {/* Landlord Notice Banner (Read-only) */}
+      {!isApproved && isOwner && !isAdmin && (
         <div className={`w-full py-3 px-4 text-center font-bold text-xs font-headline uppercase tracking-wider ${
           room.approval_status === 'Rejected' 
             ? 'bg-destructive text-white shadow-inner' 
             : 'bg-amber-500 text-amber-950 shadow-inner'
         }`}>
-          ⚠️ NOTICE: This property is {room.approval_status || 'PENDING'} and hidden from the public. Only you ({isOwner ? 'Landlord' : 'Admin'}) can see this listing.
+          ⚠️ NOTICE: This property is {room.approval_status || 'PENDING'} and hidden from the public. Only you (Landlord) can see this listing.
         </div>
       )}
       

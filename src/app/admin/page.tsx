@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
-import { Home, Users, Search, Share2, Activity, MessageCircle, ShieldAlert, Lock, MapPin, CheckCircle, Database, Loader2, Mail, Check, X, UserCheck, UserX, Send } from "lucide-react";
+import { Home, Users, Search, Share2, Activity, MessageCircle, ShieldAlert, Lock, MapPin, CheckCircle, Database, Loader2, Mail, Check, X, UserCheck, UserX, Send, Eye } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -457,6 +457,14 @@ export default function AdminDashboard() {
                               </div>
                             ) : (
                               <>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={() => window.open(`/rooms/${listing.id}`, '_blank')}
+                                  className="h-8 text-xs gap-1 border-primary text-primary hover:bg-primary/5 font-semibold"
+                                >
+                                  <Eye className="h-3.5 w-3.5" /> View
+                                </Button>
                                 <Button size="sm" variant="outline" onClick={() => setEditingLocality({ id: listing.id, value: listing.locality || "" })} className="h-8 text-xs">
                                   Edit Locality
                                 </Button>
