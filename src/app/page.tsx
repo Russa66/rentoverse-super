@@ -34,6 +34,8 @@ export default async function HomePage() {
   const { data: roomsData } = await supabase
     .from('room_listings')
     .select('*')
+    .eq('is_active', true)
+    .eq('approval_status', 'Approved')
     .limit(20);
 
   if (roomsData && roomsData.length > 0) {

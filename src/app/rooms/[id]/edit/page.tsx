@@ -94,12 +94,12 @@ export default function EditListing() {
       });
 
       // 5. Populate Photo Previews
-      const previews = [null, null, null, null, null];
+      const previews: (string | null)[] = [null, null, null, null, null];
       const urls = room.photo_urls || [];
       urls.forEach((url: string, i: number) => {
         if (i < 5) previews[i] = url;
       });
-      setImagePreviews(previews as (string | null)[]);
+      setImagePreviews(previews);
       
       setLoading(false);
     };

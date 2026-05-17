@@ -71,8 +71,8 @@ export default function NewListing() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Please upload an image smaller than 5MB.", variant: "destructive" });
+    if (file.size > 400 * 1024) {
+      toast({ title: "File too large", description: "Please upload an image smaller than 400KB to ensure fast loading.", variant: "destructive" });
       return;
     }
 
@@ -204,6 +204,7 @@ export default function NewListing() {
         description: formData.description,
         ideal_for: formData.idealFor,
         is_active: true,
+        approval_status: "Pending",
         photo_urls: photoUrls,
         created_at: now,
         updated_at: now,

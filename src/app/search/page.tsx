@@ -17,7 +17,7 @@ export default async function SearchPage() {
     if (favs) userFavorites = favs.map(f => f.room_id);
   }
 
-  const { data } = await supabase.from('room_listings').select('*').eq('is_active', true);
+  const { data } = await supabase.from('room_listings').select('*').eq('is_active', true).eq('approval_status', 'Approved');
 
   if (data && data.length > 0) {
     listings = data;

@@ -20,6 +20,28 @@ CREATE TABLE IF NOT EXISTS public.users (
 -- 1.5 Create the `admin_list` table to prevent RLS recursion
 CREATE TABLE IF NOT EXISTS public.admin_list (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE
+-- ============================================================
+-- FULL SUPABASE SCHEMA FOR RENTOVERSE
+-- Copy and paste this script into your Supabase SQL Editor
+-- Click "Run" to set up your entire database and storage instantly!
+-- ============================================================
+
+-- 1. Create the `users` table
+CREATE TABLE IF NOT EXISTS public.users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  auth_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE SET NULL,
+  name TEXT,
+  phone_number TEXT,
+  email TEXT UNIQUE,
+  address TEXT,
+  is_verified BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 1.5 Create the `admin_list` table to prevent RLS recursion
+CREATE TABLE IF NOT EXISTS public.admin_list (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE
 );
 
 -- Migration: Sync existing users who were created before the auth_id column
@@ -43,6 +65,7 @@ CREATE TABLE IF NOT EXISTS public.room_listings (
   description TEXT,
   ideal_for TEXT,
   is_active BOOLEAN DEFAULT true,
+  approval_status TEXT DEFAULT 'Pending' CHECK (approval_status IN ('Pending', 'Approved', 'Rejected')),
   photo_urls TEXT[],
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
@@ -55,6 +78,7 @@ CREATE TABLE IF NOT EXISTS public.saved_search_requests (
   location_filter TEXT,
   max_rent NUMERIC,
   notification_preference TEXT,
+  approval_status TEXT DEFAULT 'Pending' CHECK (approval_status IN ('Pending', 'Approved', 'Rejected')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
@@ -116,6 +140,11 @@ CREATE POLICY "Admins can manage all listings" ON public.room_listings FOR ALL U
 DROP POLICY IF EXISTS "Renters can manage own searches" ON public.saved_search_requests;
 CREATE POLICY "Renters can manage own searches" ON public.saved_search_requests FOR ALL USING (
   EXISTS (SELECT 1 FROM public.users WHERE public.users.id = public.saved_search_requests.renter_id AND public.users.auth_id = auth.uid())
+);
+
+DROP POLICY IF EXISTS "Admins can manage all searches" ON public.saved_search_requests;
+CREATE POLICY "Admins can manage all searches" ON public.saved_search_requests FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.admin_list WHERE user_id = auth.uid())
 );
 
 -- Social Posts Policies
@@ -217,4 +246,9 @@ ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view their own notifications" ON public.notifications;
 CREATE POLICY "Users can view their own notifications" ON public.notifications FOR SELECT USING (
   EXISTS (SELECT 1 FROM public.users WHERE public.users.id = public.notifications.user_id AND public.users.auth_id = auth.uid())
+);
+
+DROP POLICY IF EXISTS "Admins can manage all notifications" ON public.notifications;
+CREATE POLICY "Admins can manage all notifications" ON public.notifications FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.admin_list WHERE user_id = auth.uid())
 );

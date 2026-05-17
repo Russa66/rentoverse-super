@@ -1,6 +1,7 @@
 import Navbar from "@/components/Navbar";
 import { MOCK_ROOMS } from "@/lib/mock-data";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { MapPin, Wifi, Zap, Wind, Droplets, ShieldCheck, Lock, Maximize2, Users } from "lucide-react";
@@ -19,6 +20,8 @@ export default async function RoomDetails({ params }: { params: Promise<{ id: st
   let room = null;
   let user = null;
   let initialHasSubmitted = false;
+  let isAdmin = false;
+  let isOwner = false;
 
   const { data } = await supabase.from('room_listings').select('*').eq('id', id).single();
   
@@ -33,6 +36,19 @@ export default async function RoomDetails({ params }: { params: Promise<{ id: st
   
   if (session?.user) {
     user = session.user;
+    
+    // Check if admin
+    const { data: adminCheck } = await supabase.from('admin_list').select('user_id').eq('user_id', session.user.id).maybeSingle();
+    isAdmin = !!adminCheck;
+    
+    // Check if owner
+    if (room && data) {
+      const { data: profile } = await supabase.from('users').select('id').eq('auth_id', session.user.id).maybeSingle();
+      if (profile && profile.id === room.landlord_id) {
+        isOwner = true;
+      }
+    }
+
     if (data) {
        const { data: existingOffer } = await supabase.from('property_negotiations').select('*').eq('room_id', id).eq('applicant_id', session.user.id).single();
        if (existingOffer) initialHasSubmitted = true;
@@ -54,6 +70,34 @@ export default async function RoomDetails({ params }: { params: Promise<{ id: st
     );
   }
 
+  // Permission Check: restrict viewing unapproved rooms to owners and admins
+  const isApproved = !data || room.approval_status === 'Approved';
+  if (!isApproved && !isOwner && !isAdmin) {
+    return (
+      <div className="min-h-screen flex flex-col bg-muted/20">
+        <Navbar />
+        <div className="container px-4 mx-auto py-20 flex justify-center items-center">
+          <Card className="max-w-md w-full border-none shadow-xl p-8 text-center bg-white space-y-6">
+            <div className="bg-amber-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
+              <Lock className="h-8 w-8 text-amber-600" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-2xl font-headline font-bold">Moderation Pending</h1>
+              <p className="text-sm text-muted-foreground">
+                This property listing has not been verified yet by administrators or is temporarily suspended.
+              </p>
+            </div>
+            <Link href="/search">
+              <Button className="w-full h-12 font-headline font-semibold">
+                Back to Search
+              </Button>
+            </Link>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   const photos = room.photo_urls || room.photoUrls || room.photos || ["https://picsum.photos/seed/room/800/600"];
   const amenities = room.amenities || [];
   const hasWifi = amenities.includes("WiFi") || !!room.wifiAvailable;
@@ -67,6 +111,16 @@ export default async function RoomDetails({ params }: { params: Promise<{ id: st
   return (
     <div className="min-h-screen flex flex-col bg-muted/20 pb-20">
       <Navbar />
+      
+      {!isApproved && (isOwner || isAdmin) && (
+        <div className={`w-full py-3 px-4 text-center font-bold text-xs font-headline uppercase tracking-wider ${
+          room.approval_status === 'Rejected' 
+            ? 'bg-destructive text-white shadow-inner' 
+            : 'bg-amber-500 text-amber-950 shadow-inner'
+        }`}>
+          ⚠️ NOTICE: This property is {room.approval_status || 'PENDING'} and hidden from the public. Only you ({isOwner ? 'Landlord' : 'Admin'}) can see this listing.
+        </div>
+      )}
       
       <div className="container px-4 mx-auto py-8">
         <div className="grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-3 h-[300px] md:h-[500px] mb-8 rounded-2xl overflow-hidden shadow-lg">

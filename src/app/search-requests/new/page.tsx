@@ -98,6 +98,7 @@ export default function PostRequirement() {
         location_filter: combinedLocation,
         max_rent: Number(formData.budget),
         notification_preference: "WhatsApp",
+        approval_status: "Pending",
         created_at: new Date().toISOString(),
       };
 

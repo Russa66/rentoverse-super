@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { createClient } from "@/utils/supabase/client";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
 
 const supabase = createClient();
 
@@ -172,9 +173,9 @@ export default function ProfilePage() {
           <Card className="lg:col-span-1 border-none shadow-md h-fit">
             <CardContent className="p-6">
               <div className="flex flex-col items-center text-center">
-                <Avatar className="h-24 w-24 mb-4 border-4 border-primary/20">
-                  <AvatarImage src={`https://picsum.photos/seed/${user?.id || 'user'}/200`} />
-                  <AvatarFallback><User /></AvatarFallback>
+                <Avatar className="h-24 w-24 mb-4 border-4 border-primary/20 bg-muted">
+                  <AvatarImage src={`https://ui-avatars.com/api/?name=${firstName}&background=random&size=200`} />
+                  <AvatarFallback><User className="h-12 w-12 text-muted-foreground" /></AvatarFallback>
                 </Avatar>
                 <h2 className="text-xl font-headline font-bold">Welcome, {firstName}!</h2>
                 
@@ -333,9 +334,20 @@ export default function ProfilePage() {
                         <Card key={listing.id} className="border-none shadow-sm bg-white overflow-hidden p-6 flex items-center justify-between">
                           <div>
                             <h4 className="font-bold font-headline">{listing.title}</h4>
-                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                              <MapPin className="h-3 w-3" /> {listing.locality || listing.location}
-                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <MapPin className="h-3 w-3" /> {listing.locality || listing.location}
+                              </span>
+                              <Badge className={`text-[10px] font-bold px-2 py-0.5 ${
+                                listing.approval_status === 'Approved' 
+                                  ? 'bg-green-100 text-green-800 hover:bg-green-100' 
+                                  : listing.approval_status === 'Rejected'
+                                  ? 'bg-red-100 text-red-800 hover:bg-red-100'
+                                  : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100'
+                              }`}>
+                                {listing.approval_status || 'Approved'}
+                              </Badge>
+                            </div>
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="text-right mr-4">
@@ -369,9 +381,20 @@ export default function ProfilePage() {
                         <Card key={req.id} className="border-none shadow-sm bg-white overflow-hidden p-6 flex items-center justify-between">
                           <div>
                             <h4 className="font-bold font-headline">Looking for: {req.propertyType || req.property_type}</h4>
-                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                              <MapPin className="h-3 w-3" /> {req.locationFilter || req.location_filter}
-                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <MapPin className="h-3 w-3" /> {req.locationFilter || req.location_filter}
+                              </span>
+                              <Badge className={`text-[10px] font-bold px-2 py-0.5 ${
+                                req.approval_status === 'Approved' 
+                                  ? 'bg-green-100 text-green-800 hover:bg-green-100' 
+                                  : req.approval_status === 'Rejected'
+                                  ? 'bg-red-100 text-red-800 hover:bg-red-100'
+                                  : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100'
+                              }`}>
+                                {req.approval_status || 'Approved'}
+                              </Badge>
+                            </div>
                           </div>
                           <div className="text-right">
                              <p className="text-sm font-bold text-secondary-foreground bg-secondary/20 px-2 py-1 rounded">Budget: ₹{(req.maxRent || req.max_rent || 0).toLocaleString('en-IN')}</p>
