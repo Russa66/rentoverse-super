@@ -20,28 +20,6 @@ CREATE TABLE IF NOT EXISTS public.users (
 -- 1.5 Create the `admin_list` table to prevent RLS recursion
 CREATE TABLE IF NOT EXISTS public.admin_list (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE
--- ============================================================
--- FULL SUPABASE SCHEMA FOR RENTOVERSE
--- Copy and paste this script into your Supabase SQL Editor
--- Click "Run" to set up your entire database and storage instantly!
--- ============================================================
-
--- 1. Create the `users` table
-CREATE TABLE IF NOT EXISTS public.users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  auth_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE SET NULL,
-  name TEXT,
-  phone_number TEXT,
-  email TEXT UNIQUE,
-  address TEXT,
-  is_verified BOOLEAN DEFAULT false,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
-);
-
--- 1.5 Create the `admin_list` table to prevent RLS recursion
-CREATE TABLE IF NOT EXISTS public.admin_list (
-  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE
 );
 
 -- Migration: Sync existing users who were created before the auth_id column
