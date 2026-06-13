@@ -35,12 +35,28 @@ export default function LoginPage() {
     setLoading(true); setError(null); setSuccess(null)
 
     if (mode === 'forgot') {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/update-password`,
-      })
-      if (error) setError(error.message)
-      else setSuccess('Reset link sent! Check your email inbox.')
-      setLoading(false); return
+      if (otpSent) {
+        const { error } = await supabase.auth.verifyOtp({
+          email,
+          token: otp,
+          type: 'recovery'
+        })
+        if (error) {
+          setError(error.message)
+        } else {
+          window.location.href = '/update-password'
+        }
+        setLoading(false); return
+      } else {
+        const { error } = await supabase.auth.resetPasswordForEmail(email)
+        if (error) {
+          setError(error.message)
+        } else {
+          setSuccess('Reset OTP sent! Check your email inbox.')
+          setOtpSent(true)
+        }
+        setLoading(false); return
+      }
     }
 
     const formattedPhone = phone.startsWith('+') ? phone : `+91${phone.replace(/\D/g, '')}`
@@ -138,14 +154,23 @@ export default function LoginPage() {
 
   const handleResendOtp = async () => {
     setLoading(true); setError(null); setSuccess(null)
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email,
-    })
-    if (error) {
-      setError(error.message)
-    } else {
-      setSuccess('A new verification code has been sent to your email!')
+    if (mode === 'signup') {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+      })
+      if (error) {
+        setError(error.message)
+      } else {
+        setSuccess('A new verification code has been sent to your email!')
+      }
+    } else if (mode === 'forgot') {
+      const { error } = await supabase.auth.resetPasswordForEmail(email)
+      if (error) {
+        setError(error.message)
+      } else {
+        setSuccess('A new verification OTP has been sent to your email!')
+      }
     }
     setLoading(false)
   }
@@ -153,7 +178,7 @@ export default function LoginPage() {
   const titles = {
     login: { h: 'Welcome Back', sub: 'Sign in with your phone number' },
     signup: { h: 'Create Account', sub: 'Join RentoVerse for free' },
-    forgot: { h: 'Forgot Password?', sub: "We'll send a recovery link to your email" },
+    forgot: { h: 'Forgot Password?', sub: "We'll send a recovery OTP to your email" },
   }
 
   return (
@@ -309,8 +334,8 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* OTP - signup only when otpSent */}
-              {mode === 'signup' && otpSent && (
+              {/* OTP - signup or forgot when otpSent */}
+              {(mode === 'signup' || mode === 'forgot') && otpSent && (
                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="relative text-center space-y-2 mt-2">
                   <p className="text-xs text-slate-500 mb-2">Code sent to: <span className="font-bold text-emerald-600">{email}</span></p>
                   <input type="text" placeholder="123456" value={otp}
@@ -352,7 +377,7 @@ export default function LoginPage() {
                 className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold py-3 rounded-xl shadow-lg shadow-emerald-500/25 hover:from-emerald-600 hover:to-green-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-1 disabled:opacity-60">
                 {loading
                   ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  : <>{mode === 'login' ? 'Sign In' : mode === 'signup' ? (otpSent ? 'Submit' : 'Get OTP') : 'Send Reset Link'} <ArrowRight className="w-3.5 h-3.5" /></>
+                  : <>{mode === 'login' ? 'Sign In' : (mode === 'signup' || mode === 'forgot') ? (otpSent ? 'Submit' : 'Get OTP') : 'Send Reset Link'} <ArrowRight className="w-3.5 h-3.5" /></>
                 }
               </button>
             </motion.form>
